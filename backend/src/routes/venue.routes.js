@@ -11,6 +11,7 @@ const courtController = require('../controllers/court.controller');
 const facilityController = require('../controllers/facility.controller');
 const imageController = require('../controllers/image.controller');
 const scheduleController = require('../controllers/schedule.controller');
+const availabilityController = require('../controllers/availability.controller');
 
 // ==========================================
 // PUBLIC ROUTES
@@ -18,6 +19,7 @@ const scheduleController = require('../controllers/schedule.controller');
 // Public Webhook & Venue endpoints
 router.get('/facilities', facilityController.getFacilities);
 router.get('/venues/:venueId/payment-accounts', venueController.getVenuePaymentAccounts);
+router.get('/venues/:venueId/availability', availabilityController.getVenueDailyAvailability);
 
 // Target Type and Target ID images (Public read)
 router.get('/images/:targetType/:targetId', imageController.getImagesByTarget);

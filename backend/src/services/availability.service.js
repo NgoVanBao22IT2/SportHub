@@ -260,6 +260,7 @@ class AvailabilityService {
               const isEvent = reasonStr.includes('sự kiện') || reasonStr.includes('event');
               return {
                 ...slot,
+                block_id: blockingMatch.block_id,
                 status: isEvent ? 'EVENT' : 'BLOCKED',
                 price: pricing.total_price,
                 reason: blockingMatch.block_reason || (isEvent ? 'Sự kiện đặc biệt' : 'Chủ sân tạm khóa')

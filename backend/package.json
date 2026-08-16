@@ -5,7 +5,7 @@
   "main": "src/app.js",
   "scripts": {
     "start": "node src/app.js",
-    "dev": "node src/app.js",
+    "dev": "node --watch src/app.js",
     "db:migrate": "sequelize-cli db:migrate",
     "db:migrate:undo": "sequelize-cli db:migrate:undo",
     "db:migrate:undo:all": "sequelize-cli db:migrate:undo:all",
