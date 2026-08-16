@@ -1,0 +1,48 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: sporthubai_backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DB_HOST=db
+      - DB_USER=root
+      - DB_PASSWORD=rootpassword
+      - DB_NAME=sporthub_db
+      - JWT_SECRET=production_jwt_secret_change_me
+      - JWT_REFRESH_SECRET=production_refresh_secret_change_me
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sporthub_network
+    restart: unless-stopped
+
+  db:
+    image: mysql:8.0
+    container_name: sporthubai_db
+    environment:
+      - MYSQL_ROOT_PASSWORD=rootpassword
+      - MYSQL_DATABASE=sporthub_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - sporthub_network
+    healthcheck:
+      test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  db_data:
+
+networks:
+  sporthub_network:
+    driver: bridge
