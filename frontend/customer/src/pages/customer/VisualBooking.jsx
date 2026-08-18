@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -29,6 +29,7 @@ import ErrorState from '../../components/ui/ErrorState';
 export default function VisualBooking() {
   const { id: venueId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Primary Data States
   const [venue, setVenue] = useState(null);
@@ -39,7 +40,10 @@ export default function VisualBooking() {
   const [favPending, setFavPending] = useState(false);
   const [noticeModal, setNoticeModal] = useState({ open: false, title: '', message: '', type: 'info' });
 
-  const [customerGroup, setCustomerGroup] = useState('GENERAL'); // 'GENERAL' or 'STUDENT'
+  const [customerGroup, setCustomerGroup] = useState(() => {
+    const target = location.state?.bookingTarget || location.state?.customerGroup;
+    return target === 'STUDENT' ? 'STUDENT' : 'GENERAL';
+  });
 
   // Date Filter State (Default to today ISO format YYYY-MM-DD)
   const [selectedDate, setSelectedDate] = useState(() => {

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { MapPin, Clock, Phone, Heart, Calendar, Star, CheckCircle2, Navigation, Image as ImageIcon, LayoutGrid, RefreshCw, ArrowRight, User } from 'lucide-react';
 import { getVenueById, getSimilarVenues, getVenueImages } from '../../api/venues';
+import { getPublicVenuePosts } from '../../api/public';
 import { addFavorite } from '../../api/favorites';
 
 // Design System Imports
@@ -22,6 +23,7 @@ export default function VenueDetail() {
   const [venue, setVenue] = useState(null);
   const [similarVenues, setSimilarVenues] = useState([]);
   const [venueImages, setVenueImages] = useState([]);
+  const [venuePosts, setVenuePosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [activeTab, setActiveTab] = useState('Thông tin');
@@ -39,6 +41,12 @@ export default function VenueDetail() {
       if (Array.isArray(data?.images) && data.images.length > 0) {
         setVenueImages(data.images);
       }
+
+      // Fetch public venue posts / events
+      try {
+        const postsRes = await getPublicVenuePosts(id);
+        setVenuePosts(postsRes?.data || []);
+      } catch (e) {}
 
       // Fetch similar venues from real DB API
       const similar = await getSimilarVenues(id);
@@ -314,7 +322,8 @@ export default function VenueDetail() {
         <Tabs activeTab={activeTab} onChange={setActiveTab} variant="line" size="md">
           <Tabs.List className="mb-8">
             <Tabs.Tab value="Thông tin">Thông tin</Tabs.Tab>
-            <Tabs.Tab value="Hình ảnh">Hình ảnh</Tabs.Tab>
+            <Tabs.Tab value="Hình ảnh">Hình ảnh ({galleryPhotos.length})</Tabs.Tab>
+            <Tabs.Tab value="Tin tức & Sự kiện">Tin tức & Sự kiện ({venuePosts.length})</Tabs.Tab>
             <Tabs.Tab value="Dịch vụ">Dịch vụ</Tabs.Tab>
             <Tabs.Tab value="Điều khoản & quy định">Điều khoản & quy định</Tabs.Tab>
             <Tabs.Tab value="Đánh giá">Đánh giá ({venue.review_count || 0})</Tabs.Tab>
@@ -450,6 +459,66 @@ export default function VenueDetail() {
                         </div>
                       ))}
                     </div>
+                  </div>
+                )}
+              </Card.Body>
+            </Card>
+          </Tabs.Panel>
+
+          {/* TAB: TIN TỨC & SỰ KIỆN */}
+          <Tabs.Panel value="Tin tức & Sự kiện">
+            <Card radius="xl" padding="md" className="border border-border-subtle-medium space-y-4">
+              <Card.Header className="mb-2">
+                <h3 className="font-bold text-gray-900 text-lg flex items-center gap-2">
+                  <Calendar size={20} className="text-brand-orange" />
+                  Tin tức, Khuyến mãi & Sự kiện thể thao ({venuePosts.length})
+                </h3>
+              </Card.Header>
+              <Card.Body>
+                {venuePosts.length === 0 ? (
+                  <EmptyState
+                    title="Chưa có bài viết hay sự kiện công khai"
+                    description="Cơ sở chưa có chương trình khuyến mãi hay sự kiện mới công bố."
+                  />
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {venuePosts.map((post) => {
+                      const cover = post.cover_image_url || post.cover_image?.medium_url || post.cover_image?.image_url;
+                      return (
+                        <Link
+                          key={post.post_id}
+                          to={`/posts/${post.slug}`}
+                          className="group bg-surface p-4 rounded-2xl border border-border-subtle-medium hover:border-brand-orange transition-all flex flex-col justify-between space-y-3 shadow-xs"
+                        >
+                          {cover && (
+                            <div className="w-full h-40 rounded-xl overflow-hidden bg-gray-100 relative">
+                              <img src={cover} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                              <span className="absolute top-2 left-2 px-2.5 py-0.5 rounded-lg text-[10px] font-bold bg-brand-orange text-white uppercase shadow-xs">
+                                {post.content_type}
+                              </span>
+                            </div>
+                          )}
+
+                          <div className="space-y-1">
+                            <h4 className="text-sm font-bold text-gray-900 group-hover:text-brand-orange transition-colors line-clamp-2">
+                              {post.title}
+                            </h4>
+                            {post.excerpt && (
+                              <p className="text-xs text-text-muted line-clamp-2 leading-relaxed">
+                                {post.excerpt}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] text-text-muted pt-2 border-t border-gray-100">
+                            <span>{new Date(post.publish_at || post.created_at).toLocaleDateString('vi-VN')}</span>
+                            <span className="text-brand-orange font-semibold group-hover:underline flex items-center gap-1">
+                              Xem chi tiết <ArrowRight size={12} />
+                            </span>
+                          </div>
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </Card.Body>

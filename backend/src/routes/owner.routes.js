@@ -58,4 +58,26 @@ router.get('/customers', OwnerController.getCustomers);
 // 12.11 Revenue
 router.get('/revenue', OwnerController.getRevenue);
 
+// 12.15 Venue Media Management
+const MediaController = require('../controllers/media.controller');
+const PostController = require('../controllers/post.controller');
+const upload = require('../middleware/upload.middleware');
+
+router.get('/venues/:venueId/media', MediaController.getOwnerVenueMedia);
+router.post('/venues/:venueId/media', upload.array('images', 10), MediaController.uploadMedia);
+router.post('/venues/:venueId/media/reorder', MediaController.reorderMedia);
+router.patch('/media/:imageId', MediaController.updateMedia);
+router.delete('/media/:imageId', MediaController.deleteMedia);
+router.post('/media/:imageId/set-cover', MediaController.setCoverImage);
+router.post('/media/:imageId/set-avatar', MediaController.setAvatarImage);
+
+// 12.16 Venue Content & Posts Management
+router.get('/venues/:venueId/posts', PostController.getOwnerPosts);
+router.post('/venues/:venueId/posts', PostController.createPost);
+router.get('/posts/:postId', PostController.getPostById);
+router.patch('/posts/:postId', PostController.updatePost);
+router.delete('/posts/:postId', PostController.deletePost);
+router.post('/posts/:postId/publish', PostController.publishPost);
+router.post('/posts/:postId/archive', PostController.archivePost);
+
 module.exports = router;

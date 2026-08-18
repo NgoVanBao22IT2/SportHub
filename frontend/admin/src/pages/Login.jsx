@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react';
 import { login } from '../api/auth';
@@ -31,9 +31,9 @@ export default function Login() {
   const prefillEmail = location.state?.email || '';
 
   // Pre-fill email if coming from register flow
-  useState(() => {
+  useEffect(() => {
     if (prefillEmail) setForm((f) => ({ ...f, email: prefillEmail }));
-  });
+  }, [prefillEmail]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

@@ -17,6 +17,8 @@ import {
   ShieldAlert,
   MapPin,
   Trophy,
+  Image,
+  FileText,
   DollarSign,
   Tag
 } from 'lucide-react';
@@ -51,6 +53,8 @@ export default function OwnerLayout() {
     { label: 'Quản lý Đặt sân', path: '/owner/bookings', icon: ClipboardList },
     { label: 'Ma trận Lịch sân', path: '/owner/schedules', icon: CalendarDays },
     { label: 'Quản lý Cụm sân', path: '/owner/venues', icon: Building2 },
+    { label: 'Thư viện hình ảnh', path: '/owner/media', icon: Image },
+    { label: 'Bài viết & Sự kiện', path: '/owner/posts', icon: FileText },
     { label: 'Quản lý Chi nhánh', path: '/owner/branches', icon: MapPin },
     { label: 'Danh mục Sân con', path: '/owner/courts', icon: Trophy },
     { label: 'Bảng giá & Giờ hoạt động', path: '/owner/pricing', icon: DollarSign },

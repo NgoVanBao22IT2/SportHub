@@ -42,7 +42,8 @@ module.exports = (sequelize, DataTypes) => {
     Venue.hasMany(models.Branch, { foreignKey: 'venue_id', as: 'branches' });
     Venue.hasMany(models.VenuePaymentAccount, { foreignKey: 'venue_id', as: 'payment_accounts' });
     Venue.belongsToMany(models.Facility, { through: models.VenueFacility, foreignKey: 'venue_id', otherKey: 'facility_id', as: 'facilities' });
-    Venue.hasMany(models.VenueImage, { foreignKey: 'target_id', constraints: false, scope: { target_type: 'VENUE' }, as: 'images' });
+    Venue.hasMany(models.VenueImage, { foreignKey: 'venue_id', as: 'images' });
+    Venue.hasMany(models.VenuePost, { foreignKey: 'venue_id', as: 'posts' });
   };
 
   return Venue;

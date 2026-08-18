@@ -2,6 +2,7 @@
 
 require('dotenv').config();
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const authRoutes = require('./routes/auth.routes');
 
@@ -27,6 +28,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
 // Mount Auth API Routes
 app.use('/api/v1/auth', authRoutes);
@@ -56,6 +58,10 @@ app.use('/api/v1/owner', ownerAggregateRoutes);
 // Mount Favorite Venues Operations
 const favoriteRoutes = require('./routes/favorite.routes');
 app.use('/api/v1/favorites', favoriteRoutes);
+
+// Mount Public Media & Content Routes
+const publicRoutes = require('./routes/public.routes');
+app.use('/api/v1/public', publicRoutes);
 
 // Mount Owner Registration Routes
 const ownerRegistrationRoutes = require('./routes/owner-registration.routes');

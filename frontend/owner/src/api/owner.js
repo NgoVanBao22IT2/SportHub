@@ -553,3 +553,81 @@ export const removeOwnerFacility = async (venueId, facilityId) => {
   const response = await apiClient.delete(`/venues/${venueId}/facilities/${facilityId}`);
   return response.data;
 };
+
+// ==========================================
+// MEDIA MANAGEMENT APIs
+// ==========================================
+export const getOwnerVenueMedia = async (venueId, params = {}) => {
+  const response = await apiClient.get(`/owner/venues/${venueId}/media`, { params });
+  return response.data;
+};
+
+export const uploadOwnerMedia = async (venueId, formDataOrData) => {
+  const isFormData = formDataOrData instanceof FormData;
+  const config = isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {};
+  const response = await apiClient.post(`/owner/venues/${venueId}/media`, formDataOrData, config);
+  return response.data;
+};
+
+export const updateOwnerMedia = async (imageId, payload) => {
+  const response = await apiClient.patch(`/owner/media/${imageId}`, payload);
+  return response.data;
+};
+
+export const deleteOwnerMedia = async (imageId) => {
+  const response = await apiClient.delete(`/owner/media/${imageId}`);
+  return response.data;
+};
+
+export const reorderOwnerMedia = async (venueId, orderList) => {
+  const response = await apiClient.post(`/owner/venues/${venueId}/media/reorder`, { order_list: orderList });
+  return response.data;
+};
+
+export const setOwnerCoverImage = async (imageId) => {
+  const response = await apiClient.post(`/owner/media/${imageId}/set-cover`);
+  return response.data;
+};
+
+export const setOwnerAvatarImage = async (imageId) => {
+  const response = await apiClient.post(`/owner/media/${imageId}/set-avatar`);
+  return response.data;
+};
+
+// ==========================================
+// POSTS & CONTENT MANAGEMENT APIs
+// ==========================================
+export const getOwnerPosts = async (venueId, params = {}) => {
+  const response = await apiClient.get(`/owner/venues/${venueId}/posts`, { params });
+  return response.data;
+};
+
+export const createOwnerPost = async (venueId, payload) => {
+  const response = await apiClient.post(`/owner/venues/${venueId}/posts`, payload);
+  return response.data;
+};
+
+export const getOwnerPostById = async (postId) => {
+  const response = await apiClient.get(`/owner/posts/${postId}`);
+  return response.data;
+};
+
+export const updateOwnerPost = async (postId, payload) => {
+  const response = await apiClient.patch(`/owner/posts/${postId}`, payload);
+  return response.data;
+};
+
+export const deleteOwnerPost = async (postId) => {
+  const response = await apiClient.delete(`/owner/posts/${postId}`);
+  return response.data;
+};
+
+export const publishOwnerPost = async (postId) => {
+  const response = await apiClient.post(`/owner/posts/${postId}/publish`);
+  return response.data;
+};
+
+export const archiveOwnerPost = async (postId) => {
+  const response = await apiClient.post(`/owner/posts/${postId}/archive`);
+  return response.data;
+};

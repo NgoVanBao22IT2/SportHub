@@ -19,6 +19,8 @@ import OwnerReviews from './pages/owner/OwnerReviews';
 import OwnerReviewDetail from './pages/owner/OwnerReviewDetail';
 import OwnerNotifications from './pages/owner/OwnerNotifications';
 import OwnerProfile from './pages/owner/OwnerProfile';
+import OwnerMedia from './pages/owner/OwnerMedia';
+import OwnerPosts from './pages/owner/OwnerPosts';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import VerifyOTP from './pages/VerifyOTP';
@@ -51,6 +53,8 @@ function App() {
         <Route path="owner/schedules" element={<OwnerSchedules />} />
         <Route path="owner/venues" element={<OwnerVenues />} />
         <Route path="owner/venues/:venueId" element={<OwnerVenueDetail />} />
+        <Route path="owner/media" element={<OwnerMedia />} />
+        <Route path="owner/posts" element={<OwnerPosts />} />
         <Route path="owner/branches" element={<OwnerBranches />} />
         <Route path="owner/courts" element={<OwnerCourts />} />
         <Route path="owner/pricing" element={<OwnerPricing />} />

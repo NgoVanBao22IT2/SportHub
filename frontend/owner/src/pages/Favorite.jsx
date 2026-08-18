@@ -19,6 +19,7 @@ export default function Favorite() {
   const [loading, setLoading] = useState(true);
   const [errorInfo, setErrorInfo] = useState(null);
   const [removingId, setRemovingId] = useState(null);
+  const [noticeModal, setNoticeModal] = useState({ open: false, title: '', message: '', type: 'info' });
 
   // Fetch Favorite Venues from Backend API (No Fake Persistence / Backend Source of Truth)
   const fetchFavoriteVenues = useCallback(async () => {

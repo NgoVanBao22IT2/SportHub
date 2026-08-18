@@ -17,7 +17,7 @@ import Card from '../ui/Card';
  */
 export default function BookingModal({ isOpen, onClose, onSelectVisualBooking, venue }) {
   const [step, setStep] = useState(1); // 1: Hình thức đặt, 2: Đối tượng đặt
-  const [selectedTarget, setSelectedTarget] = useState('INDIVIDUAL');
+  const [selectedTarget, setSelectedTarget] = useState('GENERAL');
 
   if (!isOpen) return null;
 
@@ -141,16 +141,16 @@ export default function BookingModal({ isOpen, onClose, onSelectVisualBooking, v
                 Vui lòng chọn loại hình đối tượng để áp dụng bảng giá
               </p>
 
-              {/* Target Option 1: Cá nhân / Nhóm nhỏ */}
+              {/* Target Option 1: Giá chung */}
               <Card
                 radius="xl"
                 padding="md"
                 className={`border-2 transition-all cursor-pointer ${
-                  selectedTarget === 'INDIVIDUAL'
+                  selectedTarget === 'GENERAL'
                     ? 'border-brand-orange bg-brand-orange/5'
                     : 'border-border-subtle-medium hover:border-brand-orange/40 bg-surface'
                 }`}
-                onClick={() => setSelectedTarget('INDIVIDUAL')}
+                onClick={() => setSelectedTarget('GENERAL')}
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-brand-orange/10 text-brand-orange flex items-center justify-center font-bold">
@@ -159,29 +159,27 @@ export default function BookingModal({ isOpen, onClose, onSelectVisualBooking, v
                   <div className="flex-1">
                     <h4 className="font-bold text-gray-900 text-sm">Giá chung</h4>
                   </div>
-                  
                 </div>
               </Card>
 
-              {/* Target Option 2: CLB / Đội nhóm cố định */}
+              {/* Target Option 2: Học sinh - Sinh viên */}
               <Card
                 radius="xl"
                 padding="md"
                 className={`border-2 transition-all cursor-pointer ${
-                  selectedTarget === 'CLUB'
-                    ? 'border-[#09b69b] bg-accent-primary/5'
-                    : 'border-border-subtle-medium hover:border-accent-primary/40 bg-surface'
+                  selectedTarget === 'STUDENT'
+                    ? 'border-brand-orange bg-brand-orange/5'
+                    : 'border-border-subtle-medium hover:border-brand-orange/40 bg-surface'
                 }`}
-                onClick={() => setSelectedTarget('CLUB')}
+                onClick={() => setSelectedTarget('STUDENT')}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-accent-primary/10 text-accent-primary flex items-center justify-center font-bold">
+                  <div className="w-10 h-10 rounded-xl bg-brand-orange/10 text-brand-orange flex items-center justify-center font-bold">
                     <Users size={20} />
                   </div>
                   <div className="flex-1">
                     <h4 className="font-bold text-gray-900 text-sm">Học sinh - Sinh viên</h4>
                   </div>
-                  
                 </div>
               </Card>
 
