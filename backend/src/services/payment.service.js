@@ -479,25 +479,28 @@ class PaymentService {
    * Upload Payment Proof Image
    */
   static async uploadProof(paymentId, userId, proofUrl) {
-    const payment = await Payment.findOne({ where: { payment_id: paymentId } });
-    if (!payment) {
-      const err = new Error('Payment transaction not found');
-      err.statusCode = 404;
-      throw err;
+    let payment = await Payment.findOne({ where: { payment_id: paymentId } });
+    let booking;
+    if (payment) {
+      booking = await Booking.findOne({ where: { booking_id: payment.booking_id } });
+    } else {
+      booking = await Booking.findOne({ where: { booking_id: paymentId } });
     }
 
-    const booking = await Booking.findOne({ where: { booking_id: payment.booking_id } });
     if (!booking) {
-      const err = new Error('Booking not found');
+      const err = new Error('Booking or Payment transaction not found');
       err.statusCode = 404;
       throw err;
     }
 
     booking.payment_proof_url = proofUrl;
-    if (booking.booking_status === 'PAYMENT_PENDING' || booking.booking_status === 'HOLDING') {
-      booking.booking_status = 'WAITING_OWNER_CONFIRMATION';
-    }
+    booking.booking_status = 'WAITING_OWNER_CONFIRMATION';
     await booking.save();
+
+    if (payment) {
+      payment.payment_status = 'PENDING';
+      await payment.save();
+    }
 
     return { payment, booking };
   }

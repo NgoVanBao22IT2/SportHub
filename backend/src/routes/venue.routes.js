@@ -63,6 +63,9 @@ router.delete('/images/:imageId', imageController.deleteImage);
 
 // Operating Schedules
 router.post('/schedules/:scopeTargetType/:scopeTargetId', scheduleController.createSchedule);
+router.put('/schedules/:scheduleId', scheduleController.updateSchedule);
+router.patch('/schedules/:scheduleId/status', scheduleController.toggleScheduleStatus);
+router.post('/schedules/:scheduleId/duplicate', scheduleController.duplicateSchedule);
 router.delete('/schedules/:scheduleId', scheduleController.deleteSchedule);
 
 // ==========================================

@@ -292,7 +292,17 @@ export default function OwnerBookings() {
 
                         <td className="py-3.5 px-4 text-right">
                           <div className="flex items-center justify-end gap-1.5">
-                            {status === 'WAITING_OWNER_CONFIRMATION' && (
+                            {b.payment_proof_url && (
+                              <button
+                                type="button"
+                                onClick={() => setSelectedProofBooking(b)}
+                                className="p-1.5 rounded-lg bg-orange-50 text-brand-orange hover:bg-orange-100 transition-colors"
+                                title="Xem minh chứng giao dịch"
+                              >
+                                <Eye size={16} />
+                              </button>
+                            )}
+                            {(status === 'WAITING_OWNER_CONFIRMATION' || status === 'HOLDING' || status === 'PAYMENT_PENDING' || b.payment_proof_url) && status !== 'CONFIRMED' && status !== 'REJECTED' && status !== 'CANCELLED' && (
                               <>
                                 <button
                                   type="button"

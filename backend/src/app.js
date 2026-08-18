@@ -100,5 +100,4 @@ if (require.main === module) {
     console.log(`[SportHubAI Backend] Running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
   });
 }
-
 module.exports = app;

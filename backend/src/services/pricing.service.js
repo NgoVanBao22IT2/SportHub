@@ -2,9 +2,65 @@ const { OperatingSchedule, Court, Branch, Venue } = require('../models');
 
 class PricingService {
   /**
+   * Helper: Convert date string (YYYY-MM-DD) to day of week name (MONDAY, TUESDAY, etc.)
+   */
+  static getDayOfWeekName(dateStr) {
+    const days = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'];
+    if (typeof dateStr === 'string' && dateStr.includes('-')) {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        return days[d.getDay()];
+      }
+    }
+    const d = new Date(dateStr);
+    return days[d.getDay()];
+  }
+
+  /**
+   * Helper: Check if schedule matches day of week
+   */
+  static isDayMatching(schedule, dayName) {
+    if (schedule.days_of_week) {
+      try {
+        const parsed = typeof schedule.days_of_week === 'string' ? JSON.parse(schedule.days_of_week) : schedule.days_of_week;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.includes(dayName);
+        }
+      } catch (err) {
+        // Fall through
+      }
+    }
+
+    const scope = (schedule.day_scope || '').toLowerCase();
+    if (scope.includes('monday-sunday') || scope.includes('tất cả') || scope.includes('all') || scope.includes('everyday')) {
+      return true;
+    }
+
+    const isWeekendDay = (dayName === 'SATURDAY' || dayName === 'SUNDAY');
+    if (scope.includes('weekday') || scope.includes('t2-t6') || scope.includes('ngày thường')) {
+      return !isWeekendDay;
+    }
+    if (scope.includes('weekend') || scope.includes('t7-cn') || scope.includes('cuối tuần')) {
+      return isWeekendDay;
+    }
+
+    if (scope.includes(dayName.toLowerCase())) return true;
+    if (dayName === 'MONDAY' && (scope.includes('thứ hai') || scope.includes('t2'))) return true;
+    if (dayName === 'TUESDAY' && (scope.includes('thứ ba') || scope.includes('t3'))) return true;
+    if (dayName === 'WEDNESDAY' && (scope.includes('thứ tư') || scope.includes('t4'))) return true;
+    if (dayName === 'THURSDAY' && (scope.includes('thứ năm') || scope.includes('t5'))) return true;
+    if (dayName === 'FRIDAY' && (scope.includes('thứ sáu') || scope.includes('t6'))) return true;
+    if (dayName === 'SATURDAY' && (scope.includes('thứ bảy') || scope.includes('t7'))) return true;
+    if (dayName === 'SUNDAY' && (scope.includes('chủ nhật') || scope.includes('cn'))) return true;
+
+    return true;
+  }
+
+  /**
    * Determine the price rule and calculate the final price for a given court and time.
    */
-  static async calculatePrice(courtId, date, startTime, endTime) {
+  static async calculatePrice(courtId, date, startTime, endTime, pricingGroup = 'GENERAL', priceType = 'FIXED') {
     // 1. Fetch court with branch and venue to resolve hierarchy
     const court = await Court.findOne({
       where: { court_id: courtId },
@@ -22,6 +78,7 @@ class PricingService {
 
     const branchId = court.branch_id;
     const venueId = court.branch.venue_id;
+    const dayName = this.getDayOfWeekName(date);
 
     // 2. Fetch OperatingSchedules for COURT, BRANCH, and VENUE
     const schedules = await OperatingSchedule.findAll({
@@ -31,51 +88,74 @@ class PricingService {
       }
     });
 
-    // 3. Determine the applicable day scope
-    const dayOfWeek = new Date(date).getDay(); // 0 is Sunday, 1 is Monday...
-    const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
-    const expectedDayScope = isWeekend ? 'WEEKEND' : 'WEEKDAY';
-    // (Note: The actual day_scope values might be specific strings like 'T2-T6', 'T7-CN', 
-    // but without exact schema enums, we attempt to match conceptually or fallback to a general schedule.
-    // For this engine, we'll pick the one matching the ID in the hierarchy first.)
+    // Format start and end time with 8 chars (HH:mm:ss)
+    const normStart = startTime.length === 5 ? `${startTime}:00` : startTime;
+    const normEnd = endTime.length === 5 ? `${endTime}:00` : endTime;
 
-    // Build map for quick access
+    // Filter active schedules matching pricingGroup and day & time range
+    let matchingSchedules = schedules.filter(s =>
+      (s.is_active === undefined || s.is_active === null || s.is_active === true || s.is_active === 1) &&
+      (s.pricing_group === pricingGroup || (!s.pricing_group && pricingGroup === 'GENERAL')) &&
+      this.isDayMatching(s, dayName) &&
+      (s.opening_time || '00:00:00') <= normStart && (s.closing_time || '23:59:59') >= normEnd
+    );
+
+    // If requesting STUDENT group but no student rule configured, fallback to GENERAL group rules
+    if (matchingSchedules.length === 0 && pricingGroup === 'STUDENT') {
+      matchingSchedules = schedules.filter(s =>
+        (s.is_active === undefined || s.is_active === null || s.is_active === true || s.is_active === 1) &&
+        (s.pricing_group === 'GENERAL' || !s.pricing_group) &&
+        this.isDayMatching(s, dayName) &&
+        (s.opening_time || '00:00:00') <= normStart && (s.closing_time || '23:59:59') >= normEnd
+      );
+    }
+
+    // Sort matching schedules by specificity:
+    // 1. Specific days_of_week preferred over null/everyday
+    // 2. Specific narrower time window preferred over wide opening hours
+    matchingSchedules.sort((a, b) => {
+      const aHasDays = a.days_of_week && a.days_of_week !== '[]' ? 1 : 0;
+      const bHasDays = b.days_of_week && b.days_of_week !== '[]' ? 1 : 0;
+      if (aHasDays !== bHasDays) return bHasDays - aHasDays;
+
+      const parseSec = (tStr) => {
+        const parts = (tStr || '00:00:00').split(':');
+        return parseInt(parts[0], 10) * 3600 + parseInt(parts[1], 10) * 60;
+      };
+      const aSpan = parseSec(a.closing_time) - parseSec(a.opening_time);
+      const bSpan = parseSec(b.closing_time) - parseSec(b.opening_time);
+      return aSpan - bSpan;
+    });
+
+    // Build map by scope for hierarchy selection
     const schedMap = {};
-    schedules.forEach(s => {
+    matchingSchedules.forEach(s => {
       if (!schedMap[s.scope_target_type]) schedMap[s.scope_target_type] = [];
       schedMap[s.scope_target_type].push(s);
     });
 
-    // Determine the active schedule (Hierarchy: COURT -> BRANCH -> VENUE)
+    // Active schedule hierarchy: COURT -> BRANCH -> VENUE
     let activeSchedule = null;
     if (schedMap['COURT'] && schedMap['COURT'].length > 0) activeSchedule = schedMap['COURT'][0];
     else if (schedMap['BRANCH'] && schedMap['BRANCH'].length > 0) activeSchedule = schedMap['BRANCH'][0];
     else if (schedMap['VENUE'] && schedMap['VENUE'].length > 0) activeSchedule = schedMap['VENUE'][0];
 
     if (!activeSchedule) {
-      const error = new Error('No operating schedule found for this court');
+      const error = new Error('No operating schedule found for this court at requested time');
       error.statusCode = 400;
+      error.code = 'NO_PRICE_RULE';
       throw error;
     }
 
-    // 4. Validate Operating Hours
-    // Format is "HH:mm:ss"
-    if (startTime < activeSchedule.opening_time || endTime > activeSchedule.closing_time) {
-      const error = new Error('Requested time is outside operating hours');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    // 5. Calculate Duration
-    // parse time "HH:mm" or "HH:mm:ss"
+    // 3. Calculate Duration & Hourly Price
     const parseTime = (t) => {
       const parts = t.split(':');
       return parseInt(parts[0], 10) + parseInt(parts[1], 10) / 60 + (parts[2] ? parseInt(parts[2], 10) / 3600 : 0);
     };
 
-    const startH = parseTime(startTime);
-    const endH = parseTime(endTime);
-    
+    const startH = parseTime(normStart);
+    const endH = parseTime(normEnd);
+
     if (startH >= endH) {
       const error = new Error('start_time must be before end_time');
       error.statusCode = 400;
@@ -83,16 +163,26 @@ class PricingService {
     }
 
     const durationHours = endH - startH;
-    
-    // TBD-PH08-PRICE-01: No billing increment rounding is applied. We use exact fractional hours.
-    
-    const basePrice = parseFloat(activeSchedule.base_hourly_price);
-    const totalPrice = basePrice * durationHours;
+
+    let hourlyPrice;
+    if (priceType === 'WALK_IN') {
+      hourlyPrice = parseFloat(activeSchedule.walk_in_price || activeSchedule.base_hourly_price || 0);
+    } else {
+      hourlyPrice = parseFloat(activeSchedule.fixed_price || activeSchedule.base_hourly_price || 0);
+    }
+
+    if (!hourlyPrice || hourlyPrice === 0) {
+      hourlyPrice = parseFloat(activeSchedule.base_hourly_price || 100000);
+    }
+
+    const totalPrice = hourlyPrice * durationHours;
 
     return {
       price_source_type: activeSchedule.scope_target_type,
       price_source_id: activeSchedule.scope_target_id,
-      base_hourly_price: basePrice,
+      pricing_group: activeSchedule.pricing_group || pricingGroup,
+      price_type: priceType,
+      base_hourly_price: hourlyPrice,
       duration_hours: durationHours,
       total_price: totalPrice,
       currency: 'VND'

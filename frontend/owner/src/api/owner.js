@@ -506,6 +506,21 @@ export const createOwnerSchedule = async (scopeTargetType, scopeTargetId, schedu
   return response.data;
 };
 
+export const updateOwnerSchedule = async (scheduleId, scheduleData) => {
+  const response = await apiClient.put(`/schedules/${scheduleId}`, scheduleData);
+  return response.data;
+};
+
+export const toggleOwnerScheduleStatus = async (scheduleId) => {
+  const response = await apiClient.patch(`/schedules/${scheduleId}/status`);
+  return response.data;
+};
+
+export const duplicateOwnerSchedule = async (scheduleId, scheduleData = {}) => {
+  const response = await apiClient.post(`/schedules/${scheduleId}/duplicate`, scheduleData);
+  return response.data;
+};
+
 export const deleteOwnerSchedule = async (scheduleId) => {
   const response = await apiClient.delete(`/schedules/${scheduleId}`);
   return response.data;

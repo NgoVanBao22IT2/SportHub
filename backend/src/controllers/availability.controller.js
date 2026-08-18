@@ -27,9 +27,9 @@ class AvailabilityController {
   static async getVenueDailyAvailability(req, res, next) {
     try {
       const { venueId } = req.params;
-      const { date } = req.query;
+      const { date, pricingGroup, priceType } = req.query;
 
-      const result = await AvailabilityService.getVenueDailyAvailability(venueId, date);
+      const result = await AvailabilityService.getVenueDailyAvailability(venueId, date, pricingGroup || 'GENERAL', priceType || 'FIXED');
 
       res.status(200).json({
         status: 'success',

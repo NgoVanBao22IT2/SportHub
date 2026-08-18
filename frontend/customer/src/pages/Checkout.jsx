@@ -130,6 +130,12 @@ export default function Checkout() {
         bookingStatus: 'WAITING_OWNER_CONFIRMATION',
         paymentStatus: 'SUCCESS'
       }));
+      setNoticeModal({
+        open: true,
+        title: 'Upload minh chứng thành công',
+        message: 'Upload minh chứng thành công, vui lòng chờ chủ sân xác nhận.',
+        type: 'success'
+      });
     } catch (err) {
       console.error('Failed to upload payment proof', err);
       setNoticeModal({ open: true, title: 'Tải ảnh thất bại', message: 'Không thể tải lên ảnh minh chứng. Vui lòng thử lại.', type: 'error' });
@@ -665,15 +671,15 @@ export default function Checkout() {
 
               {proofUploaded ? (
                 <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 space-y-2">
-                  <p className="font-bold flex items-center gap-2 text-sm">
-                    <CheckCircle2 size={18} className="text-emerald-600" />
-                    Đã tải lên minh chứng thành công!
+                  <p className="font-bold flex items-center gap-2 text-sm text-emerald-900">
+                    <CheckCircle2 size={20} className="text-emerald-600 shrink-0" />
+                    Upload minh chứng thành công! Vui lòng chờ chủ sân xác nhận.
                   </p>
-                  <p>
-                    Trạng thái đơn: <strong className="text-emerald-900">CHỜ CHỦ SÂN XÁC NHẬN</strong>.
+                  <p className="text-xs text-emerald-700">
+                    Trạng thái đơn: <strong className="text-emerald-900">CHỜ CHỦ SÂN XÁC NHẬN</strong>. Chủ sân sẽ kiểm tra tài khoản và xác nhận giữ chỗ cho bạn trong ít phút.
                   </p>
                   {proofPreview && (
-                    <div className="w-32 h-32 rounded-lg overflow-hidden border border-emerald-300 mt-2">
+                    <div className="w-32 h-32 rounded-lg overflow-hidden border border-emerald-300 mt-2 shadow-xs">
                       <img src={proofPreview} alt="Payment Proof Preview" className="w-full h-full object-cover" />
                     </div>
                   )}
@@ -689,25 +695,33 @@ export default function Checkout() {
                     />
                     <FileImage size={32} className="text-brand-orange mb-2" />
                     <span className="text-xs font-bold text-gray-900">
-                      {proofFile ? proofFile.name : 'Bấm vào đây để chọn ảnh chuyển khoản'}
+                      {proofFile ? proofFile.name : 'Bấm vào đây để chọn hoặc thay đổi ảnh chuyển khoản'}
                     </span>
                     <span className="text-[11px] text-text-muted mt-1">Định dạng JPG, PNG, WEBP (Tối đa 5MB)</span>
                   </div>
 
                   {proofPreview && (
-                    <div className="flex items-center gap-4 p-3 bg-surface rounded-xl border border-border-subtle-medium">
-                      <img src={proofPreview} alt="Preview" className="w-16 h-16 object-cover rounded-lg border" />
-                      <div className="flex-1 text-xs">
-                        <p className="font-bold text-gray-900 truncate">{proofFile?.name || 'Ảnh minh chứng'}</p>
-                        <p className="text-text-muted">{proofFile ? `${(proofFile.size / 1024).toFixed(1)} KB` : 'Đã chọn'}</p>
+                    <div className="p-4 bg-surface rounded-xl border border-border-subtle-medium space-y-3">
+                      <div className="flex items-center gap-4">
+                        <img src={proofPreview} alt="Preview" className="w-20 h-20 object-cover rounded-lg border shadow-2xs" />
+                        <div className="flex-1 text-xs">
+                          <p className="font-bold text-gray-900 truncate">{proofFile?.name || 'Ảnh minh chứng giao dịch'}</p>
+                          <p className="text-text-muted">{proofFile ? `${(proofFile.size / 1024).toFixed(1)} KB` : 'Đã chọn ảnh'}</p>
+                          <p className="text-brand-orange font-semibold text-[11px] mt-1">
+                            Vui lòng bấm nút "Xác nhận gửi minh chứng thanh toán" bên dưới để hoàn tất.
+                          </p>
+                        </div>
                       </div>
+
                       <Button
                         variant="primary"
-                        size="sm"
+                        size="md"
+                        fullWidth
                         loading={uploadingProof}
                         onClick={handleUploadProofSubmit}
+                        leftIcon={<Check size={16} />}
                       >
-                        Gửi minh chứng
+                        Xác nhận gửi minh chứng thanh toán
                       </Button>
                     </div>
                   )}
@@ -1066,18 +1080,27 @@ export default function Checkout() {
 
       {/* NOTICE MODAL */}
       {noticeModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/70 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-surface rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl text-center border border-border-subtle-medium">
+            {noticeModal.type === 'success' ? (
+              <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 mx-auto flex items-center justify-center border border-emerald-300">
+                <CheckCircle2 size={28} />
+              </div>
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 mx-auto flex items-center justify-center border border-red-300">
+                <AlertCircle size={28} />
+              </div>
+            )}
             <h3 className="text-base font-bold text-gray-900">{noticeModal.title}</h3>
             <p className="text-xs text-text-muted leading-relaxed">{noticeModal.message}</p>
             <div className="pt-2">
               <Button
-                variant="primary"
+                variant={noticeModal.type === 'success' ? 'primary' : 'outline'}
                 size="md"
                 fullWidth
                 onClick={() => setNoticeModal({ ...noticeModal, open: false })}
               >
-                Đóng
+                Đã hiểu
               </Button>
             </div>
           </div>

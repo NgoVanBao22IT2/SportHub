@@ -269,8 +269,11 @@ export default function OwnerSchedules() {
                         labelText = 'Đã đặt';
                         isClickable = false;
                       } else if (st === 'BLOCKED' || st === 'EVENT') {
-                        cellBg = 'bg-red-50 hover:bg-red-100 text-red-900 border-red-200';
-                        labelText = courtSlot.reason || 'Đã khóa';
+                        const isLongTerm = courtSlot.is_long_term;
+                        cellBg = isLongTerm
+                          ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-300'
+                          : 'bg-red-50 hover:bg-red-100 text-red-900 border-red-200';
+                        labelText = isLongTerm ? '🔒 Khóa dài hạn' : (courtSlot.reason || 'Đã khóa');
                         isClickable = true;
                       } else if (st === 'UNAVAILABLE') {
                         cellBg = 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed';
@@ -296,7 +299,7 @@ export default function OwnerSchedules() {
                               cellBg,
                               isClickable ? 'cursor-pointer shadow-2xs hover:scale-98' : ''
                             ].join(' ')}
-                            title={courtSlot.reason || labelText}
+                            title={courtSlot.is_long_term ? `Khóa dài hạn: ${courtSlot.reason || 'Cho tới khi Owner mở lại'}` : (courtSlot.reason || labelText)}
                           >
                             <span className="font-bold">{labelText}</span>
                             {courtSlot.price && (
@@ -339,10 +342,22 @@ export default function OwnerSchedules() {
           <div className="bg-surface w-full max-w-sm rounded-2xl border border-border-subtle-medium shadow-2xl p-6 space-y-4 text-xs">
             <div className="flex items-center gap-3 text-brand-orange">
               <Unlock size={24} />
-              <h3 className="font-bold text-gray-900 text-base">Xác nhận mở khóa khung giờ</h3>
+              <h3 className="font-bold text-gray-900 text-base">
+                {unblockConfirm.slot?.is_long_term ? 'Mở lại khung giờ khóa dài hạn' : 'Xác nhận mở khóa khung giờ'}
+              </h3>
             </div>
-            <p className="text-gray-700">
-              Bạn có chắc chắn muốn mở khóa khung giờ <strong>{unblockConfirm.slot?.label}</strong> của <strong>{unblockConfirm.court?.court_name}</strong> không? Khung giờ sẽ trở lại trạng thái <strong>AVAILABLE</strong> cho khách hàng đặt sân.
+            <p className="text-gray-700 leading-relaxed">
+              {unblockConfirm.slot?.is_long_term ? (
+                <>
+                  Khung giờ <strong>{unblockConfirm.slot?.label}</strong> của <strong>{unblockConfirm.court?.court_name}</strong> đang áp dụng <strong>Quy tắc khóa dài hạn</strong> (Lý do: <em>{unblockConfirm.slot?.reason}</em>).
+                  <br /><br />
+                  Bạn có chắc chắn muốn <strong>MỞ LẠI</strong> khung giờ này không? Sau khi mở lại, khách hàng sẽ có thể đặt khung giờ này trên tất cả các ngày trong tương lai.
+                </>
+              ) : (
+                <>
+                  Bạn có chắc chắn muốn mở khóa khung giờ <strong>{unblockConfirm.slot?.label}</strong> của <strong>{unblockConfirm.court?.court_name}</strong> không? Khung giờ sẽ trở lại trạng thái <strong>AVAILABLE</strong> cho khách hàng đặt sân.
+                </>
+              )}
             </p>
             <div className="flex justify-end gap-3 pt-2 border-t border-border-subtle">
               <Button variant="outline" size="sm" onClick={() => setUnblockConfirm(null)} disabled={actionLoading}>

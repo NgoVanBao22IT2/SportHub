@@ -1,8 +1,26 @@
-const { Court, SlotBlocking, Booking, Venue, Branch } = require('../models');
+const { Court, SlotBlocking, CourtBlockRule, Booking, Venue, Branch } = require('../models');
 const { Op } = require('sequelize');
 const PricingService = require('./pricing.service');
 
 class AvailabilityService {
+  /**
+   * Helper: Get local date (YYYY-MM-DD) and current time (HH:mm:ss)
+   */
+  static _getLocalNow() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const todayStr = `${year}-${month}-${day}`;
+
+    const curH = String(now.getHours()).padStart(2, '0');
+    const curM = String(now.getMinutes()).padStart(2, '0');
+    const curS = String(now.getSeconds()).padStart(2, '0');
+    const currentTimeStr = `${curH}:${curM}:${curS}`;
+
+    return { todayStr, currentTimeStr };
+  }
+
   /**
    * Check court availability for a specific interval and return pricing if available.
    */
@@ -20,14 +38,31 @@ class AvailabilityService {
       throw error;
     }
 
-    // 2. Court Status Check
+    // 2. Past Date & Past Time Check
+    const { todayStr, currentTimeStr } = this._getLocalNow();
+    if (date < todayStr) {
+      const error = new Error('Không thể xem hoặc đặt sân cho ngày đã qua.');
+      error.statusCode = 400;
+      error.code = 'PAST_DATE_NOT_ALLOWED';
+      throw error;
+    }
+
+    const normStart = startTime.length === 5 ? `${startTime}:00` : startTime;
+    if (date === todayStr && normStart < currentTimeStr) {
+      return {
+        is_available: false,
+        reason: 'Khung giờ này đã qua trong ngày hôm nay.'
+      };
+    }
+
+    // 3. Court Status Check
     const court = await Court.findOne({ where: { court_id: courtId } });
     if (!court) {
       const error = new Error('Court not found');
       error.statusCode = 404;
       throw error;
     }
-    
+
     if (court.court_status !== 'ACTIVE') {
       return {
         is_available: false,
@@ -35,22 +70,21 @@ class AvailabilityService {
       };
     }
 
-    // 3. Operating Hours & Pricing Check
+    // 4. Operating Hours & Pricing Check
     let priceDetails;
     try {
       priceDetails = await PricingService.calculatePrice(courtId, date, startTime, endTime);
     } catch (err) {
-      if (err.message === 'Requested time is outside operating hours') {
+      if (err.message === 'Requested time is outside operating hours' || err.code === 'NO_PRICE_RULE') {
         return {
           is_available: false,
-          reason: 'Outside operating hours'
+          reason: 'Outside operating hours or no pricing rule'
         };
       }
       throw err;
     }
 
-    // 4. Check Court Blockings
-    // Conflict formula: block_start < requested_end AND block_end > requested_start
+    // 5a. Check One-time Court Blockings
     const blocking = await SlotBlocking.findOne({
       where: {
         court_id: courtId,
@@ -68,7 +102,30 @@ class AvailabilityService {
       };
     }
 
-    // 5. Check Existing Bookings (Conflict Detection)
+    // 5b. Check Active Long-Term Court Block Rules
+    const blockRule = await CourtBlockRule.findOne({
+      where: {
+        court_id: courtId,
+        status: 'ACTIVE',
+        start_date: { [Op.lte]: date },
+        [Op.or]: [
+          { end_date: null },
+          { end_date: { [Op.gte]: date } }
+        ],
+        start_time: { [Op.lt]: endTime },
+        end_time: { [Op.gt]: startTime }
+      }
+    });
+
+    if (blockRule) {
+      return {
+        is_available: false,
+        reason: 'Court is blocked by owner under a long-term rule',
+        block_reason: blockRule.block_reason || 'Cho tới khi Owner mở lại'
+      };
+    }
+
+    // 6. Check Existing Bookings (Conflict Detection)
     const booking = await Booking.findOne({
       where: {
         court_id: courtId,
@@ -98,12 +155,16 @@ class AvailabilityService {
   /**
    * Fetch full visual schedule matrix & pricing for all courts in a venue for a given date.
    */
-  static async getVenueDailyAvailability(venueId, date) {
+  static async getVenueDailyAvailability(venueId, date, pricingGroup = 'GENERAL', priceType = 'FIXED') {
     if (!venueId || !date) {
-      const error = new Error('venueId and date parameters are required');
+      const error = new Error('venueId and date are required');
       error.statusCode = 400;
       throw error;
     }
+
+    const { todayStr, currentTimeStr } = this._getLocalNow();
+    const isPastDate = date < todayStr;
+    const isToday = date === todayStr;
 
     // 1. Load Venue with Branches and Courts
     const venue = await Venue.findOne({
@@ -138,14 +199,30 @@ class AvailabilityService {
       });
     }
 
+    // Sort courts in ascending order (e.g. Sân 01, Sân 02, Sân 03, Sân 04, Sân 05)
+    allCourts.sort((a, b) => (a.court_name || '').localeCompare(b.court_name || '', undefined, { numeric: true, sensitivity: 'base' }));
+
     const courtIds = allCourts.map(c => c.court_id);
     const sports = Array.from(new Set(allCourts.map(c => c.sport_category).filter(Boolean)));
 
-    // 2. Fetch all blockings for these courts on the specified date
+    // 2a. Fetch all one-time blockings for these courts on the specified date
     const blockings = await SlotBlocking.findAll({
       where: {
         court_id: { [Op.in]: courtIds.length ? courtIds : ['__NONE__'] },
         block_date: date
+      }
+    });
+
+    // 2b. Fetch active long-term block rules for these courts valid on the specified date
+    const blockRules = await CourtBlockRule.findAll({
+      where: {
+        court_id: { [Op.in]: courtIds.length ? courtIds : ['__NONE__'] },
+        status: 'ACTIVE',
+        start_date: { [Op.lte]: date },
+        [Op.or]: [
+          { end_date: null },
+          { end_date: { [Op.gte]: date } }
+        ]
       }
     });
 
@@ -170,19 +247,20 @@ class AvailabilityService {
       }
     });
 
-    let openTimeStr = '06:00:00';
-    let closeTimeStr = '22:00:00';
+    let openTimeStr = '05:00:00';
+    let closeTimeStr = '23:30:00';
 
     if (schedules && schedules.length > 0) {
-      const sched = schedules[0];
-      if (sched.opening_time) openTimeStr = sched.opening_time;
-      if (sched.closing_time) closeTimeStr = sched.closing_time;
+      const minOpen = schedules.map(s => s.opening_time).filter(Boolean).sort()[0];
+      const maxClose = schedules.map(s => s.closing_time).filter(Boolean).sort().reverse()[0];
+      if (minOpen) openTimeStr = minOpen;
+      if (maxClose) closeTimeStr = maxClose;
     }
 
     const parseHHMM = (tStr) => {
       const parts = tStr.split(':');
       return {
-        h: parseInt(parts[0], 10) || 6,
+        h: parseInt(parts[0], 10) || 5,
         m: parseInt(parts[1], 10) || 0
       };
     };
@@ -220,10 +298,31 @@ class AvailabilityService {
     const courtMatrix = await Promise.all(
       allCourts.map(async (court) => {
         const courtBlockings = blockings.filter(b => b.court_id === court.court_id);
+        const courtBlockRules = blockRules.filter(r => r.court_id === court.court_id);
         const courtBookings = bookings.filter(b => b.court_id === court.court_id);
 
         const slots = await Promise.all(
           timeSlots.map(async (slot) => {
+            // A. Check Past Date & Past Slot Rule
+            if (isPastDate) {
+              return {
+                ...slot,
+                status: 'PAST',
+                price: null,
+                reason: 'Ngày đã qua'
+              };
+            }
+
+            if (isToday && slot.start_time < currentTimeStr) {
+              return {
+                ...slot,
+                status: 'PAST',
+                price: null,
+                reason: 'Đã qua thời gian'
+              };
+            }
+
+            // B. Court Inactive Check
             if (court.court_status !== 'ACTIVE') {
               return {
                 ...slot,
@@ -233,25 +332,27 @@ class AvailabilityService {
               };
             }
 
-            // Check pricing & operating schedule
+            // C. Check pricing & operating schedule
             let pricing = null;
             try {
               pricing = await PricingService.calculatePrice(
                 court.court_id,
                 date,
                 slot.start_time,
-                slot.end_time
+                slot.end_time,
+                pricingGroup,
+                priceType
               );
             } catch (err) {
               return {
                 ...slot,
-                status: 'UNAVAILABLE',
+                status: 'CLOSED',
                 price: null,
                 reason: 'Ngoài giờ hoạt động'
               };
             }
 
-            // Check blockings
+            // D. Check one-time blockings
             const blockingMatch = courtBlockings.find(b =>
               isOverlapping(b.start_time, b.end_time, slot.start_time, slot.end_time)
             );
@@ -261,13 +362,30 @@ class AvailabilityService {
               return {
                 ...slot,
                 block_id: blockingMatch.block_id,
-                status: isEvent ? 'EVENT' : 'BLOCKED',
+                status: isEvent ? 'EVENT' : 'LOCKED',
                 price: pricing.total_price,
                 reason: blockingMatch.block_reason || (isEvent ? 'Sự kiện đặc biệt' : 'Chủ sân tạm khóa')
               };
             }
 
-            // Check bookings
+            // E. Check active long-term block rules
+            const ruleMatch = courtBlockRules.find(r =>
+              isOverlapping(r.start_time, r.end_time, slot.start_time, slot.end_time)
+            );
+            if (ruleMatch) {
+              const reasonStr = (ruleMatch.block_reason || '').toLowerCase();
+              const isEvent = reasonStr.includes('sự kiện') || reasonStr.includes('event');
+              return {
+                ...slot,
+                block_id: ruleMatch.rule_id,
+                is_long_term: true,
+                status: isEvent ? 'EVENT' : 'LOCKED',
+                price: pricing.total_price,
+                reason: ruleMatch.block_reason || 'Cho tới khi Owner mở lại'
+              };
+            }
+
+            // F. Check bookings
             const bookingMatch = courtBookings.find(b =>
               isOverlapping(b.start_time, b.end_time, slot.start_time, slot.end_time)
             );
@@ -280,7 +398,7 @@ class AvailabilityService {
               };
             }
 
-            // Available
+            // G. Available!
             return {
               ...slot,
               status: 'AVAILABLE',

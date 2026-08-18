@@ -39,6 +39,8 @@ export default function VisualBooking() {
   const [favPending, setFavPending] = useState(false);
   const [noticeModal, setNoticeModal] = useState({ open: false, title: '', message: '', type: 'info' });
 
+  const [customerGroup, setCustomerGroup] = useState('GENERAL'); // 'GENERAL' or 'STUDENT'
+
   // Date Filter State (Default to today ISO format YYYY-MM-DD)
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
@@ -98,7 +100,7 @@ export default function VisualBooking() {
     if (!venueId || !selectedDate) return;
     try {
       setLoadingGrid(true);
-      const res = await getVenueDailyAvailability(venueId, selectedDate);
+      const res = await getVenueDailyAvailability(venueId, selectedDate, customerGroup);
       if (res && res.status === 'success' && res.data) {
         setAvailabilityData(res.data);
       } else {
@@ -109,7 +111,7 @@ export default function VisualBooking() {
     } finally {
       setLoadingGrid(false);
     }
-  }, [venueId, selectedDate]);
+  }, [venueId, selectedDate, customerGroup]);
 
   useEffect(() => {
     fetchGridAvailability();
@@ -153,7 +155,7 @@ export default function VisualBooking() {
   // Calculate Selected Totals
   const selectedSlotsList = useMemo(() => Object.values(selectedSlotsMap), [selectedSlotsMap]);
   const totalSelectedCount = selectedSlotsList.length;
-  const totalHours = totalSelectedCount * 1; // Each slot is 30 minutes (0.5 hour)
+  const totalHours = totalSelectedCount * 0.5; // Each slot is 30 minutes (0.5 hour)
 
   const totalAmount = useMemo(() => {
     return selectedSlotsList.reduce((sum, slot) => sum + (slot.price || 0), 0);
@@ -359,23 +361,45 @@ export default function VisualBooking() {
             </div>
           </div>
 
-          {/* Price List Link & Date Picker Input */}
-          <div className="flex items-center gap-4 text-xs font-medium">
-            <button
-              onClick={() => setNoticeModal({ open: true, title: 'Bảng giá tham khảo', message: 'Bảng giá cơ bản: 60.000đ - 120.000đ / 30 phút tuỳ khung giờ.', type: 'info' })}
-              className="text-brand-orange font-bold hover:underline"
-            >
-              Xem sân & bảng giá
-            </button>
+          {/* Customer Group Switcher (GENERAL vs STUDENT) & Date Picker Input */}
+          <div className="flex flex-wrap items-center gap-3 text-xs font-medium">
+            <div className="flex items-center gap-1 bg-surface-subtle p-1 rounded-xl border border-border-subtle-medium">
+              <button
+                type="button"
+                onClick={() => { setCustomerGroup('GENERAL'); setSelectedSlotsMap({}); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  customerGroup === 'GENERAL'
+                    ? 'bg-brand-orange text-white shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                👥 Khách thường
+              </button>
+              <button
+                type="button"
+                onClick={() => { setCustomerGroup('STUDENT'); setSelectedSlotsMap({}); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  customerGroup === 'STUDENT'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                🎓 Học sinh - Sinh viên (HSSV)
+              </button>
+            </div>
 
             <div className="flex items-center gap-2 bg-surface-subtle px-3 py-1.5 rounded-lg border border-border-subtle-medium text-gray-800 font-bold">
               <input
                 type="date"
+                min={new Date().toISOString().split('T')[0]}
                 value={selectedDate}
                 onChange={(e) => {
-                  if (e.target.value) {
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  if (e.target.value && e.target.value >= todayStr) {
                     setSelectedDate(e.target.value);
                     setSelectedSlotsMap({});
+                  } else if (e.target.value < todayStr) {
+                    setNoticeModal({ open: true, title: 'Ngày không hợp lệ', message: 'Không thể xem hoặc đặt sân cho ngày trong quá khứ.', type: 'error' });
                   }
                 }}
                 className="bg-transparent border-none text-xs font-bold text-gray-900 focus:outline-none cursor-pointer"
@@ -494,17 +518,22 @@ export default function VisualBooking() {
                           cellClass += "bg-[#ef4444] text-white cursor-not-allowed opacity-90";
                           titleText += " | Đã được đặt";
                         }
-                        // 4. LOCKED (Khoá - Xám)
-                        else if (slot.status === 'BLOCKED') {
+                        // 4. LOCKED / BLOCKED (Khoá - Xám đậm)
+                        else if (slot.status === 'BLOCKED' || slot.status === 'LOCKED') {
                           cellClass += "bg-[#6b7280] text-white cursor-not-allowed opacity-90";
-                          titleText += ` | Khoá: ${slot.reason || 'Bảo trì'}`;
+                          titleText += ` | Khoá: ${slot.reason || 'Chủ sân khóa'}`;
                         }
                         // 5. EVENT (Sự kiện - Tím / Plum)
                         else if (slot.status === 'EVENT') {
                           cellClass += "bg-[#70385c] text-white cursor-not-allowed opacity-95";
                           titleText += ` | Sự kiện: ${slot.reason || 'Đặc biệt'}`;
                         }
-                        // 6. DISABLED / UNAVAILABLE (Xám tối)
+                        // 6. PAST (Đã qua thời gian - Xám nhạt)
+                        else if (slot.status === 'PAST') {
+                          cellClass += "bg-gray-200 text-gray-500 cursor-not-allowed opacity-75 font-semibold";
+                          titleText += ` | Đã qua thời gian`;
+                        }
+                        // 7. CLOSED / UNAVAILABLE (Ngoài giờ)
                         else {
                           cellClass += "bg-gray-200 text-gray-400 cursor-not-allowed opacity-60";
                           titleText += ` | ${slot.reason || 'Ngoài giờ'}`;
@@ -517,11 +546,25 @@ export default function VisualBooking() {
                             className={cellClass}
                             title={titleText}
                           >
-                            {/* Render Checkmark if Selected */}
-                            {isSelected && (
+                            {/* Render Checkmark if Selected, or status label */}
+                            {isSelected ? (
                               <div className="flex items-center justify-center h-full">
                                 <Check size={14} strokeWidth={3} className="text-white drop-shadow-xs" />
                               </div>
+                            ) : slot.status === 'AVAILABLE' ? (
+                              <div className="flex items-center justify-center h-full text-[9px] font-medium text-gray-400 group-hover:text-emerald-900">
+                                {slot.price ? `${Math.round(slot.price / 1000)}k` : ''}
+                              </div>
+                            ) : slot.status === 'BOOKED' ? (
+                              <div className="flex items-center justify-center h-full text-[9px] font-bold text-white">Đã đặt</div>
+                            ) : slot.status === 'BLOCKED' || slot.status === 'LOCKED' ? (
+                              <div className="flex items-center justify-center h-full text-[9px] font-bold text-white">Khóa</div>
+                            ) : slot.status === 'EVENT' ? (
+                              <div className="flex items-center justify-center h-full text-[9px] font-bold text-white">Sự kiện</div>
+                            ) : slot.status === 'PAST' ? (
+                              <div className="flex items-center justify-center h-full text-[9px] font-medium text-gray-500">Đã qua</div>
+                            ) : (
+                              <div className="flex items-center justify-center h-full text-[9px] font-medium text-gray-400">Đóng</div>
                             )}
                           </td>
                         );

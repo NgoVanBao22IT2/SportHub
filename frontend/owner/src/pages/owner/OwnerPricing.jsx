@@ -1,10 +1,48 @@
-import { useState, useEffect } from 'react';
-import { DollarSign, Clock, Plus, Trash2, CheckCircle2, AlertCircle, RefreshCw, Calendar, Tag } from 'lucide-react';
-import { getOwnerVenues, getOwnerBranches, getOwnerCourts, getOwnerSchedules, createOwnerSchedule, deleteOwnerSchedule } from '../../api/owner';
+import { useState, useEffect, useMemo } from 'react';
+import {
+  DollarSign,
+  Clock,
+  Plus,
+  Trash2,
+  CheckCircle2,
+  AlertCircle,
+  RefreshCw,
+  Calendar,
+  Tag,
+  Copy,
+  Edit2,
+  Eye,
+  X,
+  ToggleLeft,
+  ToggleRight,
+  GraduationCap,
+  Users
+} from 'lucide-react';
+import {
+  getOwnerVenues,
+  getOwnerBranches,
+  getOwnerCourts,
+  getOwnerSchedules,
+  createOwnerSchedule,
+  updateOwnerSchedule,
+  toggleOwnerScheduleStatus,
+  duplicateOwnerSchedule,
+  deleteOwnerSchedule
+} from '../../api/owner';
 import Button from '../../components/ui/Button';
 import Card from '../../components/ui/Card';
 import Badge from '../../components/ui/Badge';
 import Input from '../../components/ui/Input';
+
+const DAY_OPTIONS = [
+  { id: 'MONDAY', label: 'T2', name: 'Thứ Hai' },
+  { id: 'TUESDAY', label: 'T3', name: 'Thứ Ba' },
+  { id: 'WEDNESDAY', label: 'T4', name: 'Thứ Tư' },
+  { id: 'THURSDAY', label: 'T5', name: 'Thứ Năm' },
+  { id: 'FRIDAY', label: 'T6', name: 'Thứ Sáu' },
+  { id: 'SATURDAY', label: 'T7', name: 'Thứ Bảy' },
+  { id: 'SUNDAY', label: 'CN', name: 'Chủ Nhật' }
+];
 
 export default function OwnerPricing() {
   const [venues, setVenues] = useState([]);
@@ -21,14 +59,21 @@ export default function OwnerPricing() {
 
   // Modal states
   const [modalOpen, setModalOpen] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [noticeModal, setNoticeModal] = useState({ open: false, title: '', message: '', type: 'success' });
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
+  // Form State
   const [form, setForm] = useState({
-    day_scope: 'Monday-Sunday',
-    opening_time: '06:00',
-    closing_time: '23:00',
-    base_hourly_price: 100000,
-    peak_price_rules: 'Khung giờ vàng 17:00 - 22:00: 140.000 đ/giờ'
+    pricingGroup: 'GENERAL',
+    selectedDays: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'],
+    opening_time: '05:00',
+    closing_time: '08:00',
+    fixed_price: 40000,
+    walk_in_price: 50000,
+    base_hourly_price: 40000,
+    is_active: true
   });
   const [errors, setErrors] = useState({});
 
@@ -122,6 +167,15 @@ export default function OwnerPricing() {
     fetchSchedules();
   }, [scopeTargetType, selectedVenueId, selectedBranchId, selectedCourtId]);
 
+  // Separate schedules into GENERAL and STUDENT lists
+  const generalSchedules = useMemo(() => {
+    return schedules.filter(s => (s.pricing_group || 'GENERAL') === 'GENERAL');
+  }, [schedules]);
+
+  const studentSchedules = useMemo(() => {
+    return schedules.filter(s => s.pricing_group === 'STUDENT');
+  }, [schedules]);
+
   const handleVenueChange = (e) => {
     const vId = e.target.value;
     setSelectedVenueId(vId);
@@ -134,22 +188,109 @@ export default function OwnerPricing() {
     fetchCourts(selectedVenueId, bId);
   };
 
-  const handleOpenCreateModal = () => {
+  // Open Create Modal prefilled for specific Pricing Group
+  const handleOpenCreateModal = (group = 'GENERAL') => {
+    setEditingSchedule(null);
     setForm({
-      day_scope: 'Monday-Sunday',
-      opening_time: '06:00',
-      closing_time: '23:00',
-      base_hourly_price: 100000,
-      peak_price_rules: 'Giờ vàng 17:00 - 22:00: +40.000 đ'
+      pricingGroup: group,
+      selectedDays: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'],
+      opening_time: '05:00',
+      closing_time: '08:00',
+      fixed_price: group === 'STUDENT' ? 30000 : 40000,
+      walk_in_price: group === 'STUDENT' ? 40000 : 50000,
+      base_hourly_price: group === 'STUDENT' ? 30000 : 40000,
+      is_active: true
     });
     setErrors({});
     setModalOpen(true);
   };
 
+  // Open Edit Modal prefilled with schedule values
+  const handleOpenEditModal = (sched) => {
+    setEditingSchedule(sched);
+
+    let parsedDays = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
+    if (sched.days_of_week) {
+      try {
+        const arr = JSON.parse(sched.days_of_week);
+        if (Array.isArray(arr) && arr.length > 0) parsedDays = arr;
+      } catch (e) {}
+    }
+
+    setForm({
+      pricingGroup: sched.pricing_group || 'GENERAL',
+      selectedDays: parsedDays,
+      opening_time: (sched.opening_time || '05:00').substring(0, 5),
+      closing_time: (sched.closing_time || '08:00').substring(0, 5),
+      fixed_price: parseInt(sched.fixed_price || sched.base_hourly_price || 40000),
+      walk_in_price: parseInt(sched.walk_in_price || sched.base_hourly_price || 50000),
+      base_hourly_price: parseInt(sched.base_hourly_price || 40000),
+      is_active: sched.is_active ?? true
+    });
+    setErrors({});
+    setModalOpen(true);
+  };
+
+  // Shortcut helpers for Day selection
+  const selectDaysShortcut = (type) => {
+    if (type === 'WEEKDAY') {
+      setForm(prev => ({ ...prev, selectedDays: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'] }));
+    } else if (type === 'WEEKEND') {
+      setForm(prev => ({ ...prev, selectedDays: ['SATURDAY', 'SUNDAY'] }));
+    } else if (type === 'ALL') {
+      setForm(prev => ({ ...prev, selectedDays: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY'] }));
+    } else if (type === 'NONE') {
+      setForm(prev => ({ ...prev, selectedDays: [] }));
+    }
+  };
+
+  const toggleDayCheck = (dayId) => {
+    setForm(prev => {
+      const exists = prev.selectedDays.includes(dayId);
+      if (exists) {
+        return { ...prev, selectedDays: prev.selectedDays.filter(d => d !== dayId) };
+      } else {
+        return { ...prev, selectedDays: [...prev.selectedDays, dayId] };
+      }
+    });
+  };
+
+  // Format Days for Table Display (e.g. "T2 - T6", "T7 - CN", "T2, T4, T6")
+  const formatDaysDisplay = (sched) => {
+    let daysArr = [];
+    if (sched.days_of_week) {
+      try {
+        const parsed = JSON.parse(sched.days_of_week);
+        if (Array.isArray(parsed) && parsed.length > 0) daysArr = parsed;
+      } catch (e) {}
+    }
+
+    if (daysArr.length === 0) return sched.day_scope || 'Tất cả các ngày';
+
+    if (daysArr.length === 7) return 'Tất cả các ngày (T2 - CN)';
+    if (daysArr.length === 5 && !daysArr.includes('SATURDAY') && !daysArr.includes('SUNDAY')) return 'T2 - T6 (Ngày thường)';
+    if (daysArr.length === 2 && daysArr.includes('SATURDAY') && daysArr.includes('SUNDAY')) return 'T7 - CN (Cuối tuần)';
+
+    const labels = daysArr.map(d => {
+      const match = DAY_OPTIONS.find(o => o.id === d);
+      return match ? match.label : d;
+    });
+    return labels.join(', ');
+  };
+
   const validate = () => {
     const errs = {};
-    if (!form.base_hourly_price || form.base_hourly_price <= 0) {
-      errs.base_hourly_price = 'Vui lòng nhập đơn giá thuê hợp lệ';
+    if (form.selectedDays.length === 0) {
+      errs.days = 'Vui lòng chọn ít nhất một ngày áp dụng';
+    }
+    if (!form.fixed_price || form.fixed_price <= 0) {
+      errs.fixed_price = 'Giá cố định phải lớn hơn 0';
+    }
+    if (!form.walk_in_price || form.walk_in_price <= 0) {
+      errs.walk_in_price = 'Giá vãng lai phải lớn hơn 0';
+    }
+    if (form.opening_time >= form.closing_time) {
+      errs.closing_time = 'Giờ đóng cửa phải sau giờ mở cửa';
     }
     return errs;
   };
@@ -176,23 +317,47 @@ export default function OwnerPricing() {
       return;
     }
 
+    // Build day scope summary text
+    let dayScopeStr = 'T2-T6';
+    if (form.selectedDays.length === 7) dayScopeStr = 'Tất cả (T2-CN)';
+    else if (form.selectedDays.length === 2 && form.selectedDays.includes('SATURDAY') && form.selectedDays.includes('SUNDAY')) dayScopeStr = 'T7-CN';
+    else {
+      dayScopeStr = form.selectedDays.map(d => DAY_OPTIONS.find(o => o.id === d)?.label).filter(Boolean).join(',');
+    }
+
+    const payload = {
+      pricingGroup: form.pricingGroup,
+      pricing_group: form.pricingGroup,
+      day_scope: dayScopeStr,
+      days: form.selectedDays,
+      days_of_week: form.selectedDays,
+      opening_time: form.opening_time.length === 5 ? `${form.opening_time}:00` : form.opening_time,
+      closing_time: form.closing_time.length === 5 ? `${form.closing_time}:00` : form.closing_time,
+      base_hourly_price: form.fixed_price,
+      fixed_price: form.fixed_price,
+      walk_in_price: form.walk_in_price,
+      is_active: form.is_active,
+      peak_price_rules: `Giá cố định: ${form.fixed_price.toLocaleString()}đ | Vãng lai: ${form.walk_in_price.toLocaleString()}đ`
+    };
+
     try {
       setActionLoading(true);
-      const payload = {
-        ...form,
-        venueId: selectedVenueId,
-        branchId: selectedBranchId
-      };
-      await createOwnerSchedule(scopeTargetType, targetId, payload);
-      setNoticeModal({ open: true, title: 'Thiết lập bảng giá', message: 'Bảng giá và giờ hoạt động đã được lưu thành công.', type: 'success' });
+      if (editingSchedule) {
+        await updateOwnerSchedule(editingSchedule.schedule_id, payload);
+        setNoticeModal({ open: true, title: 'Cập nhật bảng giá', message: 'Cập nhật khung giá thành công.', type: 'success' });
+      } else {
+        await createOwnerSchedule(scopeTargetType, targetId, payload);
+        setNoticeModal({ open: true, title: 'Thiết lập bảng giá', message: 'Tạo mới khung giá thành công.', type: 'success' });
+      }
       setModalOpen(false);
       fetchSchedules();
     } catch (err) {
       console.error('Failed to save schedule:', err);
+      const isOverlap = err.response?.status === 409 || err.response?.data?.code === 'PRICE_RULE_OVERLAP';
       setNoticeModal({
         open: true,
-        title: 'Lỗi thiết lập',
-        message: err.response?.data?.message || 'Không thể lưu bảng giá.',
+        title: isOverlap ? 'Trùng lặp khung giờ' : 'Lỗi thiết lập',
+        message: err.response?.data?.error?.message || err.response?.data?.message || 'Có một khung giá khác đang áp dụng trùng giờ cho đối tượng này.',
         type: 'error'
       });
     } finally {
@@ -200,13 +365,38 @@ export default function OwnerPricing() {
     }
   };
 
-  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const handleToggleStatus = async (scheduleId) => {
+    try {
+      setActionLoading(true);
+      await toggleOwnerScheduleStatus(scheduleId);
+      fetchSchedules();
+    } catch (err) {
+      console.error('Failed to toggle schedule status:', err);
+      setNoticeModal({ open: true, title: 'Không thể thay đổi', message: err.response?.data?.message || 'Lỗi bật/tắt khung giá.', type: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleDuplicateSubmit = async (scheduleId) => {
+    try {
+      setActionLoading(true);
+      await duplicateOwnerSchedule(scheduleId);
+      setNoticeModal({ open: true, title: 'Nhân bản thành công', message: 'Đã sao chép khung giá mới thành công.', type: 'success' });
+      fetchSchedules();
+    } catch (err) {
+      console.error('Failed to duplicate schedule:', err);
+      setNoticeModal({ open: true, title: 'Lỗi nhân bản', message: err.response?.data?.message || 'Không thể nhân bản khung giá.', type: 'error' });
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   const handleDeleteSubmit = async (scheduleId) => {
     try {
       setActionLoading(true);
       await deleteOwnerSchedule(scheduleId);
-      setNoticeModal({ open: true, title: 'Đã xóa bảng giá', message: 'Quy tắc giờ hoạt động & bảng giá đã bị xóa.', type: 'info' });
+      setNoticeModal({ open: true, title: 'Đã xóa bảng giá', message: 'Quy tắc bảng giá đã bị xóa.', type: 'info' });
       setDeleteConfirmId(null);
       fetchSchedules();
     } catch (err) {
@@ -217,8 +407,154 @@ export default function OwnerPricing() {
     }
   };
 
+  // Helper renderer for Pricing Table
+  const renderPricingTable = (title, groupKey, items, icon, badgeColor) => (
+    <Card padding="none" radius="2xl" className="border border-border-subtle-medium shadow-xs overflow-hidden space-y-0">
+      {/* Table Header Section */}
+      <div className="flex items-center justify-between px-6 py-4 bg-surface border-b border-border-subtle">
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-xl bg-${badgeColor}-100 text-${badgeColor}-600`}>
+            {icon}
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+              {title}
+              <Badge variant={groupKey === 'STUDENT' ? 'info' : 'warning'} size="xs">
+                {items.length} quy tắc
+              </Badge>
+            </h2>
+            <p className="text-xs text-text-muted mt-0.5">
+              {groupKey === 'STUDENT' ? 'Bảng giá ưu đãi dành riêng cho Học sinh - Sinh viên' : 'Bảng giá chuẩn áp dụng cho tất cả đối tượng khách hàng'}
+            </p>
+          </div>
+        </div>
+
+        <Button
+          variant={groupKey === 'STUDENT' ? 'outline' : 'primary'}
+          size="sm"
+          leftIcon={<Plus size={15} />}
+          onClick={() => handleOpenCreateModal(groupKey)}
+        >
+          Thêm khung giá {groupKey === 'STUDENT' ? 'HSSV' : 'Chung'}
+        </Button>
+      </div>
+
+      {/* Table Content */}
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr className="bg-surface-subtle text-[11px] font-bold text-text-muted uppercase tracking-wider border-b border-border-subtle">
+              <th className="py-3.5 px-5">Ngày áp dụng</th>
+              <th className="py-3.5 px-5">Khung giờ</th>
+              <th className="py-3.5 px-5 text-right">Giá Cố định / giờ</th>
+              <th className="py-3.5 px-5 text-right">Giá Vãng lai / giờ</th>
+              <th className="py-3.5 px-5 text-center">Trạng thái</th>
+              <th className="py-3.5 px-5 text-right">Thao tác</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border-subtle bg-surface text-gray-800">
+            {loading ? (
+              <tr>
+                <td colSpan={6} className="py-8 text-center text-text-muted">
+                  Đang tải bảng giá từ hệ thống...
+                </td>
+              </tr>
+            ) : items.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="py-8 text-center text-text-muted space-y-1">
+                  <p className="font-bold text-gray-800">Chưa có khung giá nào trong nhóm này</p>
+                  <p className="text-xs text-text-muted">Bấm "+ Thêm khung giá" để thiết lập giá thuê cho {title.toLowerCase()}.</p>
+                </td>
+              </tr>
+            ) : (
+              items.map((s) => {
+                const isActive = s.is_active ?? true;
+                const fixedP = parseInt(s.fixed_price || s.base_hourly_price || 0);
+                const walkP = parseInt(s.walk_in_price || s.base_hourly_price || 0);
+
+                return (
+                  <tr key={s.schedule_id} className={`hover:bg-surface-subtle/60 transition-colors ${!isActive ? 'opacity-50 bg-gray-50' : ''}`}>
+                    <td className="py-3.5 px-5 font-bold text-gray-900">
+                      <div className="flex items-center gap-2">
+                        <Calendar size={15} className="text-brand-orange shrink-0" />
+                        <span>{formatDaysDisplay(s)}</span>
+                      </div>
+                    </td>
+
+                    <td className="py-3.5 px-5 font-mono font-bold text-gray-900">
+                      <span className="inline-flex items-center gap-1.5 bg-gray-100 px-2.5 py-1 rounded-lg">
+                        <Clock size={13} className="text-gray-500" />
+                        {(s.opening_time || '05:00').substring(0, 5)} - {(s.closing_time || '08:00').substring(0, 5)}
+                      </span>
+                    </td>
+
+                    <td className="py-3.5 px-5 text-right font-extrabold text-emerald-700 text-sm">
+                      {fixedP > 0 ? `${fixedP.toLocaleString('vi-VN')}đ` : '---'}
+                    </td>
+
+                    <td className="py-3.5 px-5 text-right font-extrabold text-brand-orange text-sm">
+                      {walkP > 0 ? `${walkP.toLocaleString('vi-VN')}đ` : '---'}
+                    </td>
+
+                    <td className="py-3.5 px-5 text-center">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStatus(s.schedule_id)}
+                        className="inline-flex items-center gap-1 font-bold transition-all focus:outline-none"
+                        title={isActive ? 'Bấm để Tắt khung giá' : 'Bấm để Bật khung giá'}
+                      >
+                        {isActive ? (
+                          <Badge variant="success" size="xs" leftIcon={<ToggleRight size={14} />}>
+                            Hoạt động
+                          </Badge>
+                        ) : (
+                          <Badge variant="danger" size="xs" leftIcon={<ToggleLeft size={14} />}>
+                            Vô hiệu
+                          </Badge>
+                        )}
+                      </button>
+                    </td>
+
+                    <td className="py-3.5 px-5 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenEditModal(s)}
+                          className="p-1.5 rounded-lg bg-surface-subtle hover:bg-gray-200 text-gray-700 transition-colors"
+                          title="Sửa khung giá"
+                        >
+                          <Edit2 size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDuplicateSubmit(s.schedule_id)}
+                          className="p-1.5 rounded-lg bg-surface-subtle hover:bg-blue-50 text-blue-600 transition-colors"
+                          title="Nhân bản khung giá"
+                        >
+                          <Copy size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeleteConfirmId(s.schedule_id)}
+                          className="p-1.5 rounded-lg bg-surface-subtle hover:bg-rose-50 text-rose-600 transition-colors"
+                          title="Xóa khung giá"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
+            )}
+          </tbody>
+        </table>
+      </div>
+    </Card>
+  );
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -227,16 +563,25 @@ export default function OwnerPricing() {
             Quản lý Bảng Giá & Giờ Hoạt Động
           </h1>
           <p className="text-xs text-text-muted mt-1">
-            Cấu hình khung giờ mở/đóng cửa và giá thuê sân theo mốc giờ cho từng cụm sân, chi nhánh hoặc sân con.
+            Cấu hình các bảng giá động linh hoạt cho Khách Thường và Học sinh - Sinh viên theo từng khung giờ và ngày trong tuần.
           </p>
         </div>
 
         <div className="flex items-center gap-3">
           <Button
+            variant="outline"
+            size="md"
+            leftIcon={<Eye size={16} />}
+            onClick={() => setPreviewOpen(true)}
+          >
+            Xem trước tổng hợp
+          </Button>
+
+          <Button
             variant="primary"
             size="md"
             leftIcon={<Plus size={16} />}
-            onClick={handleOpenCreateModal}
+            onClick={() => handleOpenCreateModal('GENERAL')}
           >
             Thêm khung giá mới
           </Button>
@@ -312,135 +657,179 @@ export default function OwnerPricing() {
         </div>
       </Card>
 
-      {/* SCHEDULE & PRICING TABLE */}
-      <Card padding="none" radius="xl" className="border border-border-subtle-medium shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface-subtle text-[11px] font-bold text-text-muted uppercase tracking-wider border-b border-border-subtle-medium">
-                <th className="py-3.5 px-4">Ngày Áp Dụng</th>
-                <th className="py-3.5 px-4">Giờ Mở Cửa</th>
-                <th className="py-3.5 px-4">Giờ Đóng Cửa</th>
-                <th className="py-3.5 px-4">Giá Cơ Sở / Giờ</th>
-                <th className="py-3.5 px-4">Ghi Chú Khung Giờ Vàng</th>
-                <th className="py-3.5 px-4 text-right">Thao Tác</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border-subtle text-xs text-gray-700">
-              {loading ? (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-text-muted">
-                    Đang nạp bảng giá từ MySQL...
-                  </td>
-                </tr>
-              ) : schedules.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="py-8 text-center text-text-muted">
-                    Chưa có bảng giá được thiết lập cho phạm vi này. Bấm "Thêm khung giá mới".
-                  </td>
-                </tr>
-              ) : (
-                schedules.map((s) => (
-                  <tr key={s.schedule_id} className="hover:bg-surface-subtle/50 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-gray-900">
-                      <div className="flex items-center gap-2">
-                        <Calendar size={16} className="text-brand-orange shrink-0" />
-                        <span>{s.day_scope}</span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-4 font-mono font-semibold text-emerald-700">{s.opening_time}</td>
-                    <td className="py-3.5 px-4 font-mono font-semibold text-rose-700">{s.closing_time}</td>
-                    <td className="py-3.5 px-4 font-bold text-gray-900">
-                      {parseInt(s.base_hourly_price || 0).toLocaleString('vi-VN')} đ/h
-                    </td>
-                    <td className="py-3.5 px-4 text-text-muted italic">{s.peak_price_rules || 'Không áp dụng'}</td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => setDeleteConfirmId(s.schedule_id)}
-                        className="p-1.5 rounded-lg bg-surface-subtle hover:bg-rose-50 text-rose-600 transition-colors"
-                        title="Xóa quy tắc bảng giá"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
+      {/* SECTION 1: BẢNG GIÁ CHUNG (GENERAL) */}
+      {renderPricingTable(
+        'BẢNG GIÁ CHUNG',
+        'GENERAL',
+        generalSchedules,
+        <Users size={20} />,
+        'amber'
+      )}
 
-      {/* CREATE PRICING MODAL */}
+      {/* SECTION 2: BẢNG GIÁ HỌC SINH - SINH VIÊN (STUDENT) */}
+      {renderPricingTable(
+        'BẢNG GIÁ HỌC SINH - SINH VIÊN',
+        'STUDENT',
+        studentSchedules,
+        <GraduationCap size={20} />,
+        'blue'
+      )}
+
+      {/* CREATE / EDIT PRICING MODAL */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/70 backdrop-blur-xs">
-          <form onSubmit={handleSubmit} className="bg-surface border border-border-subtle-medium rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
-            <h3 className="text-lg font-bold text-gray-900 border-b border-border-subtle pb-3">
-              Thiết lập khung giá & giờ hoạt động mới
-            </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <form onSubmit={handleSubmit} className="bg-surface border border-border-subtle-medium rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border-subtle pb-3">
+              <h3 className="text-lg font-bold text-gray-900">
+                {editingSchedule ? 'Cập nhật quy tắc bảng giá' : 'Thêm khung giá mới'}
+              </h3>
+              <button type="button" onClick={() => setModalOpen(false)} className="p-1 text-text-muted hover:text-gray-900">
+                <X size={20} />
+              </button>
+            </div>
 
-            <div className="space-y-3">
-              <div>
-                <label className="text-xs font-bold text-gray-900 block mb-1">Ngày áp dụng *</label>
-                <select
-                  value={form.day_scope}
-                  onChange={(e) => setForm({ ...form, day_scope: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-sm font-medium focus:outline-none focus:border-brand-orange"
-                >
-                  <option value="Monday-Sunday">Tất cả các ngày (Thứ 2 - Chủ Nhật)</option>
-                  <option value="Weekday">Ngày thường (Thứ 2 - Thứ 6)</option>
-                  <option value="Weekend">Cuối tuần (Thứ 7 - Chủ Nhật)</option>
-                  <option value="Monday">Thứ Hai</option>
-                  <option value="Tuesday">Thứ Ba</option>
-                  <option value="Wednesday">Thứ Tư</option>
-                  <option value="Thursday">Thứ Năm</option>
-                  <option value="Friday">Thứ Sáu</option>
-                  <option value="Saturday">Thứ Bảy</option>
-                  <option value="Sunday">Chủ Nhật</option>
-                </select>
+            <div className="space-y-4 text-xs">
+              {/* 1. PRICING GROUP SELECTOR */}
+              <div className="space-y-1.5">
+                <label className="font-bold text-gray-900 block">ĐỐI TƯỢNG *</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, pricingGroup: 'GENERAL' })}
+                    className={`p-3 rounded-xl border flex items-center gap-2 font-bold transition-all text-xs ${
+                      form.pricingGroup === 'GENERAL'
+                        ? 'border-brand-orange bg-brand-orange/10 text-brand-orange shadow-xs'
+                        : 'border-border-subtle-medium bg-surface text-gray-700 hover:bg-surface-subtle'
+                    }`}
+                  >
+                    <Users size={16} />
+                    <span>Giá Chung</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setForm({ ...form, pricingGroup: 'STUDENT' })}
+                    className={`p-3 rounded-xl border flex items-center gap-2 font-bold transition-all text-xs ${
+                      form.pricingGroup === 'STUDENT'
+                        ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-xs'
+                        : 'border-border-subtle-medium bg-surface text-gray-700 hover:bg-surface-subtle'
+                    }`}
+                  >
+                    <GraduationCap size={16} />
+                    <span>Học sinh - Sinh viên</span>
+                  </button>
+                </div>
               </div>
 
+              {/* 2. DAYS SELECTION CHECKBOXES & SHORTCUTS */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-gray-900 block">NGÀY ÁP DỤNG *</label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => selectDaysShortcut('WEEKDAY')}
+                      className="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 font-semibold text-[10px] text-gray-700"
+                    >
+                      T2-T6
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectDaysShortcut('WEEKEND')}
+                      className="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 font-semibold text-[10px] text-gray-700"
+                    >
+                      T7-CN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectDaysShortcut('ALL')}
+                      className="px-2 py-1 rounded bg-gray-100 hover:bg-gray-200 font-semibold text-[10px] text-gray-700"
+                    >
+                      Tất cả
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-7 gap-1.5">
+                  {DAY_OPTIONS.map((day) => {
+                    const isChecked = form.selectedDays.includes(day.id);
+                    return (
+                      <button
+                        key={day.id}
+                        type="button"
+                        onClick={() => toggleDayCheck(day.id)}
+                        className={`py-2 rounded-xl font-bold text-center border text-xs transition-all ${
+                          isChecked
+                            ? 'bg-brand-orange text-white border-brand-orange shadow-xs'
+                            : 'bg-surface border-border-subtle-medium text-gray-700 hover:border-brand-orange/50'
+                        }`}
+                        title={day.name}
+                      >
+                        {day.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {errors.days && <p className="text-[11px] text-rose-600 mt-1">{errors.days}</p>}
+              </div>
+
+              {/* 3. TIME RANGE */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-gray-900 block mb-1">Giờ mở cửa *</label>
+                  <label className="font-bold text-gray-900 block mb-1">Từ giờ *</label>
                   <input
                     type="time"
                     value={form.opening_time}
                     onChange={(e) => setForm({ ...form, opening_time: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-sm font-medium focus:outline-none focus:border-brand-orange"
+                    className="w-full px-4 py-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-sm font-semibold focus:outline-none focus:border-brand-orange"
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-gray-900 block mb-1">Giờ đóng cửa *</label>
+                  <label className="font-bold text-gray-900 block mb-1">Đến giờ *</label>
                   <input
                     type="time"
                     value={form.closing_time}
                     onChange={(e) => setForm({ ...form, closing_time: e.target.value })}
-                    className="w-full px-4 py-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-sm font-medium focus:outline-none focus:border-brand-orange"
+                    className="w-full px-4 py-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-sm font-semibold focus:outline-none focus:border-brand-orange"
                   />
+                  {errors.closing_time && <p className="text-[11px] text-rose-600 mt-1">{errors.closing_time}</p>}
                 </div>
               </div>
 
-              <Input
-                id="base_hourly_price"
-                name="base_hourly_price"
-                type="number"
-                label="Giá thuê cơ sở / giờ (VNĐ) *"
-                placeholder="VD: 100000"
-                value={form.base_hourly_price}
-                onChange={(e) => setForm({ ...form, base_hourly_price: e.target.value })}
-                error={errors.base_hourly_price}
-                required
-              />
+              {/* 4. FIXED PRICE & WALK-IN PRICE */}
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  id="fixed_price"
+                  name="fixed_price"
+                  type="number"
+                  label="GIÁ CỐ ĐỊNH / GIỜ (VNĐ) *"
+                  placeholder="VD: 40000"
+                  value={form.fixed_price}
+                  onChange={(e) => setForm({ ...form, fixed_price: parseFloat(e.target.value) || 0 })}
+                  error={errors.fixed_price}
+                  required
+                />
+                <Input
+                  id="walk_in_price"
+                  name="walk_in_price"
+                  type="number"
+                  label="GIÁ VÃNG LAI / GIỜ (VNĐ) *"
+                  placeholder="VD: 50000"
+                  value={form.walk_in_price}
+                  onChange={(e) => setForm({ ...form, walk_in_price: parseFloat(e.target.value) || 0 })}
+                  error={errors.walk_in_price}
+                  required
+                />
+              </div>
 
-              <div>
-                <label className="text-xs font-bold text-gray-900 block mb-1">Quy tắc phụ thu khung giờ vàng</label>
+              {/* 5. ACTIVE STATUS SWITCH */}
+              <div className="flex items-center justify-between p-3 bg-surface-subtle rounded-xl border border-border-subtle">
+                <span className="font-bold text-gray-900">Kích hoạt quy tắc bảng giá này:</span>
                 <input
-                  type="text"
-                  placeholder="VD: Giờ vàng 17:00-22:00: 140.000 đ"
-                  value={form.peak_price_rules}
-                  onChange={(e) => setForm({ ...form, peak_price_rules: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-sm font-medium focus:outline-none focus:border-brand-orange"
+                  type="checkbox"
+                  checked={form.is_active}
+                  onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
+                  className="w-5 h-5 accent-brand-orange cursor-pointer"
                 />
               </div>
             </div>
@@ -460,10 +849,83 @@ export default function OwnerPricing() {
                 size="sm"
                 disabled={actionLoading}
               >
-                {actionLoading ? 'Đang lưu...' : 'Lưu bảng giá'}
+                {actionLoading ? 'Đang lưu...' : (editingSchedule ? 'Cập nhật khung giá' : 'Lưu khung giá')}
               </Button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* PREVIEW PRICING MODAL */}
+      {previewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-surface border border-border-subtle-medium rounded-2xl max-w-3xl w-full p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between border-b border-border-subtle pb-3">
+              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <Eye size={20} className="text-brand-orange" />
+                Xem trước Bảng giá tổng hợp theo phân nhóm
+              </h3>
+              <button onClick={() => setPreviewOpen(false)} className="p-1 rounded-lg text-text-muted hover:text-gray-900">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-6 text-xs">
+              <div>
+                <h4 className="font-bold text-gray-900 text-sm mb-2 flex items-center gap-2 text-brand-orange">
+                  <Users size={16} /> 1. BẢNG GIÁ CHUNG ({generalSchedules.length} khung giá)
+                </h4>
+                {generalSchedules.length === 0 ? (
+                  <p className="text-text-muted italic">Chưa có khung giá chung nào.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {generalSchedules.map((s) => (
+                      <div key={s.schedule_id} className="p-3 rounded-xl border border-border-subtle bg-surface flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-gray-900">{formatDaysDisplay(s)}</span>
+                          <span className="ml-3 font-mono text-gray-600">{(s.opening_time || '05:00').substring(0, 5)} - {(s.closing_time || '08:00').substring(0, 5)}</span>
+                        </div>
+                        <div className="font-bold text-right space-x-3">
+                          <span className="text-emerald-700">Cố định: {parseInt(s.fixed_price || s.base_hourly_price || 0).toLocaleString()}đ</span>
+                          <span className="text-brand-orange">Vãng lai: {parseInt(s.walk_in_price || s.base_hourly_price || 0).toLocaleString()}đ</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-3 border-t border-border-subtle">
+                <h4 className="font-bold text-gray-900 text-sm mb-2 flex items-center gap-2 text-blue-600">
+                  <GraduationCap size={16} /> 2. BẢNG GIÁ HỌC SINH - SINH VIÊN ({studentSchedules.length} khung giá)
+                </h4>
+                {studentSchedules.length === 0 ? (
+                  <p className="text-text-muted italic">Chưa có khung giá HSSV nào.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {studentSchedules.map((s) => (
+                      <div key={s.schedule_id} className="p-3 rounded-xl border border-border-subtle bg-surface flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-gray-900">{formatDaysDisplay(s)}</span>
+                          <span className="ml-3 font-mono text-gray-600">{(s.opening_time || '05:00').substring(0, 5)} - {(s.closing_time || '08:00').substring(0, 5)}</span>
+                        </div>
+                        <div className="font-bold text-right space-x-3">
+                          <span className="text-emerald-700">Cố định: {parseInt(s.fixed_price || s.base_hourly_price || 0).toLocaleString()}đ</span>
+                          <span className="text-brand-orange">Vãng lai: {parseInt(s.walk_in_price || s.base_hourly_price || 0).toLocaleString()}đ</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-border-subtle text-right">
+              <Button variant="primary" size="sm" onClick={() => setPreviewOpen(false)}>
+                Đóng
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -506,9 +968,9 @@ export default function OwnerPricing() {
       {deleteConfirmId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="bg-surface rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl text-center border border-border-subtle-medium">
-            <h3 className="text-base font-bold text-gray-900">Xác nhận xóa bảng giá</h3>
+            <h3 className="text-base font-bold text-gray-900">Xác nhận xóa khung giá</h3>
             <p className="text-xs text-text-muted leading-relaxed">
-              Bạn có chắc chắn muốn xóa quy tắc bảng giá này? Thao tác này không thể hoàn tác.
+              Bạn có chắc chắn muốn xóa quy tắc bảng giá này không? Thao tác không thể hoàn tác.
             </p>
             <div className="pt-2 flex gap-2">
               <Button variant="outline" size="md" fullWidth onClick={() => setDeleteConfirmId(null)} disabled={actionLoading}>

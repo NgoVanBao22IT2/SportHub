@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Lock, AlertCircle } from 'lucide-react';
+import { X, Lock, AlertCircle, Clock } from 'lucide-react';
 import Button from '../ui/Button';
 
 export default function BlockSlotModal({
@@ -13,15 +13,37 @@ export default function BlockSlotModal({
 }) {
   const [reason, setReason] = useState('Bảo trì sân định kỳ');
   const [customReason, setCustomReason] = useState('');
+  const [blockScope, setBlockScope] = useState('ONE_TIME'); // ONE_TIME | 1_HOUR | 2_HOURS | LONG_TERM
   const [error, setError] = useState('');
 
   useEffect(() => {
     setReason('Bảo trì sân định kỳ');
     setCustomReason('');
+    setBlockScope('ONE_TIME');
     setError('');
   }, [isOpen, slot]);
 
   if (!isOpen || !slot || !court) return null;
+
+  // Calculate End Time based on Block Scope
+  const calculateEndTime = () => {
+    if (!slot.start_time) return slot.end_time;
+    const [hStr, mStr] = slot.start_time.split(':');
+    let h = parseInt(hStr, 10);
+    let m = parseInt(mStr, 10);
+
+    if (blockScope === '1_HOUR') {
+      h += 1;
+    } else if (blockScope === '2_HOURS') {
+      h += 2;
+    } else {
+      return slot.end_time;
+    }
+
+    const sH = String(Math.min(h, 23)).padStart(2, '0');
+    const sM = String(m).padStart(2, '0');
+    return `${sH}:${sM}:00`;
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -31,11 +53,16 @@ export default function BlockSlotModal({
       return;
     }
     setError('');
+
+    const endTime = calculateEndTime();
+
     onConfirmBlock({
       courtId: court.court_id,
       date,
       startTime: slot.start_time,
-      endTime: slot.end_time,
+      endTime: endTime || slot.end_time,
+      blockType: blockScope === 'LONG_TERM' ? 'LONG_TERM' : 'ONE_TIME',
+      durationScope: blockScope,
       reason: finalReason
     });
   };
@@ -65,9 +92,39 @@ export default function BlockSlotModal({
           <div className="p-3 bg-surface-subtle border border-border-subtle rounded-xl space-y-1">
             <p className="font-bold text-gray-900">{court.court_name}</p>
             <p className="text-text-muted">
-              Ngày: <strong>{date}</strong> • Giờ: <strong className="text-brand-orange">{slot.label || `${slot.start_time?.substring(0, 5)} - ${slot.end_time?.substring(0, 5)}`}</strong>
+              Ngày áp dụng: <strong>{date}</strong> • Khung giờ bắt đầu: <strong className="text-brand-orange">{slot.label || `${slot.start_time?.substring(0, 5)} - ${slot.end_time?.substring(0, 5)}`}</strong>
             </p>
           </div>
+
+          {/* Block Duration / Scope selection */}
+          <div className="space-y-1.5">
+            <label className="font-bold text-gray-900 flex items-center gap-1.5">
+              <Clock size={14} className="text-brand-orange" />
+              Thời hạn / Phạm vi khóa *
+            </label>
+            <select
+              value={blockScope}
+              onChange={(e) => setBlockScope(e.target.value)}
+              className="w-full p-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 focus:border-brand-orange focus:outline-none text-xs font-medium"
+            >
+              <option value="ONE_TIME">Chỉ khung giờ này (30 phút)</option>
+              <option value="1_HOUR">Khóa 1 giờ (2 khung 30 phút liên tiếp)</option>
+              <option value="2_HOURS">Khóa 2 giờ (4 khung 30 phút liên tiếp)</option>
+              <option value="LONG_TERM">Cho tới khi Owner mở lại (Khóa dài hạn các ngày tương lai)</option>
+            </select>
+          </div>
+
+          {blockScope === 'LONG_TERM' && (
+            <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1 text-amber-900">
+              <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                <AlertCircle size={15} className="text-amber-600 shrink-0" />
+                <span>Cảnh báo Khóa dài hạn</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-amber-800">
+                Khung giờ này sẽ bị khóa trên <strong>tất cả các ngày trong tương lai</strong> tính từ ngày <strong>{date}</strong> cho đến khi bạn mở lại trên hệ thống. Khách hàng sẽ không thể đặt khung giờ này.
+              </p>
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <label className="font-bold text-gray-900 block">Lý do khóa sân *</label>
@@ -104,7 +161,7 @@ export default function BlockSlotModal({
               Hủy
             </Button>
             <Button type="submit" variant="danger" size="sm" loading={loading} leftIcon={<Lock size={14} />}>
-              Xác nhận khóa khung giờ
+              {blockScope === 'LONG_TERM' ? 'Xác nhận khóa dài hạn' : 'Xác nhận khóa khung giờ'}
             </Button>
           </div>
         </form>

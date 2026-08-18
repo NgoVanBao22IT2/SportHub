@@ -32,6 +32,48 @@ class ScheduleController {
     }
   }
 
+  async updateSchedule(req, res) {
+    try {
+      const { scheduleId } = req.params;
+      const result = await scheduleService.updateSchedule(req.user.userId, scheduleId, req.body, models);
+      return res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      return res.status(err.statusCode || 500).json({
+        success: false,
+        code: err.code || 'SERVER_ERROR',
+        message: err.message
+      });
+    }
+  }
+
+  async duplicateSchedule(req, res) {
+    try {
+      const { scheduleId } = req.params;
+      const result = await scheduleService.duplicateSchedule(req.user.userId, scheduleId, req.body, models);
+      return res.status(201).json({ success: true, data: result });
+    } catch (err) {
+      return res.status(err.statusCode || 500).json({
+        success: false,
+        code: err.code || 'SERVER_ERROR',
+        message: err.message
+      });
+    }
+  }
+
+  async toggleScheduleStatus(req, res) {
+    try {
+      const { scheduleId } = req.params;
+      const result = await scheduleService.toggleScheduleStatus(req.user.userId, scheduleId, models);
+      return res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      return res.status(err.statusCode || 500).json({
+        success: false,
+        code: err.code || 'SERVER_ERROR',
+        message: err.message
+      });
+    }
+  }
+
   async deleteSchedule(req, res) {
     try {
       const { scheduleId } = req.params;

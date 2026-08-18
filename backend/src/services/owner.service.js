@@ -620,6 +620,135 @@ class OwnerService {
   }
 
   /**
+   * Get all bookings owned by this venue owner with optional filters
+   */
+  static async getOwnerBookings(ownerId, options = {}) {
+    const { page = 1, limit = 10, status = 'ALL', search = '' } = options;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
+
+    const whereClause = {};
+
+    if (status && status !== 'ALL') {
+      if (status === 'PENDING') {
+        whereClause.booking_status = {
+          [Op.in]: ['WAITING_OWNER_CONFIRMATION', 'PAYMENT_PENDING', 'HOLDING']
+        };
+      } else if (status === 'CONFIRMED') {
+        whereClause.booking_status = {
+          [Op.in]: ['CONFIRMED', 'COMPLETED']
+        };
+      } else {
+        whereClause.booking_status = status;
+      }
+    }
+
+    if (search && search.trim()) {
+      const trimmed = search.trim();
+      whereClause[Op.or] = [
+        { booking_id: { [Op.like]: `%${trimmed}%` } },
+        { '$customer.full_name$': { [Op.like]: `%${trimmed}%` } },
+        { '$customer.phone_number$': { [Op.like]: `%${trimmed}%` } }
+      ];
+    }
+
+    const { rows, count } = await Booking.findAndCountAll({
+      where: whereClause,
+      include: [
+        {
+          model: Court,
+          as: 'court',
+          required: true,
+          include: [
+            {
+              model: Branch,
+              as: 'branch',
+              required: true,
+              include: [
+                {
+                  model: Venue,
+                  as: 'venue',
+                  required: true,
+                  where: { owner_user_id: ownerId }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          model: User,
+          as: 'customer',
+          attributes: ['user_id', 'full_name', 'email', 'phone_number']
+        },
+        {
+          model: Payment,
+          as: 'payments'
+        }
+      ],
+      order: [['created_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      distinct: true
+    });
+
+    return {
+      data: rows,
+      meta: {
+        total: count,
+        page: parseInt(page),
+        limit: parseInt(limit)
+      }
+    };
+  }
+
+  /**
+   * Get single booking detail by bookingId owned by this venue owner
+   */
+  static async getOwnerBookingDetail(ownerId, bookingId) {
+    const booking = await Booking.findOne({
+      where: { booking_id: bookingId },
+      include: [
+        {
+          model: Court,
+          as: 'court',
+          required: true,
+          include: [
+            {
+              model: Branch,
+              as: 'branch',
+              required: true,
+              include: [
+                {
+                  model: Venue,
+                  as: 'venue',
+                  required: true,
+                  where: { owner_user_id: ownerId }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          model: User,
+          as: 'customer',
+          attributes: ['user_id', 'full_name', 'email', 'phone_number']
+        },
+        {
+          model: Payment,
+          as: 'payments'
+        }
+      ]
+    });
+
+    if (!booking) {
+      const err = new Error('Booking not found or not owned by you');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    return booking;
+  }
+
+  /**
    * Get pending bookings waiting for owner confirmation
    */
   static async getPendingBookings(ownerId, options = {}) {
@@ -792,9 +921,9 @@ class OwnerService {
   /**
    * Block a court slot by venue owner with conflict validation
    */
-  static async blockCourtSlot(ownerId, { courtId, date, startTime, endTime, reason }) {
+  static async blockCourtSlot(ownerId, { courtId, date, startTime, endTime, blockType, reason }) {
     const { v4: uuidv4 } = require('uuid');
-    const { SlotBlocking } = require('../models');
+    const { SlotBlocking, CourtBlockRule } = require('../models');
 
     // 1. Ownership check
     const court = await Court.findOne({
@@ -822,7 +951,45 @@ class OwnerService {
       throw err;
     }
 
-    // 2. Conflict check: Check if an active booking overlaps with this time slot
+    if (blockType === 'LONG_TERM') {
+      // 2a. Conflict check for long-term block (check any future bookings on/after date at requested time interval)
+      const activeBooking = await Booking.findOne({
+        where: {
+          court_id: courtId,
+          booking_date: { [Op.gte]: date },
+          booking_status: {
+            [Op.in]: ['HOLDING', 'PAYMENT_PENDING', 'WAITING_OWNER_CONFIRMATION', 'CONFIRMED', 'COMPLETED']
+          },
+          start_time: { [Op.lt]: endTime },
+          end_time: { [Op.gt]: startTime }
+        }
+      });
+
+      if (activeBooking) {
+        const err = new Error('Không thể áp dụng khóa dài hạn vì đã có đơn đặt sân trong tương lai vào khung giờ này.');
+        err.statusCode = 409;
+        err.code = 'SLOT_ALREADY_BOOKED';
+        throw err;
+      }
+
+      // Create long-term CourtBlockRule
+      const rule = await CourtBlockRule.create({
+        rule_id: uuidv4(),
+        court_id: courtId,
+        created_by_owner_id: ownerId,
+        start_date: date,
+        end_date: null,
+        start_time: startTime,
+        end_time: endTime,
+        block_type: 'LONG_TERM',
+        block_reason: reason || 'Khóa dài hạn cho tới khi Owner mở lại',
+        status: 'ACTIVE'
+      });
+
+      return rule;
+    }
+
+    // 2b. Conflict check for one-time block
     const activeBooking = await Booking.findOne({
       where: {
         court_id: courtId,
@@ -857,11 +1024,12 @@ class OwnerService {
   }
 
   /**
-   * Unblock a court slot by blockId
+   * Unblock a court slot by blockId (SlotBlocking or CourtBlockRule)
    */
   static async unblockCourtSlot(ownerId, blockId) {
-    const { SlotBlocking } = require('../models');
+    const { SlotBlocking, CourtBlockRule } = require('../models');
 
+    // 1. Search in SlotBlocking
     const block = await SlotBlocking.findOne({
       where: { block_id: blockId },
       include: [
@@ -888,14 +1056,47 @@ class OwnerService {
       ]
     });
 
-    if (!block) {
-      const err = new Error('Khung giờ bị khóa không tồn tại hoặc bạn không có quyền mở khóa.');
-      err.statusCode = 403;
-      throw err;
+    if (block) {
+      await block.destroy();
+      return { success: true, message: 'Đã mở khóa khung giờ thành công.' };
     }
 
-    await block.destroy();
-    return { success: true, message: 'Đã mở khóa khung giờ thành công.' };
+    // 2. Search in CourtBlockRule
+    const rule = await CourtBlockRule.findOne({
+      where: { rule_id: blockId },
+      include: [
+        {
+          model: Court,
+          as: 'court',
+          required: true,
+          include: [
+            {
+              model: Branch,
+              as: 'branch',
+              required: true,
+              include: [
+                {
+                  model: Venue,
+                  as: 'venue',
+                  required: true,
+                  where: { owner_user_id: ownerId }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+
+    if (rule) {
+      rule.status = 'INACTIVE';
+      await rule.save();
+      return { success: true, message: 'Đã mở khóa quy tắc khóa dài hạn thành công.' };
+    }
+
+    const err = new Error('Khung giờ bị khóa không tồn tại hoặc bạn không có quyền mở khóa.');
+    err.statusCode = 403;
+    throw err;
   }
 
   /**
@@ -2210,6 +2411,171 @@ class OwnerService {
     await user.save();
 
     return { success: true, message: 'Đổi mật khẩu thành công.' };
+  }
+
+  // ==========================================
+  // PAYMENT ACCOUNT MANAGEMENT METHODS
+  // ==========================================
+  static async getOwnerPaymentAccounts(ownerId, { venueId } = {}) {
+    const { VenuePaymentAccount, Venue } = require('../models');
+    const { Op } = require('sequelize');
+
+    const ownerVenues = await Venue.findAll({
+      where: { owner_user_id: ownerId },
+      attributes: ['venue_id']
+    });
+    const ownerVenueIds = ownerVenues.map(v => v.venue_id);
+
+    if (ownerVenueIds.length === 0) {
+      return [];
+    }
+
+    const whereClause = {
+      venue_id: { [Op.in]: ownerVenueIds }
+    };
+    if (venueId) {
+      whereClause.venue_id = venueId;
+    }
+
+    const accounts = await VenuePaymentAccount.findAll({
+      where: whereClause,
+      include: [
+        {
+          model: Venue,
+          as: 'venue',
+          attributes: ['venue_id', 'venue_name']
+        }
+      ],
+      order: [['created_at', 'DESC']]
+    });
+
+    return accounts;
+  }
+
+  static async createOwnerPaymentAccount(ownerId, accountData) {
+    const { VenuePaymentAccount, Venue } = require('../models');
+    const { v4: uuidv4 } = require('uuid');
+
+    const {
+      venue_id,
+      payment_method,
+      account_name,
+      account_number,
+      bank_name,
+      phone_number,
+      qr_code_url
+    } = accountData;
+
+    if (!venue_id) {
+      const err = new Error('Vui lòng chọn Câu lạc bộ áp dụng.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    if (!account_name || !account_name.trim()) {
+      const err = new Error('Tên chủ tài khoản không được để trống.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    if (!account_number || !account_number.trim()) {
+      const err = new Error('Số tài khoản không được để trống.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const venue = await Venue.findOne({
+      where: {
+        venue_id,
+        owner_user_id: ownerId
+      }
+    });
+
+    if (!venue) {
+      const err = new Error('Câu lạc bộ không tồn tại hoặc bạn không có quyền quản lý.');
+      err.statusCode = 403;
+      throw err;
+    }
+
+    const newAccount = await VenuePaymentAccount.create({
+      account_id: uuidv4(),
+      venue_id,
+      payment_method: payment_method || 'BANK_TRANSFER',
+      account_name: account_name.trim(),
+      account_number: account_number.trim(),
+      bank_name: bank_name ? bank_name.trim() : null,
+      phone_number: phone_number ? phone_number.trim() : null,
+      qr_code_url: qr_code_url || null,
+      is_active: true
+    });
+
+    return newAccount;
+  }
+
+  static async updateOwnerPaymentAccount(ownerId, accountId, accountData) {
+    const { VenuePaymentAccount, Venue } = require('../models');
+
+    const account = await VenuePaymentAccount.findOne({
+      where: { account_id: accountId },
+      include: [
+        {
+          model: Venue,
+          as: 'venue',
+          where: { owner_user_id: ownerId }
+        }
+      ]
+    });
+
+    if (!account) {
+      const err = new Error('Tài khoản thanh toán không tồn tại hoặc bạn không có quyền chỉnh sửa.');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const {
+      payment_method,
+      account_name,
+      account_number,
+      bank_name,
+      phone_number,
+      qr_code_url,
+      is_active
+    } = accountData;
+
+    if (payment_method !== undefined) account.payment_method = payment_method;
+    if (account_name !== undefined) account.account_name = account_name.trim();
+    if (account_number !== undefined) account.account_number = account_number.trim();
+    if (bank_name !== undefined) account.bank_name = bank_name ? bank_name.trim() : null;
+    if (phone_number !== undefined) account.phone_number = phone_number ? phone_number.trim() : null;
+    if (qr_code_url !== undefined) account.qr_code_url = qr_code_url;
+    if (is_active !== undefined) account.is_active = is_active;
+
+    await account.save();
+    return account;
+  }
+
+  static async deleteOwnerPaymentAccount(ownerId, accountId) {
+    const { VenuePaymentAccount, Venue } = require('../models');
+
+    const account = await VenuePaymentAccount.findOne({
+      where: { account_id: accountId },
+      include: [
+        {
+          model: Venue,
+          as: 'venue',
+          where: { owner_user_id: ownerId }
+        }
+      ]
+    });
+
+    if (!account) {
+      const err = new Error('Tài khoản thanh toán không tồn tại hoặc bạn không có quyền xóa.');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    await account.destroy();
+    return { success: true, message: 'Đã xóa tài khoản thanh toán thành công.' };
   }
 }
 

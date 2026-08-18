@@ -15,9 +15,19 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(36),
       allowNull: false
     },
+    pricing_group: {
+      type: DataTypes.ENUM('GENERAL', 'STUDENT'),
+      allowNull: false,
+      defaultValue: 'GENERAL'
+    },
     day_scope: {
       type: DataTypes.STRING(50),
       allowNull: false
+    },
+    days_of_week: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: null
     },
     opening_time: {
       type: DataTypes.TIME,
@@ -31,10 +41,23 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DECIMAL(12, 2),
       allowNull: false
     },
+    fixed_price: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true
+    },
+    walk_in_price: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true
+    },
     peak_price_rules: {
       type: DataTypes.TEXT,
       allowNull: true,
       defaultValue: null
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true
     }
   }, {
     tableName: 'operating_schedules',

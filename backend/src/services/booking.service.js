@@ -1,5 +1,5 @@
 const { v4: uuidv4 } = require('uuid');
-const { Booking, BookingStatusHistory, Court, SlotBlocking, sequelize } = require('../models');
+const { Booking, BookingStatusHistory, Court, SlotBlocking, CourtBlockRule, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const PricingService = require('./pricing.service');
 
@@ -28,13 +28,19 @@ class BookingService {
         transaction
       });
 
-      if (!court || court.court_status !== 'ACTIVE') {
-        const error = new Error('Court is not available');
+      if (!court) {
+        const error = new Error('Court not found');
         error.statusCode = 404;
         throw error;
       }
 
-      // 2. Validate Operating Schedule & Get Price Snapshot
+      if (court.court_status !== 'ACTIVE') {
+        const error = new Error(`Court is currently ${court.court_status}`);
+        error.statusCode = 400;
+        throw error;
+      }
+
+      // 2. Pricing & Schedule Validation
       let pricing;
       try {
         pricing = await PricingService.calculatePrice(court_id, booking_date, start_time, end_time);
@@ -47,7 +53,7 @@ class BookingService {
         throw err;
       }
 
-      // 3. Check for Blockings (Conflict formula: existing_start < requested_end AND existing_end > requested_start)
+      // 3a. Check for One-time Blockings
       const blocking = await SlotBlocking.findOne({
         where: {
           court_id,
@@ -59,8 +65,31 @@ class BookingService {
       });
 
       if (blocking) {
-        const error = new Error('Court is blocked during this time');
+        const error = new Error('Khung giờ này đã bị Chủ sân khóa.');
         error.statusCode = 409;
+        throw error;
+      }
+
+      // 3b. Check for Active Long-Term Block Rules
+      const blockRule = await CourtBlockRule.findOne({
+        where: {
+          court_id,
+          status: 'ACTIVE',
+          start_date: { [Op.lte]: booking_date },
+          [Op.or]: [
+            { end_date: null },
+            { end_date: { [Op.gte]: booking_date } }
+          ],
+          start_time: { [Op.lt]: end_time },
+          end_time: { [Op.gt]: start_time }
+        },
+        transaction
+      });
+
+      if (blockRule) {
+        const error = new Error('Khung giờ này đã bị Chủ sân khóa.');
+        error.statusCode = 409;
+        error.code = 'SLOT_BLOCKED_BY_OWNER';
         throw error;
       }
 

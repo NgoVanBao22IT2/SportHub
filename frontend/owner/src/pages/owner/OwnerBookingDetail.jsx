@@ -177,7 +177,7 @@ export default function OwnerBookingDetail() {
         </div>
 
         <div className="flex items-center gap-2">
-          {status === 'WAITING_OWNER_CONFIRMATION' && (
+          {(status === 'WAITING_OWNER_CONFIRMATION' || status === 'HOLDING' || status === 'PAYMENT_PENDING' || booking.payment_proof_url) && status !== 'CONFIRMED' && status !== 'REJECTED' && status !== 'CANCELLED' && (
             <>
               <Button
                 variant="danger"

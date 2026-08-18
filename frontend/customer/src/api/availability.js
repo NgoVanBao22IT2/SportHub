@@ -28,10 +28,10 @@ export const checkCourtAvailability = async (courtId, date, startTime, endTime) 
  * @param {string} venueId
  * @param {string} date - Format: YYYY-MM-DD
  */
-export const getVenueDailyAvailability = async (venueId, date) => {
+export const getVenueDailyAvailability = async (venueId, date, pricingGroup = 'GENERAL', priceType = 'FIXED') => {
   try {
     const response = await apiClient.get(`/availability/venue/${venueId}`, {
-      params: { date }
+      params: { date, pricingGroup, priceType }
     });
     return response.data;
   } catch (error) {

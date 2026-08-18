@@ -223,6 +223,34 @@ class OwnerController {
     }
   }
 
+  static async getBookings(req, res, next) {
+    try {
+      const ownerId = req.user.userId;
+      const { page, limit, status, search } = req.query;
+      const result = await OwnerService.getOwnerBookings(ownerId, { page, limit, status, search });
+      res.status(200).json({ status: 'success', data: result.data, meta: result.meta });
+    } catch (error) {
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ error: { message: error.message } });
+      }
+      next(error);
+    }
+  }
+
+  static async getBookingById(req, res, next) {
+    try {
+      const ownerId = req.user.userId;
+      const { bookingId } = req.params;
+      const booking = await OwnerService.getOwnerBookingDetail(ownerId, bookingId);
+      res.status(200).json({ status: 'success', data: booking });
+    } catch (error) {
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ error: { message: error.message } });
+      }
+      next(error);
+    }
+  }
+
   static async getPendingBookings(req, res, next) {
     try {
       const ownerId = req.user.userId;
@@ -266,8 +294,8 @@ class OwnerController {
   static async blockCourtSlot(req, res, next) {
     try {
       const ownerId = req.user.userId;
-      const { courtId, date, startTime, endTime, reason } = req.body;
-      const block = await OwnerService.blockCourtSlot(ownerId, { courtId, date, startTime, endTime, reason });
+      const { courtId, date, startTime, endTime, blockType, durationHours, reason } = req.body;
+      const block = await OwnerService.blockCourtSlot(ownerId, { courtId, date, startTime, endTime, blockType, durationHours, reason });
       res.status(201).json({ status: 'success', data: block, message: 'Đã khóa khung giờ thành công' });
     } catch (error) {
       if (error.statusCode) {
@@ -294,9 +322,13 @@ class OwnerController {
   static async getPaymentAccounts(req, res, next) {
     try {
       const ownerId = req.user.userId;
-      const accounts = await OwnerService.getOwnerPaymentAccounts(ownerId);
+      const { venueId } = req.query;
+      const accounts = await OwnerService.getOwnerPaymentAccounts(ownerId, { venueId });
       res.status(200).json({ status: 'success', data: accounts });
     } catch (error) {
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ error: { message: error.message } });
+      }
       next(error);
     }
   }

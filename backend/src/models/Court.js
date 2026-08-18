@@ -41,6 +41,8 @@ module.exports = (sequelize, DataTypes) => {
     Court.belongsTo(models.Branch, { foreignKey: 'branch_id', as: 'branch' });
     Court.hasMany(models.Booking, { foreignKey: 'court_id', as: 'bookings' });
     Court.hasMany(models.Review, { foreignKey: 'court_id', as: 'reviews' });
+    Court.hasMany(models.SlotBlocking, { foreignKey: 'court_id', as: 'blockings' });
+    Court.hasMany(models.CourtBlockRule, { foreignKey: 'court_id', as: 'block_rules' });
   };
 
   return Court;

@@ -12,11 +12,11 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false
     },
     from_status: {
-      type: DataTypes.ENUM('AVAILABLE', 'HOLDING', 'PAYMENT_PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'EXPIRED', 'PAYMENT_FAILED'),
+      type: DataTypes.STRING(50),
       allowNull: true
     },
     to_status: {
-      type: DataTypes.ENUM('AVAILABLE', 'HOLDING', 'PAYMENT_PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED', 'EXPIRED', 'PAYMENT_FAILED'),
+      type: DataTypes.STRING(50),
       allowNull: false
     },
     changed_by_user_id: {
