@@ -233,12 +233,15 @@ export default function OwnerBookings() {
                     const custPhone = b.customer?.phone_number || '';
                     const courtName = b.court?.court_name || 'Sân con';
                     const venueName = b.court?.branch?.venue?.venue_name || 'Câu lạc bộ';
-                    const priceFormatted = b.total_price ? `${parseFloat(b.total_price).toLocaleString('vi-VN')}đ` : '0đ';
+                    const rawPrice = b.total_amount || b.total_price;
+                    const priceFormatted = rawPrice ? `${parseFloat(rawPrice).toLocaleString('vi-VN')}đ` : '0đ';
                     const status = b.booking_status;
 
                     let statusBadge = <Badge variant="info" size="xs">ĐANG GIỮ CHỖ</Badge>;
                     if (status === 'WAITING_OWNER_CONFIRMATION') {
                       statusBadge = <Badge variant="warning" size="xs">CHỜ CHỦ SÂN DUYỆT</Badge>;
+                    } else if (status === 'CANCEL_REQUESTED') {
+                      statusBadge = <Badge variant="warning" size="xs">YÊU CẦU HỦY & HOÀN TIỀN</Badge>;
                     } else if (status === 'CONFIRMED' || status === 'COMPLETED') {
                       statusBadge = <Badge variant="success" size="xs">ĐÃ DUYỆT</Badge>;
                     } else if (status === 'REJECTED') {
@@ -354,7 +357,7 @@ export default function OwnerBookings() {
                     <p className="font-bold text-gray-900">{b.customer?.full_name} ({b.customer?.phone_number})</p>
                     <p className="text-text-muted">{b.court?.court_name} • {b.booking_date} ({b.start_time?.substring(0, 5)} - {b.end_time?.substring(0, 5)})</p>
                     <p className="font-extrabold text-brand-orange text-sm mt-1">
-                      {b.total_price ? `${parseFloat(b.total_price).toLocaleString('vi-VN')}đ` : '0đ'}
+                      {(b.total_amount || b.total_price) ? `${parseFloat(b.total_amount || b.total_price).toLocaleString('vi-VN')}đ` : '0đ'}
                     </p>
                   </div>
                   <div className="flex items-center justify-between pt-2 border-t border-border-subtle text-xs">

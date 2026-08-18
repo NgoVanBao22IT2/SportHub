@@ -24,9 +24,9 @@ export default function OwnerServices() {
       setVenues(venueList);
 
       if (venueList.length > 0) {
-        const defaultVenue = venueList[0];
-        setSelectedVenueId(defaultVenue.venue_id);
-        const assignedIds = new Set((defaultVenue.facilities || []).map((f) => f.facility_id));
+        const currentVenue = venueList.find((v) => v.venue_id === selectedVenueId) || venueList[0];
+        setSelectedVenueId(currentVenue.venue_id);
+        const assignedIds = new Set((currentVenue.facilities || []).map((f) => f.facility_id));
         setAssignedFacilityIds(assignedIds);
       }
     } catch (err) {
@@ -118,11 +118,11 @@ export default function OwnerServices() {
             <select
               value={selectedVenueId}
               onChange={handleVenueChange}
-              className="w-full sm:w-80 px-4 py-2 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:outline-none focus:border-brand-orange"
+              className="w-full sm:w-80 px-4 py-2  rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:outline-none focus:border-brand-orange"
             >
               {venues.map((v) => (
                 <option key={v.venue_id} value={v.venue_id}>
-                  🏬 {v.venue_name}
+                  {v.venue_name}
                 </option>
               ))}
             </select>

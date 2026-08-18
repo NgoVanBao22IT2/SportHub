@@ -319,11 +319,34 @@ class BookingService {
    * 09.05 Booking Detail
    */
   static async getBooking(userId, bookingId) {
+    const { Court, Branch, Venue, Payment } = require('../models');
     const booking = await Booking.findOne({
       where: {
         booking_id: bookingId,
         customer_user_id: userId // strictly enforce ownership
-      }
+      },
+      include: [
+        {
+          model: Court,
+          as: 'court',
+          include: [
+            {
+              model: Branch,
+              as: 'branch',
+              include: [
+                {
+                  model: Venue,
+                  as: 'venue'
+                }
+              ]
+            }
+          ]
+        },
+        {
+          model: Payment,
+          as: 'payments'
+        }
+      ]
     });
 
     if (!booking) {
@@ -338,6 +361,7 @@ class BookingService {
    * 09.08 Booking History (Pagination supported)
    */
   static async getUserBookings(userId, options = {}) {
+    const { Court, Branch, Venue, Payment } = require('../models');
     const { page = 1, limit = 10 } = options;
     const offset = (page - 1) * limit;
 
@@ -349,6 +373,28 @@ class BookingService {
 
     const { rows, count } = await Booking.findAndCountAll({
       where: { customer_user_id: userId },
+      include: [
+        {
+          model: Court,
+          as: 'court',
+          include: [
+            {
+              model: Branch,
+              as: 'branch',
+              include: [
+                {
+                  model: Venue,
+                  as: 'venue'
+                }
+              ]
+            }
+          ]
+        },
+        {
+          model: Payment,
+          as: 'payments'
+        }
+      ],
       order: [['created_at', 'DESC']],
       limit: parseInt(limit),
       offset: parseInt(offset)
@@ -365,16 +411,67 @@ class BookingService {
   }
 
   /**
-   * 09.06 Cancellation
-   * Cancels a booking, logging the transition.
+   * Calculate Refund Policy based on time remaining before match start time.
    */
-  static async cancelBooking(userId, bookingId, reason = 'User requested cancellation') {
+  static calculateRefundPolicy(bookingDateStr, startTimeStr, totalAmount) {
+    const amount = parseFloat(totalAmount || 0);
+    if (!bookingDateStr || !startTimeStr) {
+      return { refund_rate: 100, refund_amount: amount, hours_left: 999, policy_description: 'Trên 24 giờ trước giờ chơi (Hoàn 100%)' };
+    }
+
+    const dateParts = String(bookingDateStr).split('-').map(p => parseInt(p, 10));
+    const timeParts = String(startTimeStr).split(':').map(p => parseInt(p, 10));
+
+    const matchTime = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], timeParts[0] || 0, timeParts[1] || 0, timeParts[2] || 0);
+    const now = new Date();
+
+    const diffMs = matchTime.getTime() - now.getTime();
+    const hoursLeft = diffMs / (1000 * 60 * 60);
+
+    let refundRate = 0;
+    let description = '';
+
+    if (hoursLeft > 24) {
+      refundRate = 100;
+      description = 'Trên 24 giờ trước giờ chơi (Hoàn 100%)';
+    } else if (hoursLeft >= 12 && hoursLeft <= 24) {
+      refundRate = 70;
+      description = '12 – 24 giờ trước giờ chơi (Hoàn 70%)';
+    } else if (hoursLeft >= 2 && hoursLeft < 12) {
+      refundRate = 50;
+      description = '2 – 12 giờ trước giờ chơi (Hoàn 50%)';
+    } else {
+      refundRate = 0;
+      description = 'Dưới 2 giờ trước giờ chơi (Không hoàn tiền)';
+    }
+
+    const refundAmount = Math.round((amount * refundRate) / 100);
+
+    return {
+      refund_rate: refundRate,
+      refund_amount: refundAmount,
+      hours_left: Math.max(0, Math.round(hoursLeft * 10) / 10),
+      policy_description: description
+    };
+  }
+
+  /**
+   * 09.06 Cancellation
+   * Cancels or requests cancellation for a booking based on time rules.
+   */
+  static async cancelBooking(userId, bookingId, reason = '') {
+    if (!reason || !reason.trim()) {
+      const error = new Error('Vui lòng nhập lý do hủy đơn đặt sân.');
+      error.statusCode = 400;
+      throw error;
+    }
+
     const transaction = await sequelize.transaction();
     try {
       const booking = await Booking.findOne({
         where: {
           booking_id: bookingId,
-          customer_user_id: userId // strictly enforce ownership
+          customer_user_id: userId
         },
         lock: transaction.LOCK.UPDATE,
         transaction
@@ -386,31 +483,59 @@ class BookingService {
         throw error;
       }
 
-      // Valid statuses for user cancellation: HOLDING, CONFIRMED
-      if (!['HOLDING', 'CONFIRMED'].includes(booking.booking_status)) {
-        const error = new Error(`Cannot cancel booking in status: ${booking.booking_status}`);
+      // Valid statuses for user cancellation
+      if (!['HOLDING', 'PAYMENT_PENDING', 'WAITING_OWNER_CONFIRMATION', 'CONFIRMED'].includes(booking.booking_status)) {
+        const error = new Error(`Không thể hủy đơn hàng ở trạng thái: ${booking.booking_status}`);
         error.statusCode = 400;
         throw error;
       }
 
       const oldStatus = booking.booking_status;
+      const totalAmt = parseFloat(booking.total_amount || 0);
 
-      // Execute Transition
-      booking.booking_status = 'CANCELLED';
-      booking.cancellation_reason = reason;
+      // If unpaid holding booking, cancel immediately
+      if (['HOLDING', 'PAYMENT_PENDING'].includes(oldStatus)) {
+        booking.booking_status = 'CANCELLED';
+        booking.cancellation_reason = reason.trim();
+        booking.refund_rate = 0;
+        booking.refund_amount = 0;
+        booking.cancelled_by_user_id = userId;
+        booking.cancelled_at = new Date();
+
+        await booking.save({ transaction });
+
+        await BookingStatusHistory.create({
+          history_id: uuidv4(),
+          booking_id: booking.booking_id,
+          from_status: oldStatus,
+          to_status: 'CANCELLED',
+          changed_by_user_id: userId,
+          change_reason: reason.trim()
+        }, { transaction });
+
+        await transaction.commit();
+        return booking;
+      }
+
+      // For paid/confirmed bookings, calculate policy and set status to CANCEL_REQUESTED
+      const policy = this.calculateRefundPolicy(booking.booking_date, booking.start_time, totalAmt);
+
+      booking.booking_status = 'CANCEL_REQUESTED';
+      booking.cancellation_reason = reason.trim();
+      booking.refund_rate = policy.refund_rate;
+      booking.refund_amount = policy.refund_amount;
       booking.cancelled_by_user_id = userId;
       booking.cancelled_at = new Date();
-      
+
       await booking.save({ transaction });
 
-      // Record Audit
       await BookingStatusHistory.create({
         history_id: uuidv4(),
         booking_id: booking.booking_id,
         from_status: oldStatus,
-        to_status: 'CANCELLED',
+        to_status: 'CANCEL_REQUESTED',
         changed_by_user_id: userId,
-        change_reason: reason
+        change_reason: `Yêu cầu hủy (${policy.policy_description}): ${reason.trim()}`
       }, { transaction });
 
       await transaction.commit();

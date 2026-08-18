@@ -863,6 +863,129 @@ class OwnerService {
   }
 
   /**
+   * Approve a customer cancellation request and issue refund based on policy
+   */
+  static async approveCancellation(ownerId, bookingId) {
+    const { v4: uuidv4 } = require('uuid');
+    const { BookingStatusHistory } = require('../models');
+
+    const booking = await Booking.findOne({
+      where: { booking_id: bookingId },
+      include: [
+        {
+          model: Court,
+          as: 'court',
+          required: true,
+          include: [
+            {
+              model: Branch,
+              as: 'branch',
+              required: true,
+              include: [
+                {
+                  model: Venue,
+                  as: 'venue',
+                  required: true,
+                  where: { owner_user_id: ownerId }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+
+    if (!booking) {
+      const err = new Error('Booking not found or not owned by you');
+      err.statusCode = 403;
+      throw err;
+    }
+
+    if (booking.booking_status !== 'CANCEL_REQUESTED') {
+      const err = new Error('Đơn đặt sân này không trong trạng thái yêu cầu hủy.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const oldStatus = booking.booking_status;
+    booking.booking_status = 'CANCELLED';
+    await booking.save();
+
+    await BookingStatusHistory.create({
+      history_id: uuidv4(),
+      booking_id: bookingId,
+      from_status: oldStatus,
+      to_status: 'CANCELLED',
+      changed_by_user_id: ownerId,
+      change_reason: `Chủ sân chấp nhận yêu cầu hủy & hoàn tiền (${booking.refund_rate}%: ${booking.refund_amount}đ)`
+    });
+
+    return booking;
+  }
+
+  /**
+   * Reject a customer cancellation request
+   */
+  static async rejectCancellation(ownerId, bookingId, note = '') {
+    const { v4: uuidv4 } = require('uuid');
+    const { BookingStatusHistory } = require('../models');
+
+    const booking = await Booking.findOne({
+      where: { booking_id: bookingId },
+      include: [
+        {
+          model: Court,
+          as: 'court',
+          required: true,
+          include: [
+            {
+              model: Branch,
+              as: 'branch',
+              required: true,
+              include: [
+                {
+                  model: Venue,
+                  as: 'venue',
+                  required: true,
+                  where: { owner_user_id: ownerId }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+
+    if (!booking) {
+      const err = new Error('Booking not found or not owned by you');
+      err.statusCode = 403;
+      throw err;
+    }
+
+    if (booking.booking_status !== 'CANCEL_REQUESTED') {
+      const err = new Error('Đơn đặt sân này không trong trạng thái yêu cầu hủy.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const oldStatus = booking.booking_status;
+    booking.booking_status = 'CONFIRMED';
+    booking.cancel_owner_note = note ? note.trim() : 'Chủ sân không chấp nhận yêu cầu hủy đơn này.';
+    await booking.save();
+
+    await BookingStatusHistory.create({
+      history_id: uuidv4(),
+      booking_id: bookingId,
+      from_status: oldStatus,
+      to_status: 'CONFIRMED',
+      changed_by_user_id: ownerId,
+      change_reason: `Chủ sân từ chối yêu cầu hủy: ${note || 'Không đồng ý hủy'}`
+    });
+
+    return booking;
+  }
+
+  /**
    * Reject a booking owned by this venue owner
    */
   static async rejectBooking(ownerId, bookingId, reason) {

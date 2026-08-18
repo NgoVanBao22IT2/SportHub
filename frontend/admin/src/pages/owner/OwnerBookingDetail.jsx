@@ -145,7 +145,8 @@ export default function OwnerBookingDetail() {
   const venueName = booking.court?.branch?.venue?.venue_name || 'Câu lạc bộ';
   const venuePhone = booking.court?.branch?.venue?.contact_phone || '';
 
-  const priceFormatted = booking.total_price ? `${parseFloat(booking.total_price).toLocaleString('vi-VN')}đ` : '0đ';
+  const rawAmount = booking.total_amount || booking.total_price;
+  const priceFormatted = rawAmount ? `${parseFloat(rawAmount).toLocaleString('vi-VN')}đ` : '0đ';
   const status = booking.booking_status;
   const payment = booking.payments && booking.payments.length > 0 ? booking.payments[0] : null;
 

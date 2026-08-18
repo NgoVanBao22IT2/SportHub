@@ -1,6 +1,7 @@
 'use strict';
 
-const { FavoriteVenue, Venue, Branch, VenueImage, Review, Court, Op } = require('../models');
+const { Op } = require('sequelize');
+const { FavoriteVenue, Venue, Branch, VenueImage, Review, Court } = require('../models');
 
 class FavoriteService {
   /**

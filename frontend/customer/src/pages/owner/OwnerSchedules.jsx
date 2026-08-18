@@ -268,13 +268,20 @@ export default function OwnerSchedules() {
                         cellBg = 'bg-amber-50 text-amber-900 border-amber-200 cursor-not-allowed';
                         labelText = 'Đã đặt';
                         isClickable = false;
-                      } else if (st === 'BLOCKED' || st === 'EVENT') {
-                        cellBg = 'bg-red-50 hover:bg-red-100 text-red-900 border-red-200';
-                        labelText = courtSlot.reason || 'Đã khóa';
+                      } else if (st === 'BLOCKED' || st === 'LOCKED' || st === 'EVENT') {
+                        const isLongTerm = courtSlot.is_long_term;
+                        cellBg = isLongTerm
+                          ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-300'
+                          : 'bg-red-50 hover:bg-red-100 text-red-900 border-red-200';
+                        labelText = isLongTerm ? '🔒 Khóa dài hạn' : (courtSlot.reason || 'Đã khóa');
                         isClickable = true;
-                      } else if (st === 'UNAVAILABLE') {
+                      } else if (st === 'PAST') {
                         cellBg = 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed';
-                        labelText = courtSlot.reason || 'Bảo trì';
+                        labelText = 'Đã qua';
+                        isClickable = false;
+                      } else if (st === 'CLOSED' || st === 'UNAVAILABLE') {
+                        cellBg = 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed';
+                        labelText = courtSlot.reason || 'Bảo trì / Ngoại giờ';
                         isClickable = false;
                       }
 
@@ -287,7 +294,7 @@ export default function OwnerSchedules() {
                             onClick={() => {
                               if (st === 'AVAILABLE') {
                                 handleOpenBlockModal(court, courtSlot);
-                              } else if (st === 'BLOCKED' || st === 'EVENT') {
+                              } else if (st === 'BLOCKED' || st === 'LOCKED' || st === 'EVENT') {
                                 setUnblockConfirm({ court, slot: courtSlot });
                               }
                             }}

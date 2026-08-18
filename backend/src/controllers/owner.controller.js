@@ -291,6 +291,35 @@ class OwnerController {
     }
   }
 
+  static async approveCancellation(req, res, next) {
+    try {
+      const ownerId = req.user.userId;
+      const { bookingId } = req.params;
+      const booking = await OwnerService.approveCancellation(ownerId, bookingId);
+      res.status(200).json({ status: 'success', data: booking, message: 'Đã chấp nhận yêu cầu hủy & hoàn tiền' });
+    } catch (error) {
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ error: { message: error.message } });
+      }
+      next(error);
+    }
+  }
+
+  static async rejectCancellation(req, res, next) {
+    try {
+      const ownerId = req.user.userId;
+      const { bookingId } = req.params;
+      const { note } = req.body;
+      const booking = await OwnerService.rejectCancellation(ownerId, bookingId, note);
+      res.status(200).json({ status: 'success', data: booking, message: 'Đã từ chối yêu cầu hủy đơn đặt sân' });
+    } catch (error) {
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ error: { message: error.message } });
+      }
+      next(error);
+    }
+  }
+
   static async blockCourtSlot(req, res, next) {
     try {
       const ownerId = req.user.userId;

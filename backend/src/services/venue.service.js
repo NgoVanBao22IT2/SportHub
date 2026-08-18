@@ -25,6 +25,10 @@ class VenueService {
       where: { owner_user_id: ownerUserId },
       include: [
         {
+          model: models.Facility,
+          as: 'facilities'
+        },
+        {
           model: models.Branch,
           as: 'branches',
           include: [

@@ -39,6 +39,16 @@ export const getOwnerBookingDetail = async (bookingId) => {
   }
 };
 
+export const approveCancellation = async (bookingId) => {
+  const response = await apiClient.post(`/owner/bookings/${bookingId}/approve-cancellation`);
+  return response.data;
+};
+
+export const rejectCancellation = async (bookingId, note) => {
+  const response = await apiClient.post(`/owner/bookings/${bookingId}/reject-cancellation`, { note });
+  return response.data;
+};
+
 /**
  * Fetch pending bookings waiting for owner confirmation.
  */

@@ -78,7 +78,9 @@ export default function OwnerCourts() {
     try {
       setLoading(true);
       const res = await getOwnerCourts(venueId, branchId);
-      setCourts(res.data || []);
+      const list = res.data || [];
+      list.sort((a, b) => (a.court_name || '').localeCompare(b.court_name || '', undefined, { numeric: true, sensitivity: 'base' }));
+      setCourts(list);
     } catch (err) {
       console.error('Failed to fetch courts:', err);
     } finally {

@@ -103,18 +103,26 @@ export default function BookingDetail() {
     fetchDetail();
   }, [fetchDetail]);
 
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelReasonError, setCancelReasonError] = useState('');
+
   // Handle Confirmed Cancellation via Backend API
   const handleConfirmCancel = async () => {
     if (!booking || cancelling) return;
+    if (!cancelReason.trim()) {
+      setCancelReasonError('Vui lòng nhập lý do hủy đơn đặt sân.');
+      return;
+    }
     const currentBookingId = booking.booking_id || booking.id || bookingId;
 
     try {
       setCancelling(true);
       setCancelError('');
+      setCancelReasonError('');
       setRefreshError('');
 
       // 1. Send Real Cancel Request
-      await cancelBooking(currentBookingId, 'Khách hàng hủy giữ chỗ từ BookingDetail');
+      await cancelBooking(currentBookingId, cancelReason.trim());
       setShowCancelModal(false);
 
       // 2. Separate Refetch Flow (Distinguish Cancel Success vs Refetch Failure)
@@ -170,6 +178,8 @@ export default function BookingDetail() {
         return { variant: 'info', label: 'Đã hoàn thành' };
       case 'CANCELLED':
         return { variant: 'neutral', label: 'Đã hủy' };
+      case 'CANCEL_REQUESTED':
+        return { variant: 'warning', label: 'Chờ chủ sân duyệt hủy & hoàn tiền' };
       case 'EXPIRED':
         return { variant: 'neutral', label: 'Hết hạn giữ chỗ' };
       case 'FAILED':
@@ -240,7 +250,7 @@ export default function BookingDetail() {
   }
 
   const bookingStatusRaw = booking?.booking_status || booking?.status;
-  const paymentStatusRaw = booking?.payment_status;
+  const paymentStatusRaw = booking?.payment_status || (booking?.payments && booking?.payments.length > 0 ? booking.payments[0].payment_status : null);
   const canCancel = isBookingCancellable(bookingStatusRaw);
 
   const bookingBadge = getBookingStatusBadge(bookingStatusRaw);
@@ -248,9 +258,8 @@ export default function BookingDetail() {
 
   const displayId = booking?.booking_id || booking?.id || bookingId || '';
 
-  // Venue & Court Name Audit (Section 4: Only render court_id if backend doesn't provide associated Court/Venue objects)
-  const venueName = booking?.Venue?.venue_name || booking?.venue_name || (booking?.court_id ? `Mã sân: ${booking.court_id}` : 'Chưa có thông tin sân');
-  const courtName = booking?.Court?.court_name || booking?.court_name || (booking?.court_id ? `Mã sân: ${booking.court_id}` : 'Chưa có thông tin sân');
+  const venueName = booking?.court?.branch?.venue?.venue_name || booking?.Venue?.venue_name || booking?.venue_name || (booking?.court_id ? `Mã sân: ${booking.court_id}` : 'Chưa có thông tin sân');
+  const courtName = booking?.court?.court_name || booking?.Court?.court_name || booking?.court_name || (booking?.court_id ? `Mã sân: ${booking.court_id}` : 'Chưa có thông tin sân');
 
   const dateStr = booking?.booking_date || 'Chưa có dữ liệu';
   const timeLabel = (booking?.start_time && booking?.end_time)
@@ -406,7 +415,7 @@ export default function BookingDetail() {
                     <span>Ngày tạo đơn</span>
                   </div>
                   <p className="font-bold text-gray-900 text-sm">
-                    {booking?.created_at ? new Date(booking.created_at).toLocaleString('vi-VN') : 'Chưa có dữ liệu'}
+                    {(booking?.createdAt || booking?.created_at) ? new Date(booking.createdAt || booking.created_at).toLocaleString('vi-VN') : 'Chưa có dữ liệu'}
                   </p>
                 </div>
               </div>
@@ -479,13 +488,60 @@ export default function BookingDetail() {
                 Xác nhận hủy đơn đặt sân
               </h3>
             </Card.Header>
-            <Card.Body className="space-y-2 text-sm text-gray-700">
-              <p>
-                Bạn có chắc chắn muốn hủy đơn giữ chỗ <span className="font-mono text-xs">#{displayId.substring(0, 8)}</span> tại <strong className="text-gray-900">{venueName}</strong>?
+            <Card.Body className="space-y-4 text-sm text-gray-700">
+              <p className="text-xs">
+                Bạn đang thực hiện hủy đơn <span className="font-mono font-bold">#{displayId.substring(0, 8)}</span> tại <strong className="text-gray-900">{venueName}</strong>.
               </p>
-              <p className="text-xs text-text-muted">
-                Sau khi xác nhận hủy, trạng thái đơn sẽ được cập nhật thành <strong>Đã hủy</strong> theo quy định hệ thống Backend.
-              </p>
+
+              {/* CHÍNH SÁCH HOÀN TIỀN BLOCK */}
+              <div className="p-4 bg-amber-50/80 border border-amber-200/80 rounded-xl space-y-3 text-left">
+                <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                  <AlertCircle size={18} className="text-amber-600 shrink-0" />
+                  <span>Chính sách hoàn tiền</span>
+                </div>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Tỷ lệ hoàn tiền tự động tính dựa trên thời gian hủy trước giờ chơi:
+                </p>
+                <div className="space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center py-1 border-b border-amber-200/50">
+                    <span className="flex items-center gap-1.5 text-amber-900 font-medium">
+                      <Clock size={14} className="text-amber-600 shrink-0" /> Trên 24 giờ trước giờ chơi
+                    </span>
+                    <span className="font-bold text-amber-900">Hoàn 100%</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-amber-200/50">
+                    <span className="flex items-center gap-1.5 text-amber-900 font-medium">
+                      <Clock size={14} className="text-amber-600 shrink-0" /> 12 – 24 giờ trước giờ chơi
+                    </span>
+                    <span className="font-bold text-amber-900">Hoàn 70%</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-b border-amber-200/50">
+                    <span className="flex items-center gap-1.5 text-amber-900 font-medium">
+                      <Clock size={14} className="text-amber-600 shrink-0" /> 2 – 12 giờ trước giờ chơi
+                    </span>
+                    <span className="font-bold text-amber-900">Hoàn 50%</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1">
+                    <span className="flex items-center gap-1.5 text-amber-900 font-medium">
+                      <Clock size={14} className="text-amber-600 shrink-0" /> Dưới 2 giờ trước giờ chơi
+                    </span>
+                    <span className="font-bold text-rose-700">Không hoàn tiền</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* LÝ DO HỦY ĐƠN */}
+              <div className="space-y-1.5 text-left">
+                <label className="text-xs font-bold text-gray-900 block">Lý do hủy đơn sân *</label>
+                <textarea
+                  rows={3}
+                  value={cancelReason}
+                  onChange={(e) => { setCancelReason(e.target.value); setCancelReasonError(''); }}
+                  placeholder="Nhập lý do hủy đơn (VD: Có việc bận đột xuất, đổi lịch chơi cùng bạn...)"
+                  className="w-full p-3 rounded-xl border border-border-subtle-medium text-xs font-medium focus:outline-none focus:border-brand-orange bg-surface"
+                />
+                {cancelReasonError && <p className="text-[11px] font-bold text-rose-600">{cancelReasonError}</p>}
+              </div>
             </Card.Body>
             <Card.Footer className="pt-3 border-t border-border-subtle flex justify-end gap-3">
               <Button

@@ -27,10 +27,13 @@ class CourtService {
     // Tenant Isolation check
     await branchService.getBranchByIdForOwner(ownerUserId, venueId, branchId, models);
 
-    return models.Court.findAll({
-      where: { branch_id: branchId },
-      order: [['created_at', 'DESC']]
+    const courts = await models.Court.findAll({
+      where: { branch_id: branchId }
     });
+
+    courts.sort((a, b) => (a.court_name || '').localeCompare(b.court_name || '', undefined, { numeric: true, sensitivity: 'base' }));
+
+    return courts;
   }
 
   async getCourtByIdForOwner(ownerUserId, venueId, branchId, courtId, models) {

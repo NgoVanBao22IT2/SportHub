@@ -33,8 +33,8 @@ class FacilityController {
   async assignFacilityToVenue(req, res) {
     try {
       const { venueId } = req.params;
-      const { facilityId } = req.body;
-      const result = await facilityService.assignFacilityToVenue(req.user.userId, venueId, facilityId, models);
+      const targetFacilityId = req.body.facilityId || req.body.facility_id;
+      const result = await facilityService.assignFacilityToVenue(req.user.userId, venueId, targetFacilityId, models);
       return res.status(200).json({ success: true, data: result });
     } catch (err) {
       return res.status(err.statusCode || 500).json({

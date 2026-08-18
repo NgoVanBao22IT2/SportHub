@@ -43,7 +43,7 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: 'ONLINE_CUSTOMER'
     },
     booking_status: {
-      type: DataTypes.ENUM('AVAILABLE', 'HOLDING', 'PAYMENT_PENDING', 'PAYMENT_SUCCESS', 'WAITING_OWNER_CONFIRMATION', 'CONFIRMED', 'REJECTED', 'COMPLETED', 'CANCELLED', 'EXPIRED', 'PAYMENT_FAILED'),
+      type: DataTypes.ENUM('AVAILABLE', 'HOLDING', 'PAYMENT_PENDING', 'PAYMENT_SUCCESS', 'WAITING_OWNER_CONFIRMATION', 'CONFIRMED', 'REJECTED', 'COMPLETED', 'CANCELLED', 'CANCEL_REQUESTED', 'EXPIRED', 'PAYMENT_FAILED'),
       allowNull: false,
       defaultValue: 'HOLDING'
     },
@@ -53,7 +53,7 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: null
     },
     payment_proof_url: {
-      type: DataTypes.STRING(500),
+      type: DataTypes.TEXT('long'),
       allowNull: true,
       defaultValue: null
     },
@@ -63,6 +63,21 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: null
     },
     cancellation_reason: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: null
+    },
+    refund_amount: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true,
+      defaultValue: 0.00
+    },
+    refund_rate: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0
+    },
+    cancel_owner_note: {
       type: DataTypes.TEXT,
       allowNull: true,
       defaultValue: null

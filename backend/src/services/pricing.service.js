@@ -92,6 +92,20 @@ class PricingService {
     const normStart = startTime.length === 5 ? `${startTime}:00` : startTime;
     const normEnd = endTime.length === 5 ? `${endTime}:00` : endTime;
 
+    const parseTime = (t) => {
+      const parts = t.split(':');
+      return parseInt(parts[0], 10) + parseInt(parts[1], 10) / 60 + (parts[2] ? parseInt(parts[2], 10) / 3600 : 0);
+    };
+
+    const startH = parseTime(normStart);
+    const endH = parseTime(normEnd);
+
+    if (startH >= endH) {
+      const error = new Error('start_time must be before end_time');
+      error.statusCode = 400;
+      throw error;
+    }
+
     // Filter active schedules matching pricingGroup and day & time range
     let matchingSchedules = schedules.filter(s =>
       (s.is_active === undefined || s.is_active === null || s.is_active === true || s.is_active === 1) &&
@@ -140,7 +154,42 @@ class PricingService {
     else if (schedMap['BRANCH'] && schedMap['BRANCH'].length > 0) activeSchedule = schedMap['BRANCH'][0];
     else if (schedMap['VENUE'] && schedMap['VENUE'].length > 0) activeSchedule = schedMap['VENUE'][0];
 
+    // If no single schedule covers the entire multi-hour interval, split into 30-min sub-intervals
     if (!activeSchedule) {
+      if (endH - startH > 0.5) {
+        let total = 0;
+        let curr = startH;
+        while (curr < endH) {
+          const next = curr + 0.5;
+          const curHStr = String(Math.floor(curr)).padStart(2, '0');
+          const curMStr = curr % 1 !== 0 ? '30' : '00';
+          const nxtHStr = String(Math.floor(next)).padStart(2, '0');
+          const nxtMStr = next % 1 !== 0 ? '30' : '00';
+
+          const subCalc = await this.calculatePrice(
+            courtId,
+            date,
+            `${curHStr}:${curMStr}:00`,
+            `${nxtHStr}:${nxtMStr}:00`,
+            pricingGroup,
+            priceType
+          );
+          total += subCalc.total_price;
+          curr = next;
+        }
+
+        return {
+          price_source_type: 'COMPOSITE',
+          price_source_id: courtId,
+          pricing_group: pricingGroup,
+          price_type: priceType,
+          base_hourly_price: total / (endH - startH),
+          duration_hours: endH - startH,
+          total_price: total,
+          currency: 'VND'
+        };
+      }
+
       const error = new Error('No operating schedule found for this court at requested time');
       error.statusCode = 400;
       error.code = 'NO_PRICE_RULE';
@@ -148,20 +197,6 @@ class PricingService {
     }
 
     // 3. Calculate Duration & Hourly Price
-    const parseTime = (t) => {
-      const parts = t.split(':');
-      return parseInt(parts[0], 10) + parseInt(parts[1], 10) / 60 + (parts[2] ? parseInt(parts[2], 10) / 3600 : 0);
-    };
-
-    const startH = parseTime(normStart);
-    const endH = parseTime(normEnd);
-
-    if (startH >= endH) {
-      const error = new Error('start_time must be before end_time');
-      error.statusCode = 400;
-      throw error;
-    }
-
     const durationHours = endH - startH;
 
     let hourlyPrice;

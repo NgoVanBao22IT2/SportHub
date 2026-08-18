@@ -247,15 +247,15 @@ export default function OwnerPricing() {
       <Card padding="md" radius="xl" className="border border-border-subtle-medium shadow-xs space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="space-y-1">
-            <label className="text-xs font-bold text-gray-900 block">1. Phạm vi áp dụng (Scope)</label>
+            <label className="text-xs font-bold text-gray-900 block">1. Phạm vi áp dụng</label>
             <select
               value={scopeTargetType}
               onChange={(e) => setScopeTargetType(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:outline-none focus:border-brand-orange"
             >
-              <option value="VENUE">🏬 Toàn bộ Cụm sân (VENUE)</option>
-              <option value="BRANCH">📍 Theo Chi nhánh (BRANCH)</option>
-              <option value="COURT">🏆 Theo Sân con (COURT)</option>
+              <option value="VENUE">🏬 Toàn bộ Cụm sân</option>
+              <option value="BRANCH">📍 Theo Chi nhánh</option>
+              <option value="COURT">🏆 Theo Sân con </option>
             </select>
           </div>
 
@@ -330,7 +330,7 @@ export default function OwnerPricing() {
               {loading ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-text-muted">
-                    Đang nạp bảng giá từ MySQL...
+                    Đang nạp bảng giá...
                   </td>
                 </tr>
               ) : schedules.length === 0 ? (

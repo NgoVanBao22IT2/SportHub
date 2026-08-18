@@ -17,6 +17,8 @@ router.get('/bookings/pending', OwnerController.getPendingBookings);
 router.get('/bookings/:bookingId', OwnerController.getBookingById);
 router.post('/bookings/:bookingId/approve', OwnerController.approveBooking);
 router.post('/bookings/:bookingId/reject', OwnerController.rejectBooking);
+router.post('/bookings/:bookingId/approve-cancellation', OwnerController.approveCancellation);
+router.post('/bookings/:bookingId/reject-cancellation', OwnerController.rejectCancellation);
 router.post('/schedules/block', OwnerController.blockCourtSlot);
 router.delete('/schedules/block/:blockId', OwnerController.unblockCourtSlot);
 

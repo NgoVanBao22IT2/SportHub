@@ -94,6 +94,28 @@ export default function Checkout() {
 
   const [noticeModal, setNoticeModal] = useState({ open: false, title: '', message: '', type: 'error' });
 
+  const compressImage = (dataUrl, maxWidth = 1200, quality = 0.8) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = dataUrl;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(dataUrl);
+    });
+  };
+
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -101,20 +123,21 @@ export default function Checkout() {
       setNoticeModal({ open: true, title: 'Định dạng tệp không hợp lệ', message: 'Vui lòng chọn tệp hình ảnh (JPG, PNG, WEBP).', type: 'error' });
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setNoticeModal({ open: true, title: 'Kích thước tệp quá lớn', message: 'Dung lượng ảnh tối đa cho phép là 5MB.', type: 'error' });
+    if (file.size > 10 * 1024 * 1024) {
+      setNoticeModal({ open: true, title: 'Kích thước tệp quá lớn', message: 'Dung lượng ảnh tối đa cho phép là 10MB.', type: 'error' });
       return;
     }
     setProofFile(file);
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setProofPreview(reader.result);
+    reader.onloadend = async () => {
+      const compressed = await compressImage(reader.result, 1200, 0.8);
+      setProofPreview(compressed);
     };
     reader.readAsDataURL(file);
   };
 
   const handleUploadProofSubmit = async () => {
-    const targetPaymentId = confirmedBooking?.paymentId;
+    const targetPaymentId = confirmedBooking?.paymentId || confirmedBooking?.bookingId || confirmedBooking?.id;
     if (!proofPreview) {
       setNoticeModal({ open: true, title: 'Thiếu minh chứng', message: 'Vui lòng chọn ảnh minh chứng giao dịch trước khi gửi.', type: 'error' });
       return;
@@ -123,6 +146,8 @@ export default function Checkout() {
       setUploadingProof(true);
       if (targetPaymentId) {
         await uploadPaymentProof(targetPaymentId, proofPreview);
+      } else {
+        throw new Error('Mã đơn hàng không hợp lệ.');
       }
       setProofUploaded(true);
       setConfirmedBooking(prev => ({
@@ -138,7 +163,8 @@ export default function Checkout() {
       });
     } catch (err) {
       console.error('Failed to upload payment proof', err);
-      setNoticeModal({ open: true, title: 'Tải ảnh thất bại', message: 'Không thể tải lên ảnh minh chứng. Vui lòng thử lại.', type: 'error' });
+      const errMsg = err.response?.data?.error?.message || err.response?.data?.message || err.message || 'Không thể tải lên ảnh minh chứng. Vui lòng thử lại.';
+      setNoticeModal({ open: true, title: 'Tải ảnh thất bại', message: errMsg, type: 'error' });
     } finally {
       setUploadingProof(false);
     }
@@ -292,7 +318,8 @@ export default function Checkout() {
           setSubmitting(false);
           return;
         } else if (status === 400 || status === 422) {
-          setApiErrorMessage('Dữ liệu yêu cầu đặt sân chưa hợp lệ.');
+          const backendMsg = err.response?.data?.message || err.response?.data?.error?.message;
+          setApiErrorMessage(backendMsg || 'Dữ liệu yêu cầu đặt sân chưa hợp lệ.');
           setSubmitting(false);
           return;
         } else if (status >= 500) {
@@ -392,6 +419,7 @@ export default function Checkout() {
       // Render Verified Response Confirmation Screen (HOLDING state, NOT fake paid success)
       setConfirmedBooking({
         id: reservationId,
+        bookingId: reservationId,
         paymentId: createdPaymentId,
         venueName: venue?.venue_name || locationState.venueName || 'Sân thể thao',
         courtName: calculatedCourtName || 'Sân tiêu chuẩn',

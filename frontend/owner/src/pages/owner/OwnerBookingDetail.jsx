@@ -14,7 +14,7 @@ import {
   History,
   AlertTriangle
 } from 'lucide-react';
-import { getOwnerBookingDetail, approveBooking, rejectBooking } from '../../api/owner';
+import { getOwnerBookingDetail, approveBooking, rejectBooking, approveCancellation, rejectCancellation } from '../../api/owner';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -33,6 +33,9 @@ export default function OwnerBookingDetail() {
   // Modals state
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
+  const [showApproveCancelModal, setShowApproveCancelModal] = useState(false);
+  const [showRejectCancelModal, setShowRejectCancelModal] = useState(false);
+  const [rejectCancelNote, setRejectCancelNote] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
@@ -92,6 +95,35 @@ export default function OwnerBookingDetail() {
     }
   };
 
+  const handleApproveCancellation = async () => {
+    try {
+      setActionLoading(true);
+      await approveCancellation(bookingId);
+      showToast('Đã duyệt hủy đơn và hoàn tiền cho khách!');
+      setShowApproveCancelModal(false);
+      fetchBookingDetail();
+    } catch (err) {
+      showToast('⚠️ ' + (err.response?.data?.error?.message || err.message || 'Lỗi khi duyệt hủy đơn'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRejectCancellation = async () => {
+    try {
+      setActionLoading(true);
+      await rejectCancellation(bookingId, rejectCancelNote);
+      showToast('Đã từ chối yêu cầu hủy đơn!');
+      setShowRejectCancelModal(false);
+      setRejectCancelNote('');
+      fetchBookingDetail();
+    } catch (err) {
+      showToast('⚠️ ' + (err.response?.data?.error?.message || err.message || 'Lỗi khi từ chối hủy'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6 max-w-4xl mx-auto">
@@ -145,7 +177,8 @@ export default function OwnerBookingDetail() {
   const venueName = booking.court?.branch?.venue?.venue_name || 'Câu lạc bộ';
   const venuePhone = booking.court?.branch?.venue?.contact_phone || '';
 
-  const priceFormatted = booking.total_price ? `${parseFloat(booking.total_price).toLocaleString('vi-VN')}đ` : '0đ';
+  const rawAmount = booking.total_amount || booking.total_price;
+  const priceFormatted = rawAmount ? `${parseFloat(rawAmount).toLocaleString('vi-VN')}đ` : '0đ';
   const status = booking.booking_status;
   const payment = booking.payments && booking.payments.length > 0 ? booking.payments[0] : null;
 
@@ -177,7 +210,28 @@ export default function OwnerBookingDetail() {
         </div>
 
         <div className="flex items-center gap-2">
-          {(status === 'WAITING_OWNER_CONFIRMATION' || status === 'HOLDING' || status === 'PAYMENT_PENDING' || booking.payment_proof_url) && status !== 'CONFIRMED' && status !== 'REJECTED' && status !== 'CANCELLED' && (
+          {status === 'CANCEL_REQUESTED' && (
+            <>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => setShowRejectCancelModal(true)}
+                leftIcon={<XCircle size={16} />}
+              >
+                Từ chối hủy
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setShowApproveCancelModal(true)}
+                leftIcon={<CheckCircle2 size={16} />}
+              >
+                Duyệt hủy & Hoàn tiền
+              </Button>
+            </>
+          )}
+
+          {(status === 'WAITING_OWNER_CONFIRMATION' || status === 'HOLDING' || status === 'PAYMENT_PENDING' || booking.payment_proof_url) && status !== 'CONFIRMED' && status !== 'REJECTED' && status !== 'CANCELLED' && status !== 'CANCEL_REQUESTED' && (
             <>
               <Button
                 variant="danger"
@@ -199,6 +253,7 @@ export default function OwnerBookingDetail() {
           )}
 
           {status === 'CONFIRMED' && <Badge variant="success" size="md">ĐÃ DUYỆT ĐẶT SÂN</Badge>}
+          {status === 'CANCEL_REQUESTED' && <Badge variant="warning" size="md">YÊU CẦU HỦY & HOÀN TIỀN</Badge>}
           {status === 'REJECTED' && <Badge variant="danger" size="md">ĐÃ TỪ CHỐI</Badge>}
           {status === 'CANCELLED' && <Badge variant="danger" size="md">ĐÃ HỦY</Badge>}
         </div>
@@ -342,6 +397,60 @@ export default function OwnerBookingDetail() {
         </div>
       </Card>
 
+      {/* CARD 4: CANCELLATION REQUEST DETAILS */}
+      {(booking.cancellation_reason || status === 'CANCEL_REQUESTED' || booking.cancel_owner_note) && (
+        <Card padding="lg" radius="2xl" className="border-2 border-amber-300/80 bg-amber-50/20 space-y-4 shadow-sm">
+          <div className="flex items-center justify-between border-b border-amber-200 pb-3">
+            <h2 className="font-bold text-amber-900 text-sm flex items-center gap-2">
+              <AlertTriangle size={18} className="text-amber-600" />
+              Thông tin Yêu cầu Hủy & Hoàn tiền từ Khách hàng
+            </h2>
+            <Badge variant={status === 'CANCEL_REQUESTED' ? 'warning' : status === 'CANCELLED' ? 'danger' : 'success'} size="sm">
+              {status === 'CANCEL_REQUESTED' ? 'CHỜ CHỦ SÂN DUYỆT HỦY' : status === 'CANCELLED' ? 'ĐÃ CHẤP NHẬN HỦY' : 'ĐÃ TỪ CHỐI HỦY'}
+            </Badge>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div className="space-y-2">
+              <div>
+                <span className="text-amber-800 font-medium block">Lý do hủy của Khách hàng:</span>
+                <p className="font-bold text-gray-900 bg-surface p-3 rounded-xl border border-amber-200 mt-1 italic">
+                  "{booking.cancellation_reason || 'Khách hàng không nhập lý do'}"
+                </p>
+              </div>
+
+              {booking.cancelled_at && (
+                <div>
+                  <span className="text-text-muted block">Thời gian gửi yêu cầu:</span>
+                  <span className="font-semibold text-gray-800">{new Date(booking.cancelled_at).toLocaleString('vi-VN')}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2 bg-surface p-4 rounded-xl border border-amber-200/80">
+              <div className="flex justify-between items-center pb-2 border-b border-border-subtle">
+                <span className="text-text-muted font-medium">Tỷ lệ hoàn tiền áp dụng:</span>
+                <span className="font-extrabold text-amber-900 text-sm">{booking.refund_rate || 0}%</span>
+              </div>
+
+              <div className="flex justify-between items-center pt-1">
+                <span className="text-text-muted font-medium">Số tiền hoàn đề xuất:</span>
+                <span className="font-extrabold text-brand-orange text-base">
+                  {booking.refund_amount ? `${parseFloat(booking.refund_amount).toLocaleString('vi-VN')}đ` : '0đ'}
+                </span>
+              </div>
+
+              {booking.cancel_owner_note && (
+                <div className="pt-2 border-t border-border-subtle text-[11px] text-rose-800">
+                  <span className="font-bold block">Phản hồi của Chủ sân:</span>
+                  <p className="italic">"{booking.cancel_owner_note}"</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* REJECTION MODAL */}
       <RejectionModal
         isOpen={showRejectModal}
@@ -368,6 +477,59 @@ export default function OwnerBookingDetail() {
               </Button>
               <Button variant="primary" size="sm" loading={actionLoading} onClick={handleApprove}>
                 Duyệt đơn ngay
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONFIRM APPROVE CANCELLATION DIALOG */}
+      {showApproveCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-surface w-full max-w-md rounded-2xl border border-border-subtle-medium shadow-2xl p-6 space-y-4 text-xs">
+            <div className="flex items-center gap-3 text-amber-600">
+              <CheckCircle2 size={24} />
+              <h3 className="font-bold text-gray-900 text-base">Duyệt yêu cầu hủy & hoàn tiền</h3>
+            </div>
+            <p className="text-gray-700 leading-relaxed">
+              Bạn có chắc chắn muốn đồng ý hủy đơn và thực hiện hoàn số tiền <strong className="text-brand-orange">{booking.refund_amount ? `${parseFloat(booking.refund_amount).toLocaleString('vi-VN')}đ` : '0đ'}</strong> ({booking.refund_rate || 0}%) cho khách hàng không?
+            </p>
+            <div className="flex justify-end gap-3 pt-2 border-t border-border-subtle">
+              <Button variant="outline" size="sm" onClick={() => setShowApproveCancelModal(false)} disabled={actionLoading}>
+                Quay lại
+              </Button>
+              <Button variant="primary" size="sm" loading={actionLoading} onClick={handleApproveCancellation}>
+                Chấp nhận hủy & Hoàn tiền
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REJECT CANCELLATION MODAL */}
+      {showRejectCancelModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-surface w-full max-w-md rounded-2xl border border-border-subtle-medium shadow-2xl p-6 space-y-4 text-xs text-left">
+            <div className="flex items-center gap-3 text-rose-600">
+              <XCircle size={24} />
+              <h3 className="font-bold text-gray-900 text-base">Từ chối yêu cầu hủy đơn</h3>
+            </div>
+            <p className="text-gray-700 leading-relaxed">
+              Nhập lý do không chấp nhận hủy đơn này (Lý do sẽ được gửi tới khách hàng):
+            </p>
+            <textarea
+              rows={3}
+              value={rejectCancelNote}
+              onChange={(e) => setRejectCancelNote(e.target.value)}
+              placeholder="VD: Không áp dụng hủy sát giờ chơi, sân đã được giữ cho bạn..."
+              className="w-full p-3 rounded-xl border border-border-subtle-medium text-xs font-medium focus:outline-none focus:border-brand-orange bg-surface"
+            />
+            <div className="flex justify-end gap-3 pt-2 border-t border-border-subtle">
+              <Button variant="outline" size="sm" onClick={() => setShowRejectCancelModal(false)} disabled={actionLoading}>
+                Hủy bỏ
+              </Button>
+              <Button variant="danger" size="sm" loading={actionLoading} onClick={handleRejectCancellation}>
+                Xác nhận từ chối hủy
               </Button>
             </div>
           </div>

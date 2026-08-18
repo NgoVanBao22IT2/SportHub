@@ -18,7 +18,8 @@ export default function PaymentProofViewer({
   const custPhone = booking.customer?.phone_number || '';
   const courtName = booking.court?.court_name || 'Sân con';
   const venueName = booking.court?.branch?.venue?.venue_name || 'Câu lạc bộ';
-  const priceFormatted = booking.total_price ? `${parseFloat(booking.total_price).toLocaleString('vi-VN')}đ` : '0đ';
+  const rawPrice = booking.total_amount || booking.total_price;
+  const priceFormatted = rawPrice ? `${parseFloat(rawPrice).toLocaleString('vi-VN')}đ` : '0đ';
   const paymentMethod = booking.payments && booking.payments.length > 0 ? booking.payments[0].payment_method : 'BANK_TRANSFER';
 
   return (
