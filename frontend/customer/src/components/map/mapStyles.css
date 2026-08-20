@@ -4,66 +4,77 @@
   border: none !important;
 }
 
+/* Hide scrollbars cleanly across all browsers */
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+.no-scrollbar {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
 .sport-map-pin {
-  width: 28px;
-  height: 36px;
+  width: 32px;
+  height: 40px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.3));
-  transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.3));
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
   cursor: pointer;
   user-select: none;
 }
 
 .sport-map-pin:hover {
-  transform: scale(1.25) translateY(-4px);
+  transform: scale(1.2) translateY(-4px);
   z-index: 1000 !important;
 }
 
 .sport-map-pin .pin-head {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background-color: var(--pin-color, #059669);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
+  color: white;
   border: 2px solid #ffffff;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.22);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .sport-map-pin .pin-tip {
   width: 0;
   height: 0;
-  border-left: 4.5px solid transparent;
-  border-right: 4.5px solid transparent;
-  border-top: 6.5px solid var(--pin-color, #059669);
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 7px solid var(--pin-color, #059669);
   margin-top: -1px;
 }
 
 /* Selected Marker Visual State */
 .sport-map-pin.is-selected {
-  width: 34px;
-  height: 42px;
-  transform: scale(1.2) translateY(-4px);
+  width: 38px;
+  height: 46px;
+  transform: scale(1.18) translateY(-4px);
   z-index: 9999 !important;
   filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
 }
 
 .sport-map-pin.is-selected .pin-head {
-  width: 34px;
-  height: 34px;
-  border: 2.5px solid #ffffff;
+  width: 38px;
+  height: 38px;
+  border: 3px solid #ffffff;
   box-shadow: 0 0 0 3px var(--pin-color, #059669), 0 4px 8px rgba(0, 0, 0, 0.3);
   animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 .sport-map-pin.is-selected .pin-tip {
-  border-left: 5.5px solid transparent;
-  border-right: 5.5px solid transparent;
-  border-top: 8px solid var(--pin-color, #059669);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 9px solid var(--pin-color, #059669);
 }
 
 @keyframes pulse-ring {
@@ -73,6 +84,74 @@
   50% {
     box-shadow: 0 0 0 6px rgba(5, 150, 105, 0.4), 0 4px 8px rgba(0, 0, 0, 0.3);
   }
+}
+
+/* User Red Location Marker with Pulsating Radar */
+.user-location-marker-wrapper {
+  background: transparent !important;
+  border: none !important;
+}
+
+.user-location-pin-container {
+  position: relative;
+  width: 44px;
+  height: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  user-select: none;
+}
+
+.user-location-radar {
+  position: absolute;
+  top: 18px;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(239, 68, 68, 0.28);
+  animation: user-radar-pulse 2s ease-out infinite;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@keyframes user-radar-pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.6);
+    opacity: 0.9;
+  }
+  70% {
+    transform: translate(-50%, -50%) scale(1.6);
+    opacity: 0.15;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.2);
+    opacity: 0;
+  }
+}
+
+.sport-map-pin.is-user-location {
+  position: relative;
+  z-index: 2;
+  width: 36px;
+  height: 44px;
+  filter: drop-shadow(0 4px 10px rgba(220, 38, 38, 0.55));
+}
+
+.sport-map-pin.is-user-location .pin-head {
+  width: 36px;
+  height: 36px;
+  background-color: #EF4444;
+  border: 3px solid #ffffff;
+  box-shadow: 0 0 0 2px #DC2626, 0 4px 10px rgba(0, 0, 0, 0.35);
+  color: #ffffff;
+}
+
+.sport-map-pin.is-user-location .pin-tip {
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid #EF4444;
 }
 
 /* Custom Marker Cluster Styles */
@@ -89,33 +168,33 @@
   color: #ffffff;
   font-weight: 700;
   font-family: inherit;
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
-  border: 2.5px solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+  border: 3px solid rgba(255, 255, 255, 0.9);
   transition: transform 0.15s ease-out;
   cursor: pointer;
 }
 
 .custom-map-cluster:hover {
-  transform: scale(1.12);
+  transform: scale(1.1);
 }
 
 .custom-map-cluster.cluster-small {
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   background: linear-gradient(135deg, #10B981, #059669);
-  font-size: 12px;
-}
-
-.custom-map-cluster.cluster-medium {
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, #F59E0B, #D97706);
   font-size: 13px;
 }
 
-.custom-map-cluster.cluster-large {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, #EF4444, #DC2626);
+.custom-map-cluster.cluster-medium {
+  width: 44px;
+  height: 44px;
+  background: linear-gradient(135deg, #F59E0B, #D97706);
   font-size: 14px;
+}
+
+.custom-map-cluster.cluster-large {
+  width: 52px;
+  height: 52px;
+  background: linear-gradient(135deg, #EF4444, #DC2626);
+  font-size: 15px;
 }

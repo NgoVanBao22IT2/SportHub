@@ -43,8 +43,8 @@ export default function VenueCard({
 
   // Purpose-driven image resolution selection with deterministic seed fallback
   const displayImage = !imageError 
-    ? getVenueImageUrl(venue, 'card', venue) 
-    : getDeterministicFallback(venue);
+    ? getVenueImageUrl(venue, 'card', venueId) 
+    : getDeterministicFallback(venueId);
 
   // Normalize rating & review count from real API data
   const ratingValue = venue.average_rating || venue.rating || null;

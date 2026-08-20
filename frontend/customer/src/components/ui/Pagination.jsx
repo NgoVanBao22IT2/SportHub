@@ -2,117 +2,116 @@ import React from 'react';
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 
 /**
- * Reusable Pagination component
- * @param {number} currentPage - 1-based current page
- * @param {number} totalPages - Total number of pages
- * @param {function} onPageChange - Callback when page changes: (pageNumber) => void
- * @param {number} totalItems - Total items count (optional)
- * @param {number} itemsPerPage - Items per page count (optional)
- * @param {string} className - Optional container styling
+ * Reusable Pagination UI Component
  */
 export default function Pagination({
   currentPage = 1,
   totalPages = 1,
+  totalItems = 0,
+  itemsPerPage = 20,
   onPageChange,
-  totalItems,
-  itemsPerPage,
   className = ''
 }) {
   if (totalPages <= 1) return null;
 
-  // Generate page numbers with ellipsis (e.g. 1 ... 4 5 6 ... 20)
   const getPageNumbers = () => {
-    const delta = 2; // Range of pages around current page
-    const range = [];
-    const rangeWithDots = [];
-    let l;
+    const pages = [];
+    const delta = 2; // Number of pages around current page
 
     for (let i = 1; i <= totalPages; i++) {
-      if (i === 1 || i === totalPages || (i >= currentPage - delta && i <= currentPage + delta)) {
-        range.push(i);
+      if (
+        i === 1 ||
+        i === totalPages ||
+        (i >= currentPage - delta && i <= currentPage + delta)
+      ) {
+        pages.push(i);
+      } else if (pages[pages.length - 1] !== '...') {
+        pages.push('...');
       }
     }
 
-    for (const i of range) {
-      if (l) {
-        if (i - l === 2) {
-          rangeWithDots.push(l + 1);
-        } else if (i - l !== 1) {
-          rangeWithDots.push('...');
-        }
-      }
-      rangeWithDots.push(i);
-      l = i;
-    }
-
-    return rangeWithDots;
+    return pages;
   };
+
+  const pages = getPageNumbers();
 
   const handlePageClick = (page) => {
-    if (page === '...' || page === currentPage || page < 1 || page > totalPages) return;
-    onPageChange(page);
+    if (typeof page === 'number' && page >= 1 && page <= totalPages && page !== currentPage) {
+      if (onPageChange) {
+        onPageChange(page);
+      }
+    }
   };
 
-  const startItem = totalItems ? (currentPage - 1) * itemsPerPage + 1 : null;
-  const endItem = totalItems ? Math.min(currentPage * itemsPerPage, totalItems) : null;
-
   return (
-    <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 pb-4 border-t border-border-subtle-medium ${className}`}>
-      {/* Information text */}
-      {totalItems !== undefined && (
-        <p className="text-xs sm:text-sm text-text-muted">
-          Hiển thị <span className="font-semibold text-gray-900">{startItem}</span> - <span className="font-semibold text-gray-900">{endItem}</span> trên tổng số <span className="font-semibold text-gray-900">{totalItems}</span> sân
-        </p>
+    <div className={`flex flex-col sm:flex-row items-center justify-between gap-4 py-4 ${className}`}>
+      {/* Items Count Summary */}
+      {totalItems > 0 && (
+        <div className="text-xs sm:text-sm text-gray-500 font-medium">
+          Hiển thị{' '}
+          <span className="font-semibold text-gray-800">
+            {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}
+          </span>{' '}
+          -{' '}
+          <span className="font-semibold text-gray-800">
+            {Math.min(currentPage * itemsPerPage, totalItems)}
+          </span>{' '}
+          trên tổng số <span className="font-semibold text-gray-800">{totalItems}</span> kết quả
+        </div>
       )}
 
-      {/* Pagination buttons */}
+      {/* Page Navigation Controls */}
       <div className="flex items-center gap-1.5 select-none">
         {/* First Page */}
         <button
+          type="button"
           onClick={() => handlePageClick(1)}
           disabled={currentPage === 1}
-          aria-label="Trang đầu"
-          className="p-2 rounded-lg border border-border-subtle-medium bg-surface text-text-muted hover:bg-surface-subtle hover:text-gray-900 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+          aria-label="Trang đầu tiên"
+          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer shadow-xs"
         >
           <ChevronsLeft size={16} />
         </button>
 
         {/* Previous Page */}
         <button
+          type="button"
           onClick={() => handlePageClick(currentPage - 1)}
           disabled={currentPage === 1}
           aria-label="Trang trước"
-          className="p-2 rounded-lg border border-border-subtle-medium bg-surface text-text-muted hover:bg-surface-subtle hover:text-gray-900 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer shadow-xs"
         >
           <ChevronLeft size={16} />
         </button>
 
-        {/* Page numbers */}
+        {/* Numeric Page Buttons */}
         <div className="flex items-center gap-1">
-          {getPageNumbers().map((page, idx) => {
-            if (page === '...') {
+          {pages.map((p, idx) => {
+            if (p === '...') {
               return (
-                <span key={`dots-${idx}`} className="px-2 py-1 text-xs text-text-muted font-medium">
+                <span
+                  key={`ellipsis-${idx}`}
+                  className="w-9 h-9 flex items-center justify-center text-gray-400 font-medium text-xs"
+                >
                   ...
                 </span>
               );
             }
 
-            const isActive = page === currentPage;
+            const isActive = p === currentPage;
             return (
               <button
-                key={`page-${page}`}
-                onClick={() => handlePageClick(page)}
-                aria-label={`Trang ${page}`}
+                key={`page-${p}`}
+                type="button"
+                onClick={() => handlePageClick(p)}
                 aria-current={isActive ? 'page' : undefined}
-                className={[
-                  'min-w-[36px] h-9 px-2.5 rounded-lg text-sm font-semibold transition-all cursor-pointer flex items-center justify-center',
+                className={`w-9 h-9 flex items-center justify-center rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer shadow-xs ${
                   isActive
-                    ? 'bg-accent-primary text-white shadow-sm shadow-accent-primary/30 font-bold'
-                    : 'bg-surface border border-border-subtle-medium text-gray-700 hover:bg-surface-subtle hover:text-gray-900'
-                ].join(' ')}
+                    ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20'
+                    : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300'
+                }`}
               >
-                {page}
+                {p}
               </button>
             );
           })}
@@ -120,20 +119,22 @@ export default function Pagination({
 
         {/* Next Page */}
         <button
+          type="button"
           onClick={() => handlePageClick(currentPage + 1)}
           disabled={currentPage === totalPages}
-          aria-label="Trang sau"
-          className="p-2 rounded-lg border border-border-subtle-medium bg-surface text-text-muted hover:bg-surface-subtle hover:text-gray-900 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+          aria-label="Trang tiếp theo"
+          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer shadow-xs"
         >
           <ChevronRight size={16} />
         </button>
 
         {/* Last Page */}
         <button
+          type="button"
           onClick={() => handlePageClick(totalPages)}
           disabled={currentPage === totalPages}
-          aria-label="Trang cuối"
-          className="p-2 rounded-lg border border-border-subtle-medium bg-surface text-text-muted hover:bg-surface-subtle hover:text-gray-900 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer"
+          aria-label="Trang cuối cùng"
+          className="w-9 h-9 flex items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 hover:text-gray-900 disabled:opacity-40 disabled:pointer-events-none transition-colors cursor-pointer shadow-xs"
         >
           <ChevronsRight size={16} />
         </button>

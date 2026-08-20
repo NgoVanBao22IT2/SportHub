@@ -12,12 +12,12 @@ const formatPrice = (price) => {
   if (!price || isNaN(price) || price <= 0) {
     return 'Liên hệ';
   }
-  return `Từ ${new Intl.NumberFormat('vi-VN').format(price)}đ`;
+  return `Từ ${new Intl.NumberFormat('vi-VN').format(price)}đ/giờ`;
 };
 
 /**
- * Rich VenuePreviewCard Component (Phase 6)
- * Features cover image skeleton/fallback, quick actions (Directions, Favorites, Booking, Detail), and accessibility.
+ * Rich VenuePreviewCard Component
+ * Positioned on the left side of the map with quick actions (Directions, Favorites, Booking, Detail).
  */
 function VenuePreviewCard({
   venue,
@@ -72,20 +72,20 @@ function VenuePreviewCard({
     <div
       role="dialog"
       aria-label={`Thông tin sân ${venueName}`}
-      className={`relative w-[calc(100vw-32px)] sm:w-84 md:w-92 bg-white/95 backdrop-blur-md border border-gray-200/90 rounded-2xl shadow-2xl overflow-hidden animate-fade-in transition-all duration-200 ${className}`}
+      className={`relative w-[320px] sm:w-[350px] md:w-[380px] max-w-[calc(100vw-32px)] bg-white/95 backdrop-blur-md border border-gray-200/90 rounded-2xl shadow-2xl overflow-hidden animate-fade-in transition-all duration-200 ${className}`}
     >
       {/* Close button */}
       <button
         type="button"
         onClick={onClose}
         aria-label="Đóng thông tin sân"
-        className="absolute top-2.5 right-2.5 z-20 w-7 h-7 bg-black/45 hover:bg-black/70 text-white rounded-full flex items-center justify-center backdrop-blur-xs transition-colors shadow-sm"
+        className="absolute top-2.5 right-2.5 z-20 w-7 h-7 bg-black/45 hover:bg-black/70 text-white rounded-full flex items-center justify-center backdrop-blur-xs transition-colors shadow-sm cursor-pointer"
       >
         <X size={15} />
       </button>
 
       {/* Cover Image & Badges */}
-      <div className="relative w-full h-36 sm:h-40 bg-gray-200 overflow-hidden">
+      <div className="relative w-full h-40 sm:h-44 bg-gray-200 overflow-hidden">
         {!imageLoaded && !imageError && (
           <div className="absolute inset-0 bg-gray-200 animate-pulse" />
         )}
@@ -116,7 +116,7 @@ function VenuePreviewCard({
           onClick={handleFavoriteClick}
           aria-label={isFav ? 'Xóa khỏi yêu thích' : 'Thêm vào yêu thích'}
           title={isFav ? 'Đã yêu thích' : 'Yêu thích'}
-          className="absolute top-2.5 left-2.5 z-20 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-gray-700 backdrop-blur-xs flex items-center justify-center transition-all shadow-sm active:scale-90"
+          className="absolute top-2.5 left-2.5 z-20 w-8 h-8 rounded-full bg-white/90 hover:bg-white text-gray-700 backdrop-blur-xs flex items-center justify-center transition-all shadow-sm active:scale-90 cursor-pointer"
         >
           <Heart
             size={16}
@@ -163,7 +163,7 @@ function VenuePreviewCard({
             target="_blank"
             rel="noopener noreferrer"
             aria-label="Chỉ đường tới sân trên Google Maps"
-            className="py-2 px-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors"
+            className="py-2 px-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
           >
             <Navigation size={13} className="text-emerald-600 -rotate-45" />
             <span>Chỉ đường</span>
@@ -174,7 +174,7 @@ function VenuePreviewCard({
             <Link
               to={`/venues/${venueId}/booking`}
               aria-label="Đặt sân trực tuyến"
-              className="py-2 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 shadow-xs hover:shadow-md transition-all duration-150"
+              className="py-2 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 shadow-xs hover:shadow-md transition-all duration-150 cursor-pointer"
             >
               <Calendar size={13} />
               <span>Đặt sân</span>
@@ -191,7 +191,7 @@ function VenuePreviewCard({
           <Link
             to={`/venues/${venueId}`}
             aria-label="Xem chi tiết câu lạc bộ"
-            className="w-full py-1.5 text-center text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center justify-center gap-1 hover:underline transition-all"
+            className="w-full py-1.5 text-center text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center justify-center gap-1 hover:underline transition-all cursor-pointer"
           >
             <span>Xem thông tin chi tiết</span>
             <ArrowRight size={13} />

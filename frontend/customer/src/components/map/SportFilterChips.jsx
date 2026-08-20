@@ -1,48 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { getSportsCategories } from '../../api/venues';
 import SportIcon from '../common/SportIcon';
-import { normalizeSportKey, SPORT_STYLES } from './sportMarkerStyles';
+import { getSportTheme } from './sportMarkerStyles';
 
-const ALOBO_SPORTS = [
-  'Pickleball',
+const DEFAULT_SPORTS = [
   'Cầu lông',
+  'Pickleball',
   'Bóng đá',
+  'Tennis',
   'Bóng rổ',
-  'Quần vợt',
-  'Đà nẵng',
-  'Typti',
-  'Lướt ván',
-  'B.Chuyền',
-  'Golf',
-  'Padel',
-  'Bida',
-  'Bóng bàn',
+  'Bóng chuyền',
   'Bơi lội',
+  'Bóng bàn',
+  'Bida',
   'Gym'
 ];
 
 /**
- * SportFilterChips Component - Alobo-style horizontally scrollable pill chip strip
+ * SportFilterChips Component
+ * Horizontally scrollable chip bar with synchronized sport colors and icons.
  */
 function SportFilterChips({
   activeSport = null,
   onSelectSport,
   className = ''
 }) {
-  const [sports, setSports] = useState(ALOBO_SPORTS);
+  const [sports, setSports] = useState(DEFAULT_SPORTS);
 
   useEffect(() => {
     let isMounted = true;
     getSportsCategories()
       .then((data) => {
         if (isMounted && Array.isArray(data) && data.length > 0) {
-          // Merge unique categories while preserving Alobo default order
-          const merged = Array.from(new Set([...ALOBO_SPORTS, ...data]));
+          // Merge unique categories while preserving popular defaults
+          const merged = Array.from(new Set([...DEFAULT_SPORTS, ...data]));
           setSports(merged);
         }
       })
       .catch((err) => {
-        console.warn('Could not fetch sports categories, using Alobo default list:', err);
+        console.warn('Could not fetch sports categories, using default list:', err);
       });
 
     return () => {
@@ -60,13 +56,25 @@ function SportFilterChips({
   };
 
   return (
-    <div className={`flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 px-0.5 ${className}`}>
-      {/* Individual sport chips with Alobo color-coded circular badge */}
+    <div className={`flex items-center gap-2 overflow-x-auto no-scrollbar py-1 px-0.5 ${className}`}>
+      {/* "Tất cả" chip */}
+      <button
+        type="button"
+        onClick={() => onSelectSport(null)}
+        aria-pressed={!activeSport}
+        className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all duration-150 shadow-xs flex items-center gap-1.5 ${
+          !activeSport
+            ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/20 scale-102'
+            : 'bg-white/95 backdrop-blur-md text-gray-700 hover:bg-gray-100/90 border border-gray-200/80 hover:border-gray-300'
+        }`}
+      >
+        <span>Tất cả</span>
+      </button>
+
+      {/* Individual sport chips with matching sport colors */}
       {sports.map((sport) => {
         const isSelected = activeSport === sport;
-        const normKey = normalizeSportKey(sport);
-        const sportStyle = SPORT_STYLES[normKey] || SPORT_STYLES.general;
-        const badgeColor = sportStyle.color || '#059669';
+        const theme = getSportTheme(sport);
 
         return (
           <button
@@ -74,24 +82,23 @@ function SportFilterChips({
             type="button"
             onClick={() => handleChipClick(sport)}
             aria-pressed={isSelected}
-            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs transition-all duration-150 shadow-md flex items-center gap-1.5 cursor-pointer ${
+            style={{
+              backgroundColor: isSelected ? theme.color : undefined,
+              borderColor: isSelected ? theme.color : undefined
+            }}
+            className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-150 shadow-xs flex items-center gap-1.5 ${
               isSelected
-                ? 'bg-emerald-600 text-white shadow-emerald-600/30 scale-102 font-bold ring-2 ring-emerald-500'
-                : 'bg-white/95 backdrop-blur-md text-gray-800 hover:bg-white border border-gray-200/90 hover:border-gray-300 font-medium'
+                ? 'text-white shadow-md scale-102 font-semibold'
+                : 'bg-white/95 backdrop-blur-md text-gray-700 hover:bg-gray-100/90 border border-gray-200/80 hover:border-gray-300'
             }`}
           >
-            {/* Color-coded circular icon badge */}
-            <div
-              className="w-4.5 h-4.5 rounded-full flex items-center justify-center flex-shrink-0 text-white shadow-2xs"
-              style={{ backgroundColor: badgeColor }}
-            >
-              <SportIcon
-                sport={sport}
-                size={10}
-                className="text-white"
-              />
-            </div>
-            <span className="whitespace-nowrap font-medium text-[11px] sm:text-xs">{sport}</span>
+            <SportIcon
+              sport={sport}
+              size={13}
+              style={{ color: isSelected ? '#ffffff' : theme.color }}
+              className="flex-shrink-0"
+            />
+            <span>{sport}</span>
           </button>
         );
       })}

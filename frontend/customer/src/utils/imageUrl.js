@@ -1,53 +1,29 @@
-export const SPORT_CATEGORY_FALLBACKS = {
-  badminton: 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=800&auto=format&fit=crop', // Badminton court
-  pickleball: 'https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?q=80&w=800&auto=format&fit=crop', // Pickleball arena
-  football: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=800&auto=format&fit=crop', // Football pitch
-  tennis: 'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?q=80&w=800&auto=format&fit=crop', // Tennis court
-  basketball: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?q=80&w=800&auto=format&fit=crop', // Basketball court
-  general: 'https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?q=80&w=800&auto=format&fit=crop'
-};
+export const SPORT_FALLBACK_IMAGES = [
+  'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=800&auto=format&fit=crop', // Badminton
+  'https://images.unsplash.com/photo-1554068865-24cecd4e34b8?q=80&w=800&auto=format&fit=crop', // Pickleball / Tennis
+  'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=800&auto=format&fit=crop', // Football
+  'https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?q=80&w=800&auto=format&fit=crop'  // Indoor Arena
+];
 
-export const SPORT_FALLBACK_IMAGES = Object.values(SPORT_CATEGORY_FALLBACKS);
-export const FALLBACK_SPORT_IMAGE = SPORT_CATEGORY_FALLBACKS.general;
+export const FALLBACK_SPORT_IMAGE = SPORT_FALLBACK_IMAGES[0];
 
 /**
- * Generates an intelligent sport-aware fallback image
- * Accurately maps sport names (badminton, pickleball, football, tennis, etc.) to the matching sports image.
+ * Generates a deterministic fallback image from seedKey (e.g. venue_id)
  */
-export const getDeterministicFallback = (seedOrVenue) => {
-  if (!seedOrVenue) return SPORT_CATEGORY_FALLBACKS.general;
-
-  if (typeof seedOrVenue === 'object') {
-    const sportStr = (
-      seedOrVenue.sport_category ||
-      (seedOrVenue.courts && seedOrVenue.courts[0]?.sport_category) ||
-      (seedOrVenue.branches && seedOrVenue.branches[0]?.courts && seedOrVenue.branches[0].courts[0]?.sport_category) ||
-      seedOrVenue.venue_name ||
-      seedOrVenue.name ||
-      ''
-    ).toLowerCase();
-
-    if (sportStr.includes('cầu lông') || sportStr.includes('badminton')) return SPORT_CATEGORY_FALLBACKS.badminton;
-    if (sportStr.includes('pickleball') || sportStr.includes('pickle')) return SPORT_CATEGORY_FALLBACKS.pickleball;
-    if (sportStr.includes('bóng đá') || sportStr.includes('football') || sportStr.includes('soccer')) return SPORT_CATEGORY_FALLBACKS.football;
-    if (sportStr.includes('tennis') || sportStr.includes('quần vợt')) return SPORT_CATEGORY_FALLBACKS.tennis;
-    if (sportStr.includes('bóng rổ') || sportStr.includes('basketball')) return SPORT_CATEGORY_FALLBACKS.basketball;
+export const getDeterministicFallback = (seedKey) => {
+  if (!seedKey) return SPORT_FALLBACK_IMAGES[0];
+  let hash = 0;
+  const str = String(seedKey);
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
   }
-
-  if (typeof seedOrVenue === 'string') {
-    const s = seedOrVenue.toLowerCase();
-    if (s.includes('cầu lông') || s.includes('badminton')) return SPORT_CATEGORY_FALLBACKS.badminton;
-    if (s.includes('pickleball') || s.includes('pickle')) return SPORT_CATEGORY_FALLBACKS.pickleball;
-    if (s.includes('bóng đá') || s.includes('football') || s.includes('soccer')) return SPORT_CATEGORY_FALLBACKS.football;
-    if (s.includes('tennis') || s.includes('quần vợt')) return SPORT_CATEGORY_FALLBACKS.tennis;
-    if (s.includes('bóng rổ') || s.includes('basketball')) return SPORT_CATEGORY_FALLBACKS.basketball;
-  }
-
-  return SPORT_CATEGORY_FALLBACKS.general;
+  const index = Math.abs(hash) % SPORT_FALLBACK_IMAGES.length;
+  return SPORT_FALLBACK_IMAGES[index];
 };
 
 /**
- * Formats relative image paths or external image URLs.
+ * Formats relative image paths (e.g. /uploads/...) or external image URLs (e.g. m-files.alobo.vn).
  */
 export const getImageUrl = (url, seedKey) => {
   if (!url || typeof url !== 'string' || url.trim() === '') {
@@ -56,6 +32,7 @@ export const getImageUrl = (url, seedKey) => {
 
   const trimmed = url.trim();
 
+  // If already absolute URL (e.g. https://m-files.alobo.vn/..., blob:, data:)
   if (
     trimmed.startsWith('http://') ||
     trimmed.startsWith('https://') ||
@@ -65,16 +42,13 @@ export const getImageUrl = (url, seedKey) => {
     return trimmed;
   }
 
-  let backendHost = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_URL) || '';
-  if (!backendHost && typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) {
-    backendHost = import.meta.env.VITE_API_URL.replace(/\/api\/v1\/?$/, '');
-  }
-  if (!backendHost && typeof window !== 'undefined' && window.location.hostname === 'localhost') {
-    backendHost = 'http://localhost:3000';
-  }
+  // Resolve local uploaded files (e.g. /uploads/large/...) to Backend server host
+  const backendHost = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_URL) 
+    || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api\/v1\/?$/, '') : '') 
+    || 'http://localhost:3000';
 
   const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  return backendHost ? `${backendHost}${cleanPath}` : cleanPath;
+  return `${backendHost}${cleanPath}`;
 };
 
 /**
@@ -89,7 +63,7 @@ export const getVenueImageUrl = (target, purpose = 'card', venueId) => {
   }
 
   let extractedUrl = null;
-  const seed = target || venueId || target.venue_id || target.id;
+  const seed = venueId || target.venue_id || target.id;
 
   const extractByPriority = (obj) => {
     if (!obj || typeof obj !== 'object') return null;

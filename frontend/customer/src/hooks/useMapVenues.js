@@ -2,8 +2,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { getVenuesForMap } from '../api/venues';
 
 /**
- * Custom Hook for Fetching Viewport-bound Map Venues (Phase 3)
- * Handles in-flight request cancellation, race-condition safety, and unmount safety.
+ * Custom Hook for Fetching Map Venues across Vietnam and Viewport
+ * Handles nationwide loading, keyword searches, in-flight request cancellation, race-condition safety, and unmount safety.
  */
 export function useMapVenues() {
   const [venues, setVenues] = useState([]);
@@ -27,15 +27,11 @@ export function useMapVenues() {
   }, []);
 
   /**
-   * Fetch venues within a Leaflet LatLngBounds
-   * @param {L.LatLngBounds} bounds - Leaflet map bounds
-   * @param {Object} options - Optional filters (sport, keyword, limit)
+   * Fetch venues across Vietnam or within a Leaflet LatLngBounds
+   * @param {L.LatLngBounds|null} bounds - Optional Leaflet map bounds
+   * @param {Object} options - Optional filters (sport, keyword, all, limit)
    */
-  const fetchVenuesByBounds = useCallback(async (bounds, options = {}) => {
-    if (!bounds || typeof bounds.getNorth !== 'function') {
-      return;
-    }
-
+  const fetchVenuesByBounds = useCallback(async (bounds = null, options = {}) => {
     // Cancel any ongoing in-flight HTTP request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -47,14 +43,18 @@ export function useMapVenues() {
     const currentRequestId = ++latestRequestIdRef.current;
 
     const params = {
-      north: bounds.getNorth(),
-      south: bounds.getSouth(),
-      east: bounds.getEast(),
-      west: bounds.getWest(),
       sport: options.sport || undefined,
       keyword: options.keyword || undefined,
-      limit: options.limit || 300
+      all: options.all || (!bounds ? true : undefined),
+      limit: options.limit || 3000
     };
+
+    if (bounds && typeof bounds.getNorth === 'function' && !options.keyword && !options.all) {
+      params.north = bounds.getNorth();
+      params.south = bounds.getSouth();
+      params.east = bounds.getEast();
+      params.west = bounds.getWest();
+    }
 
     setLoading(true);
     setError(null);
@@ -81,7 +81,7 @@ export function useMapVenues() {
       }
 
       if (isMountedRef.current && currentRequestId === latestRequestIdRef.current) {
-        console.error('Failed to load map venues for viewport:', err);
+        console.error('Failed to load map venues:', err);
         setError(err);
         setLoading(false);
       }

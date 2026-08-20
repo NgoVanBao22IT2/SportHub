@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Crosshair, Loader2, CheckCircle2 } from 'lucide-react';
+import { Loader2, CheckCircle2 } from 'lucide-react';
 
 /**
- * GeolocationControl Component - Alobo-style floating action GPS button
+ * GeolocationControl Component
+ * Prominent circular GPS button that marks user location with red marker on map.
  */
 function GeolocationControl({ map = null, onLocate = null, className = '' }) {
   const [locating, setLocating] = useState(false);
@@ -68,7 +69,7 @@ function GeolocationControl({ map = null, onLocate = null, className = '' }) {
   };
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative flex items-center ${className}`}>
       {/* Toast Feedback Badge */}
       {feedback && (
         <div
@@ -85,18 +86,38 @@ function GeolocationControl({ map = null, onLocate = null, className = '' }) {
         </div>
       )}
 
+      {/* Prominent Circular GPS Button */}
       <button
         type="button"
         onClick={handleLocateMe}
         disabled={locating}
         aria-label="Định vị vị trí hiện tại"
-        title="Vị trí của tôi"
-        className="w-11 h-11 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all duration-200 disabled:opacity-75 ring-2 ring-white/90 cursor-pointer"
+        title="Định vị vị trí hiện tại"
+        className="w-12 h-12 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-full shadow-xl hover:shadow-2xl flex items-center justify-center transition-all duration-200 disabled:opacity-75 ring-4 ring-white/80 border border-emerald-500/30 group cursor-pointer"
       >
         {locating ? (
-          <Loader2 size={20} className="animate-spin text-white" />
+          <Loader2 size={24} className="animate-spin text-white" />
         ) : (
-          <Crosshair size={20} className="stroke-[2.4]" />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-6 h-6 text-white group-hover:scale-110 transition-transform"
+          >
+            {/* 4 outer crosshair tick marks */}
+            <line x1="2" y1="12" x2="5.5" y2="12" />
+            <line x1="18.5" y1="12" x2="22" y2="12" />
+            <line x1="12" y1="2" x2="12" y2="5.5" />
+            <line x1="12" y1="18.5" x2="12" y2="22" />
+            {/* Outer ring */}
+            <circle cx="12" cy="12" r="6.8" />
+            {/* Solid center dot */}
+            <circle cx="12" cy="12" r="3.2" fill="currentColor" stroke="none" />
+          </svg>
         )}
       </button>
     </div>

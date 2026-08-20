@@ -3,7 +3,8 @@ import SportMapView from '../../components/map/SportMapView';
 import { useMapVenues } from '../../hooks/useMapVenues';
 
 /**
- * MapPage - Full-screen Interactive Sports Map with Sport Tags & Floating Controls
+ * MapPage - Fullscreen Interactive Sports Map with Left Floating Venue Preview Card
+ * Displays sports venues nationwide across Vietnam with instant keyword search and auto-fly.
  */
 export default function MapPage() {
   const mapInstanceRef = useRef(null);
@@ -11,6 +12,7 @@ export default function MapPage() {
 
   // Active filters tracker
   const activeFiltersRef = useRef({ sport: null, keyword: '' });
+  const isUserSearchingRef = useRef(false);
 
   const { venues, loading, totalCount, fetchVenuesByBounds } = useMapVenues();
 
@@ -24,12 +26,35 @@ export default function MapPage() {
     );
   }) || null;
 
-  // Auto-deselect if the selected venue falls out of viewport or active filter dataset
+  // Auto-deselect if the selected venue falls out of dataset
   useEffect(() => {
     if (selectedVenueId && !selectedVenue && !loading) {
       setSelectedVenueId(null);
     }
   }, [venues, selectedVenueId, selectedVenue, loading]);
+
+  // When searching with keyword and venues arrive, auto-center on the first match
+  useEffect(() => {
+    if (isUserSearchingRef.current && venues.length > 0 && !loading) {
+      isUserSearchingRef.current = false;
+      const firstVenue = venues[0];
+      if (
+        firstVenue &&
+        typeof firstVenue.latitude === 'number' &&
+        typeof firstVenue.longitude === 'number'
+      ) {
+        const id = firstVenue.branch_id || firstVenue.venue_id || firstVenue.id;
+        setSelectedVenueId(id);
+        const map = mapInstanceRef.current;
+        if (map && typeof map.flyTo === 'function') {
+          map.flyTo([firstVenue.latitude, firstVenue.longitude], 16, {
+            duration: 0.8,
+            easeLinearity: 0.25
+          });
+        }
+      }
+    }
+  }, [venues, loading]);
 
   // Capture Leaflet map instance
   const handleMapReady = useCallback((map) => {
@@ -52,7 +77,7 @@ export default function MapPage() {
       !isNaN(venue.latitude) &&
       !isNaN(venue.longitude)
     ) {
-      map.flyTo([venue.latitude, venue.longitude], 15, {
+      map.flyTo([venue.latitude, venue.longitude], 16, {
         duration: 0.8,
         easeLinearity: 0.25
       });
@@ -72,17 +97,29 @@ export default function MapPage() {
     if (sport !== undefined) activeFiltersRef.current.sport = sport;
     if (keyword !== undefined) activeFiltersRef.current.keyword = keyword;
 
-    if (targetBounds && typeof targetBounds.getNorth === 'function') {
+    const trimmedKw = activeFiltersRef.current.keyword ? activeFiltersRef.current.keyword.trim() : '';
+
+    if (trimmedKw) {
+      // Keyword search queries nationwide across all of Vietnam
+      isUserSearchingRef.current = true;
+      fetchVenuesByBounds(null, {
+        sport: activeFiltersRef.current.sport || undefined,
+        keyword: trimmedKw,
+        all: true,
+        limit: 3000
+      });
+    } else {
+      isUserSearchingRef.current = false;
+      // Load venues across Vietnam with optional viewport bounds
       fetchVenuesByBounds(targetBounds, {
         sport: activeFiltersRef.current.sport || undefined,
-        keyword: activeFiltersRef.current.keyword ? activeFiltersRef.current.keyword.trim() : undefined
+        limit: 3000
       });
     }
   }, [fetchVenuesByBounds]);
 
   return (
-    <div className="w-full h-[calc(100vh-64px)] h-[calc(100dvh-64px)] relative bg-surface overflow-hidden">
-      {/* 100% Full-width Interactive Map */}
+    <div className="w-full h-[calc(100vh-64px)] h-[calc(100dvh-64px)] flex flex-col bg-surface overflow-hidden relative">
       <main className="w-full h-full relative">
         <SportMapView
           venues={venues}

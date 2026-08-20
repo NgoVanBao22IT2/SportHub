@@ -196,8 +196,9 @@ export default function VenueDetail() {
         <img
           src={heroImage}
           alt={`${venue.venue_name} Hero`}
+          referrerPolicy="no-referrer"
           className="relative w-full h-full object-cover object-center opacity-90 transition-opacity duration-300"
-          onError={(e) => { e.currentTarget.src = getDeterministicFallback(id); }}
+          onError={(e) => { e.currentTarget.src = getDeterministicFallback(venue, id); }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-dark/75 via-dark/25 to-transparent"></div>
       </section>
@@ -536,7 +537,8 @@ export default function VenueDetail() {
                           <img
                             src={photoUrl}
                             alt={`Gallery Photo ${idx + 2}`}
-                            onError={(e) => { e.currentTarget.src = getDeterministicFallback(id); }}
+                            referrerPolicy="no-referrer"
+                            onError={(e) => { e.currentTarget.src = getDeterministicFallback(venue, id); }}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                           <div className="absolute inset-0 bg-dark/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -712,7 +714,7 @@ export default function VenueDetail() {
             <h2 className="text-2xl font-bold text-gray-900 mb-1">Sân tương tự gần đây</h2>
             <p className="text-sm text-text-muted">Các câu lạc bộ chất lượng cao cùng môn thể thao hoặc khu vực</p>
           </div>
-          <Link to={`/search?sport=${encodeURIComponent(primarySportCategory || '')}`}>
+          <Link to="/search">
             <Button variant="ghost" size="sm" rightIcon={<ArrowRight size={16} />}>
               Xem tất cả
             </Button>
@@ -727,7 +729,7 @@ export default function VenueDetail() {
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {similarVenues.slice(0, 6).map((v) => (
+            {similarVenues.map((v) => (
               <VenueCard
                 key={v.venue_id || v.id}
                 venue={v}
