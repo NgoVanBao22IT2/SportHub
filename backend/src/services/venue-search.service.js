@@ -401,6 +401,7 @@ class VenueSearchService {
 
     if (!currentVenue) return [];
 
+    const primaryBranch = (currentVenue.branches || [])[0];
     let currentSport = null;
     (currentVenue.branches || []).forEach(b => {
       (b.courts || []).forEach(c => {
@@ -408,23 +409,53 @@ class VenueSearchService {
       });
     });
 
-    const similarWhere = {
-      operating_status: 'APPROVED',
-      venue_id: { [Op.ne]: venueId }
-    };
+    // Extract location info from current venue's branch
+    const locationCity = primaryBranch?.ward_district_city || '';
+    let cityKeyword = '';
+    if (locationCity) {
+      if (locationCity.includes('Đà Nẵng') || locationCity.includes('Da Nang')) cityKeyword = 'Đà Nẵng';
+      else if (locationCity.includes('Hà Nội') || locationCity.includes('Ha Noi')) cityKeyword = 'Hà Nội';
+      else if (locationCity.includes('Hồ Chí Minh') || locationCity.includes('TP.HCM') || locationCity.includes('HCM') || locationCity.includes('Sài Gòn')) cityKeyword = 'Hồ Chí Minh';
+      else {
+        const parts = locationCity.split(',').map(p => p.trim()).filter(Boolean);
+        cityKeyword = parts[parts.length - 1] || locationCity;
+      }
+    }
 
     const courtWhere = { court_status: 'ACTIVE' };
     if (currentSport) {
-      courtWhere.sport_category = currentSport;
+      const normSport = currentSport.toLowerCase();
+      if (normSport.includes('cầu lông') || normSport.includes('badminton')) {
+        courtWhere.sport_category = { [Op.or]: ['Cầu lông', 'Badminton', { [Op.like]: '%cầu lông%' }, { [Op.like]: '%badminton%' }] };
+      } else if (normSport.includes('pickleball') || normSport.includes('pickle')) {
+        courtWhere.sport_category = { [Op.or]: ['Pickleball', { [Op.like]: '%pickleball%' }, { [Op.like]: '%pickle%' }] };
+      } else if (normSport.includes('bóng đá') || normSport.includes('football') || normSport.includes('soccer')) {
+        courtWhere.sport_category = { [Op.or]: ['Bóng đá', 'Football', 'Soccer', { [Op.like]: '%bóng đá%' }] };
+      } else if (normSport.includes('tennis') || normSport.includes('quần vợt')) {
+        courtWhere.sport_category = { [Op.or]: ['Tennis', 'Quần vợt', { [Op.like]: '%tennis%' }, { [Op.like]: '%quần vợt%' }] };
+      } else if (normSport.includes('bóng rổ') || normSport.includes('basketball')) {
+        courtWhere.sport_category = { [Op.or]: ['Bóng rổ', 'Basketball', { [Op.like]: '%bóng rổ%' }] };
+      } else {
+        courtWhere.sport_category = currentSport;
+      }
     }
 
-    const similarVenues = await Venue.findAll({
-      where: similarWhere,
+    // 1. First priority: Search same sport in the same city / district
+    const branchWhere = { branch_status: 'ACTIVE' };
+    if (cityKeyword) {
+      branchWhere.ward_district_city = { [Op.like]: `%${cityKeyword}%` };
+    }
+
+    let similarVenues = await Venue.findAll({
+      where: {
+        operating_status: 'APPROVED',
+        venue_id: { [Op.ne]: venueId }
+      },
       include: [
         {
           model: Branch,
           as: 'branches',
-          where: { branch_status: 'ACTIVE' },
+          where: branchWhere,
           required: true,
           include: [
             {
@@ -436,19 +467,75 @@ class VenueSearchService {
           ]
         }
       ],
-      limit: 3
+      limit: 6,
+      order: [['created_at', 'DESC']]
     });
 
-    const result = [];
-    for (const v of similarVenues) {
-      const vJson = v.toJSON();
-      const imgs = await VenueImage.findAll({
-        where: { target_type: 'VENUE', target_id: v.venue_id },
-        limit: 1
+    // 2. Second priority: If fewer than 3 found in same city, expand nationwide for same sport
+    if (similarVenues.length < 3) {
+      const existingIds = [venueId, ...similarVenues.map(v => v.venue_id)];
+      const moreVenues = await Venue.findAll({
+        where: {
+          operating_status: 'APPROVED',
+          venue_id: { [Op.notIn]: existingIds }
+        },
+        include: [
+          {
+            model: Branch,
+            as: 'branches',
+            where: { branch_status: 'ACTIVE' },
+            required: true,
+            include: [
+              {
+                model: Court,
+                as: 'courts',
+                where: courtWhere,
+                required: true
+              }
+            ]
+          }
+        ],
+        limit: 6 - similarVenues.length,
+        order: [['created_at', 'DESC']]
       });
-      vJson.image_url = imgs.length > 0 ? imgs[0].image_url : null;
-      result.push(vJson);
+      similarVenues = [...similarVenues, ...moreVenues];
     }
+
+    // 3. Batch load images for all retrieved venues
+    const venueIds = similarVenues.map(v => v.venue_id);
+    const imagesByVenue = {};
+    if (venueIds.length > 0) {
+      const allImages = await VenueImage.findAll({
+        where: {
+          venue_id: { [Op.in]: venueIds },
+          is_active: true
+        },
+        order: [
+          ['is_cover', 'DESC'],
+          ['is_avatar', 'DESC'],
+          ['is_primary', 'DESC'],
+          ['display_order', 'ASC'],
+          ['created_at', 'DESC']
+        ]
+      });
+
+      allImages.forEach(img => {
+        const vId = img.venue_id;
+        if (!imagesByVenue[vId]) imagesByVenue[vId] = [];
+        imagesByVenue[vId].push(img.toJSON());
+      });
+    }
+
+    const result = similarVenues.slice(0, 6).map(v => {
+      const vJson = v.toJSON();
+      const venueImgs = imagesByVenue[v.venue_id] || [];
+      vJson.images = venueImgs;
+      const coverImg = venueImgs.find(i => i.is_cover || i.image_type === 'COVER') || venueImgs[0];
+      if (coverImg) {
+        vJson.image_url = coverImg.cover || coverImg.avatar || coverImg.thumbnail_url || coverImg.medium_url || coverImg.large_url || coverImg.original_url;
+      }
+      return vJson;
+    });
 
     return result;
   }

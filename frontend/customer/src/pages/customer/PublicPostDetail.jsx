@@ -105,7 +105,7 @@ export default function PublicPostDetail() {
       {/* HEADER & BREADCRUMB */}
       <section className="bg-surface border-b border-border-subtle-medium py-6 px-4">
         <div className="container mx-auto max-w-4xl space-y-3">
-          <div className="flex items-center text-xs text-text-muted gap-2">
+          {/* <div className="flex items-center text-xs text-text-muted gap-2">
             <Link to="/" className="hover:text-brand-orange">Trang chủ</Link>
             <span>/</span>
             {venue && (
@@ -117,7 +117,7 @@ export default function PublicPostDetail() {
               </>
             )}
             <span className="text-gray-900 font-medium truncate max-w-xs">{post.title}</span>
-          </div>
+          </div> */}
 
           <button
             onClick={() => navigate(-1)}

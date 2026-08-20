@@ -49,7 +49,7 @@ export default function VenueDetail() {
       try {
         const postsRes = await getPublicVenuePosts(id);
         setVenuePosts(postsRes?.data || []);
-      } catch (e) {}
+      } catch (e) { }
 
       // Fetch similar venues from real DB API
       const similar = await getSimilarVenues(id);
@@ -172,7 +172,7 @@ export default function VenueDetail() {
       mapCoordinates = typeof mainBranch.geo_coordinates === 'string'
         ? JSON.parse(mainBranch.geo_coordinates)
         : mapCoordinates = mainBranch.geo_coordinates;
-    } catch (e) {}
+    } catch (e) { }
   }
 
   const mapDirectionsUrl = mapCoordinates && mapCoordinates.lat && mapCoordinates.lng
@@ -371,7 +371,7 @@ export default function VenueDetail() {
                       <MapPin size={36} className="text-brand-orange mb-2" />
                       <p className="font-bold text-xs text-gray-900 line-clamp-2">{venue.venue_name}</p>
                       <p className="text-[11px] text-text-muted mt-1 line-clamp-2">{locationStr}</p>
-                      
+
                       {mapCoordinates && (
                         <p className="text-[10px] font-mono text-gray-500 mt-2">
                           Tọa độ: {mapCoordinates.lat}, {mapCoordinates.lng}
@@ -712,7 +712,7 @@ export default function VenueDetail() {
             <h2 className="text-2xl font-bold text-gray-900 mb-1">Sân tương tự gần đây</h2>
             <p className="text-sm text-text-muted">Các câu lạc bộ chất lượng cao cùng môn thể thao hoặc khu vực</p>
           </div>
-          <Link to="/search">
+          <Link to={`/search?sport=${encodeURIComponent(primarySportCategory || '')}`}>
             <Button variant="ghost" size="sm" rightIcon={<ArrowRight size={16} />}>
               Xem tất cả
             </Button>
@@ -727,7 +727,7 @@ export default function VenueDetail() {
           />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {similarVenues.map((v) => (
+            {similarVenues.slice(0, 6).map((v) => (
               <VenueCard
                 key={v.venue_id || v.id}
                 venue={v}
