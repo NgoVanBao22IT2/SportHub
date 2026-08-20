@@ -206,61 +206,7 @@ class OwnerService {
     };
   }
 
-  /**
-   * Retrieves revenue metrics strictly from PAID payments
-   * Only includes COMPLETED/CONFIRMED bookings.
-   */
-  static async getRevenue(ownerId) {
-    const revenueStats = await Payment.findAll({
-      attributes: [
-        [sequelize.fn('SUM', sequelize.col('Payment.amount')), 'total_revenue'],
-        [sequelize.fn('COUNT', sequelize.col('Payment.payment_id')), 'total_transactions']
-      ],
-      where: {
-        payment_status: 'PAID'
-      },
-      include: [
-        {
-          model: Booking,
-          as: 'booking',
-          required: true,
-          where: {
-            booking_status: {
-              [Op.in]: ['CONFIRMED', 'COMPLETED']
-            }
-          },
-          include: [
-            {
-              model: Court,
-              as: 'court',
-              required: true,
-              include: [
-                {
-                  model: Branch,
-                  as: 'branch',
-                  required: true,
-                  include: [
-                    {
-                      model: Venue,
-                      as: 'venue',
-                      required: true,
-                      where: { owner_user_id: ownerId }
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ],
-      raw: true
-    });
 
-    return {
-      total_revenue: parseFloat(revenueStats[0].total_revenue) || 0,
-      total_transactions: parseInt(revenueStats[0].total_transactions) || 0
-    };
-  }
 
   /**
    * Dashboard aggregate endpoint - Enforces 100% Owner Data Isolation via DB Query
@@ -1434,6 +1380,67 @@ class OwnerService {
     const { page = 1, limit = 10, status, search, paymentMethod, venueId } = options;
     const offset = (page - 1) * limit;
 
+    const venueWhereClause = { owner_user_id: ownerId };
+    if (venueId) {
+      venueWhereClause.venue_id = venueId;
+    }
+
+    // Auto-sync any existing bookings of this owner that do not have a Payment record yet
+    try {
+      const { v4: uuidv4 } = require('uuid');
+      const unlinkedBookings = await Booking.findAll({
+        include: [{
+          model: Court,
+          as: 'court',
+          required: true,
+          include: [{
+            model: Branch,
+            as: 'branch',
+            required: true,
+            include: [{
+              model: Venue,
+              as: 'venue',
+              required: true,
+              where: venueWhereClause
+            }]
+          }]
+        }],
+        where: {
+          booking_id: {
+            [Op.notIn]: sequelize.literal('(SELECT booking_id FROM payments WHERE booking_id IS NOT NULL)')
+          }
+        }
+      });
+
+      for (const b of unlinkedBookings) {
+        let pStatus = 'SUCCESS';
+        if (['WAITING_OWNER_CONFIRMATION', 'PAYMENT_PENDING', 'HOLDING'].includes(b.booking_status)) {
+          pStatus = 'PROCESSING';
+        } else if (b.booking_status === 'REJECTED') {
+          pStatus = 'FAILED';
+        } else if (b.booking_status === 'CANCELLED') {
+          pStatus = 'REFUNDED';
+        }
+
+        await Payment.create({
+          payment_id: uuidv4(),
+          booking_id: b.booking_id,
+          user_id: b.customer_user_id,
+          payment_method: 'BANK_TRANSFER',
+          payment_status: pStatus,
+          amount: parseFloat(b.total_amount || 0),
+          currency: b.currency || 'VND',
+          provider_order_id: 'PAY_' + b.booking_id.substring(0, 8).toUpperCase(),
+          provider_request_id: 'REQ_' + b.booking_id.substring(0, 8).toUpperCase(),
+          paid_at: pStatus === 'SUCCESS' ? (b.updated_at || b.created_at) : null,
+          created_at: b.created_at,
+          updated_at: b.updated_at
+        }).catch(() => {});
+      }
+    } catch (syncErr) {
+      console.warn('Booking-Payment sync non-blocking warning:', syncErr.message);
+    }
+
     const paymentWhereClause = {};
     if (status && status !== 'ALL') {
       if (status === 'PENDING') {
@@ -1448,13 +1455,9 @@ class OwnerService {
     if (search && search.trim()) {
       paymentWhereClause[Op.or] = [
         { payment_id: { [Op.like]: `%${search.trim()}%` } },
-        { provider_order_id: { [Op.like]: `%${search.trim()}%` } }
+        { provider_order_id: { [Op.like]: `%${search.trim()}%` } },
+        { booking_id: { [Op.like]: `%${search.trim()}%` } }
       ];
-    }
-
-    const venueWhereClause = { owner_user_id: ownerId };
-    if (venueId) {
-      venueWhereClause.venue_id = venueId;
     }
 
     const { rows, count } = await Payment.findAndCountAll({
@@ -1814,6 +1817,68 @@ class OwnerService {
       venueWhere.venue_id = venueId;
     }
 
+    // Auto-sync unlinked bookings and update missing paid_at
+    try {
+      const { v4: uuidv4 } = require('uuid');
+      const unlinkedBookings = await Booking.findAll({
+        include: [{
+          model: Court,
+          as: 'court',
+          required: true,
+          include: [{
+            model: Branch,
+            as: 'branch',
+            required: true,
+            include: [{
+              model: Venue,
+              as: 'venue',
+              required: true,
+              where: venueWhere
+            }]
+          }]
+        }],
+        where: {
+          booking_id: {
+            [Op.notIn]: sequelize.literal('(SELECT booking_id FROM payments WHERE booking_id IS NOT NULL)')
+          }
+        }
+      });
+
+      for (const b of unlinkedBookings) {
+        let pStatus = 'SUCCESS';
+        if (['WAITING_OWNER_CONFIRMATION', 'PAYMENT_PENDING', 'HOLDING'].includes(b.booking_status)) {
+          pStatus = 'PROCESSING';
+        } else if (b.booking_status === 'REJECTED') {
+          pStatus = 'FAILED';
+        } else if (b.booking_status === 'CANCELLED') {
+          pStatus = 'REFUNDED';
+        }
+
+        await Payment.create({
+          payment_id: uuidv4(),
+          booking_id: b.booking_id,
+          user_id: b.customer_user_id,
+          payment_method: 'BANK_TRANSFER',
+          payment_status: pStatus,
+          amount: parseFloat(b.total_amount || 0),
+          currency: b.currency || 'VND',
+          provider_order_id: 'PAY_' + b.booking_id.substring(0, 8).toUpperCase(),
+          provider_request_id: 'REQ_' + b.booking_id.substring(0, 8).toUpperCase(),
+          paid_at: pStatus === 'SUCCESS' ? (b.updated_at || b.created_at) : null,
+          created_at: b.created_at,
+          updated_at: b.updated_at
+        }).catch(() => {});
+      }
+
+      // Update null paid_at on existing SUCCESS payments
+      await Payment.update(
+        { paid_at: sequelize.col('created_at') },
+        { where: { payment_status: 'SUCCESS', paid_at: null } }
+      );
+    } catch (syncErr) {
+      console.warn('Revenue sync non-blocking warning:', syncErr.message);
+    }
+
     const courtWhere = {};
     if (courtId) {
       courtWhere.court_id = courtId;
@@ -1821,9 +1886,13 @@ class OwnerService {
 
     const paymentWhere = {
       payment_status: 'SUCCESS',
-      paid_at: {
-        [Op.between]: [startDate, endDate]
-      }
+      [Op.or]: [
+        { paid_at: { [Op.between]: [startDate, endDate] } },
+        {
+          paid_at: null,
+          created_at: { [Op.between]: [startDate, endDate] }
+        }
+      ]
     };
 
     if (paymentMethod && paymentMethod !== 'ALL') {

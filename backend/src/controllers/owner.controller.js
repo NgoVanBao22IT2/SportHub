@@ -213,16 +213,6 @@ class OwnerController {
     }
   }
 
-  static async getRevenue(req, res, next) {
-    try {
-      const ownerId = req.user.userId;
-      const data = await OwnerService.getRevenue(ownerId);
-      res.status(200).json({ status: 'success', data });
-    } catch (error) {
-      next(error);
-    }
-  }
-
   static async getBookings(req, res, next) {
     try {
       const ownerId = req.user.userId;

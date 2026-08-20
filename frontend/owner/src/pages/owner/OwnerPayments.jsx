@@ -210,6 +210,7 @@ export default function OwnerPayments() {
             <option value="PENDING">Chờ xác nhận</option>
             <option value="SUCCESS">Đã thanh toán (SUCCESS)</option>
             <option value="FAILED">Từ chối (FAILED)</option>
+            <option value="REFUNDED">Đã hoàn tiền (REFUNDED)</option>
           </select>
 
           <select
@@ -271,6 +272,8 @@ export default function OwnerPayments() {
                     statusBadge = <Badge variant="success" size="xs">ĐÃ THANH TOÁN</Badge>;
                   } else if (pStatus === 'FAILED') {
                     statusBadge = <Badge variant="danger" size="xs">ĐÃ TỪ CHỐI</Badge>;
+                  } else if (pStatus === 'REFUNDED') {
+                    statusBadge = <Badge variant="neutral" size="xs">ĐÃ HOÀN TIỀN</Badge>;
                   }
 
                   return (
