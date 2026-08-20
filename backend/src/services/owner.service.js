@@ -2391,10 +2391,92 @@ class OwnerService {
     const { page = 1, limit = 10, type, isRead, search } = options;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
+    // Auto-sync any booking notifications for this owner
+    try {
+      const { v4: uuidv4 } = require('uuid');
+      const bookings = await Booking.findAll({
+        include: [{
+          model: Court,
+          as: 'court',
+          required: true,
+          include: [{
+            model: Branch,
+            as: 'branch',
+            required: true,
+            include: [{
+              model: Venue,
+              as: 'venue',
+              required: true,
+              where: { owner_user_id: ownerId }
+            }]
+          }]
+        }, {
+          model: User,
+          as: 'customer'
+        }],
+        where: {
+          booking_id: {
+            [Op.notIn]: sequelize.literal(`(SELECT entity_id FROM notifications WHERE recipient_user_id = '${ownerId}' AND entity_id IS NOT NULL)`)
+          }
+        }
+      });
+
+      for (const b of bookings) {
+        const custName = b.customer?.full_name || 'Khách hàng';
+        const courtName = b.court?.court_name || 'Sân con';
+        const venueName = b.court?.branch?.venue?.venue_name || 'Cụm sân';
+        const bIdShort = b.booking_id.substring(0, 8);
+
+        let notifType = 'BOOKING_NEW';
+        let title = 'Đơn đặt sân mới';
+        let msg = `Khách hàng ${custName} vừa đặt sân ${courtName} (${venueName}) ngày ${b.booking_date} lúc ${String(b.start_time).substring(0, 5)} - ${String(b.end_time).substring(0, 5)}.`;
+
+        if (b.booking_status === 'CANCEL_REQUESTED') {
+          notifType = 'BOOKING_CANCEL_REQUESTED';
+          title = 'Yêu cầu hủy đơn đặt sân';
+          msg = `Khách hàng ${custName} đã gửi yêu cầu hủy đơn #${bIdShort} (${courtName}).`;
+        } else if (b.booking_status === 'CONFIRMED') {
+          notifType = 'BOOKING_CONFIRMED';
+          title = 'Đơn đặt sân đã xác nhận';
+          msg = `Đơn đặt sân #${bIdShort} (${courtName}) ngày ${b.booking_date} đã được xác nhận thành công.`;
+        } else if (b.booking_status === 'REJECTED') {
+          notifType = 'BOOKING_REJECTED';
+          title = 'Đơn đặt sân đã từ chối';
+          msg = `Đơn đặt sân #${bIdShort} (${courtName}) đã bị từ chối.`;
+        }
+
+        await Notification.create({
+          notification_id: uuidv4(),
+          recipient_user_id: ownerId,
+          notification_type: notifType,
+          title,
+          message: msg,
+          entity_type: 'BOOKING',
+          entity_id: b.booking_id,
+          is_read: false,
+          created_at: b.created_at,
+          updated_at: b.updated_at
+        }).catch(() => {});
+      }
+    } catch (syncErr) {
+      console.warn('Owner notification sync non-blocking warning:', syncErr.message);
+    }
+
     const whereClause = { recipient_user_id: ownerId };
 
     if (type && type !== 'ALL') {
-      whereClause.notification_type = type;
+      const t = String(type).toUpperCase();
+      if (t === 'BOOKING' || t === 'BOOKING_NEW' || t === 'BOOKING_CONFIRMED') {
+        whereClause.notification_type = { [Op.like]: 'BOOKING%' };
+      } else if (t === 'PAYMENT') {
+        whereClause.notification_type = { [Op.or]: [{ [Op.like]: 'PAYMENT%' }, { [Op.like]: 'REFUND%' }] };
+      } else if (t === 'REVIEW' || t === 'NEW_REVIEW') {
+        whereClause.notification_type = { [Op.like]: '%REVIEW%' };
+      } else if (t === 'SYSTEM' || t === 'EVENT') {
+        whereClause.notification_type = { [Op.or]: ['SYSTEM_ANNOUNCEMENT', 'EVENT_NEW', 'VENUE_POST'] };
+      } else {
+        whereClause.notification_type = type;
+      }
     }
 
     if (isRead !== undefined && isRead !== 'ALL') {

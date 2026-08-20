@@ -190,23 +190,33 @@ export default function OwnerNotifications() {
       </div>
 
       {/* SEARCH & FILTERS BAR */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
-          <Input
-            placeholder="Tìm theo tiêu đề hoặc nội dung thông báo..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            leftIcon={<Search size={16} />}
+      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+        <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2 items-center">
+          <div className="flex-1">
+            <Input
+              placeholder="Tìm theo tiêu đề hoặc nội dung thông báo..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              leftIcon={<Search size={16} />}
+              size="sm"
+              inputClassName="h-[38px] rounded-xl text-xs border-border-subtle-medium"
+            />
+          </div>
+          <Button
+            type="submit"
+            variant="primary"
             size="sm"
-          />
-          <Button type="submit" variant="primary" size="sm">Tìm kiếm</Button>
+            className="h-[38px] px-4 whitespace-nowrap text-xs font-bold rounded-xl shrink-0 flex items-center justify-center"
+          >
+            Tìm kiếm
+          </Button>
         </form>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 shrink-0">
           <select
             value={readFilter}
             onChange={(e) => setReadFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:border-brand-orange focus:outline-none"
+            className="h-[38px] px-3 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:border-brand-orange focus:outline-none"
           >
             <option value="ALL">Tất cả trạng thái</option>
             <option value="false">Chưa đọc</option>
@@ -216,14 +226,13 @@ export default function OwnerNotifications() {
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="px-3 py-2 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:border-brand-orange focus:outline-none"
+            className="h-[38px] px-3 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:border-brand-orange focus:outline-none"
           >
             <option value="ALL">Tất cả loại thông báo</option>
-            <option value="NEW_BOOKING">Booking mới</option>
-            <option value="PAYMENT_PROOF_SUBMITTED">Xác nhận chuyển khoản</option>
-            <option value="PAYMENT_APPROVED">Thanh toán đã duyệt</option>
-            <option value="PAYMENT_REJECTED">Thanh toán bị từ chối</option>
-            <option value="NEW_REVIEW">Đánh giá mới</option>
+            <option value="BOOKING">Đơn đặt sân & Hủy đơn</option>
+            <option value="PAYMENT">Thanh toán & Chuyển khoản</option>
+            <option value="REVIEW">Đánh giá khách hàng</option>
+            <option value="SYSTEM">Hệ thống & Cảnh báo</option>
           </select>
         </div>
       </div>
@@ -245,74 +254,120 @@ export default function OwnerNotifications() {
           </Card>
         ) : notifications.length > 0 ? (
           <div className="space-y-3">
-            {notifications.map((n) => (
-              <Card
-                key={n.notification_id}
-                padding="md"
-                radius="2xl"
-                className={[
-                  'border transition-all space-y-2',
-                  !n.is_read
-                    ? 'border-brand-orange/30 bg-amber-50/30 shadow-xs'
-                    : 'border-border-subtle-medium bg-surface'
-                ].join(' ')}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className="p-2.5 rounded-xl bg-surface border border-border-subtle shadow-2xs mt-0.5">
-                      {getIcon(n.notification_type)}
-                    </div>
+            {notifications.map((n) => {
+              const isUnread = !n.is_read;
+              let timeStr = '';
+              let relativeStr = '';
+              if (n.created_at) {
+                const d = new Date(n.created_at);
+                const hours = String(d.getHours()).padStart(2, '0');
+                const minutes = String(d.getMinutes()).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const year = d.getFullYear();
+                timeStr = `${hours}:${minutes} - ${day}/${month}/${year}`;
 
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-gray-900 text-sm">{n.title}</h3>
-                        {!n.is_read && (
-                          <Badge variant="warning" size="xs">CHƯA ĐỌC</Badge>
-                        )}
+                const now = new Date();
+                const diffMs = now - d;
+                const diffMins = Math.floor(diffMs / (1000 * 60));
+                const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                if (diffMins < 1) relativeStr = 'Vừa xong';
+                else if (diffMins < 60) relativeStr = `${diffMins} phút trước`;
+                else if (diffHours < 24) relativeStr = `${diffHours} giờ trước`;
+                else if (diffDays === 1) relativeStr = 'Hôm qua';
+                else if (diffDays < 7) relativeStr = `${diffDays} ngày trước`;
+              }
+
+              return (
+                <Card
+                  key={n.notification_id}
+                  padding="md"
+                  radius="2xl"
+                  className={[
+                    'border transition-all space-y-2',
+                    isUnread
+                      ? 'border-brand-orange/30 border-l-4 border-l-brand-orange bg-amber-500/5 shadow-xs'
+                      : 'border-border-subtle-medium bg-surface'
+                  ].join(' ')}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3.5 min-w-0">
+                      <div className={`p-2.5 rounded-2xl flex items-center justify-center shrink-0 shadow-2xs mt-0.5 ${
+                        isUnread ? 'bg-brand-orange/10 border border-brand-orange/20' : 'bg-surface-subtle border border-border-subtle'
+                      }`}>
+                        {getIcon(n.notification_type)}
                       </div>
-                      <p className="text-xs text-gray-700 leading-relaxed">{n.message}</p>
-                      <span className="text-[10px] text-text-muted block">
-                        {new Date(n.created_at || Date.now()).toLocaleString('vi-VN')}
-                      </span>
+
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className={`text-sm ${isUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
+                            {n.title}
+                          </h3>
+                          {isUnread ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-brand-orange text-white">
+                              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                              Mới
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                              Đã đọc
+                            </span>
+                          )}
+                        </div>
+
+                        <p className={`text-xs leading-relaxed ${isUnread ? 'text-gray-800 font-medium' : 'text-text-muted'}`}>
+                          {n.message}
+                        </p>
+
+                        <div className="pt-0.5 flex items-center gap-2 text-[11px] text-text-muted">
+                          <span className="font-mono text-gray-700">{timeStr}</span>
+                          {relativeStr && (
+                            <span className="text-[10px] text-brand-orange font-semibold">
+                              ({relativeStr})
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    {n.entity_id && (
-                      <Button
-                        variant="primary"
-                        size="xs"
-                        rightIcon={<ChevronRight size={14} />}
-                        onClick={() => handleNavigateEntity(n)}
-                      >
-                        Xem chi tiết
-                      </Button>
-                    )}
+                    {/* Actions */}
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      {n.entity_id && (
+                        <Button
+                          variant="primary"
+                          size="xs"
+                          rightIcon={<ChevronRight size={14} />}
+                          onClick={() => handleNavigateEntity(n)}
+                        >
+                          Xem chi tiết
+                        </Button>
+                      )}
 
-                    {!n.is_read && (
+                      {isUnread && (
+                        <button
+                          type="button"
+                          onClick={() => handleMarkRead(n.notification_id)}
+                          className="p-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                          title="Đánh dấu đã đọc"
+                        >
+                          <CheckCheck size={15} />
+                        </button>
+                      )}
+
                       <button
                         type="button"
-                        onClick={() => handleMarkRead(n.notification_id)}
-                        className="p-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
-                        title="Đánh dấu đã đọc"
+                        onClick={() => setDeleteConfirmId(n.notification_id)}
+                        className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
+                        title="Xóa thông báo"
                       >
-                        <CheckCheck size={15} />
+                        <Trash2 size={15} />
                       </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => setDeleteConfirmId(n.notification_id)}
-                      className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition-colors"
-                      title="Xóa thông báo"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    </div>
                   </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
 
             {/* Pagination */}
             {meta.totalPages > 1 && (

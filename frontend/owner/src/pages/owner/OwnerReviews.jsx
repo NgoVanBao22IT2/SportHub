@@ -211,8 +211,16 @@ export default function OwnerReviews() {
             onChange={(e) => setSearchQuery(e.target.value)}
             leftIcon={<Search size={16} />}
             size="sm"
+            inputClassName="h-[38px] rounded-xl text-xs border-border-subtle-medium"
+
           />
-          <Button type="submit" variant="primary" size="sm">Tìm kiếm</Button>
+          <Button 
+          type="submit" 
+          variant="primary" 
+          size="sm"
+          className="h-[38px] px-4 whitespace-nowrap text-xs font-bold rounded-xl shrink-0 flex items-center justify-center"
+
+          >Tìm kiếm</Button>
         </form>
 
         <div className="flex flex-wrap gap-2">
