@@ -26,6 +26,7 @@ export default function Navbar() {
           <nav className="hidden md:flex space-x-6 text-dm font-medium">
             <Link to="/" className="hover:text-green-200 ml-10">Trang chủ</Link>
             <Link to="/search" className="hover:text-green-200 pb-1">Đặt sân</Link>
+            <Link to="/map" className="hover:text-green-200 pb-1">Bản đồ sân</Link>
             {isAuthenticated && (
               <>
                 <Link to="/my-bookings" className="hover:text-green-200 pb-1">Lịch sử đặt sân</Link>

@@ -24,9 +24,15 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(36),
       allowNull: true
     },
-    image_url: {
+    avatar: {
       type: DataTypes.TEXT,
-      allowNull: false
+      allowNull: true,
+      defaultValue: null
+    },
+    cover: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: null
     },
     thumbnail_url: {
       type: DataTypes.TEXT,
@@ -93,6 +99,39 @@ module.exports = (sequelize, DataTypes) => {
     },
     mime_type: {
       type: DataTypes.STRING(100),
+      allowNull: true
+    },
+    status: {
+      type: DataTypes.ENUM('DRAFT', 'PUBLISHED', 'ARCHIVED'),
+      allowNull: false,
+      defaultValue: 'PUBLISHED'
+    },
+    tags: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    width: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    height: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    event_id: {
+      type: DataTypes.STRING(36),
+      allowNull: true
+    },
+    promotion_id: {
+      type: DataTypes.STRING(36),
+      allowNull: true
+    },
+    tournament_id: {
+      type: DataTypes.STRING(36),
+      allowNull: true
+    },
+    course_id: {
+      type: DataTypes.STRING(36),
       allowNull: true
     }
   }, {

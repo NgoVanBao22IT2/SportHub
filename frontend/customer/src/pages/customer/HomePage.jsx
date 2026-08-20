@@ -11,6 +11,8 @@ import Skeleton from '../../components/ui/Skeleton';
 import EmptyState from '../../components/ui/EmptyState';
 import ErrorState from '../../components/ui/ErrorState';
 import VenueCard from '../../components/domain/VenueCard';
+import SportIcon from '../../components/common/SportIcon';
+import GooglePlacesAutocomplete from '../../components/common/GooglePlacesAutocomplete';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -103,26 +105,22 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Location Input */}
+            {/* Google Maps Location Autocomplete Input */}
             <div className="flex-1 w-full px-3 py-1.5 border-b md:border-b-0 md:border-r border-border-subtle-medium">
               <label htmlFor="hero-search-location" className="text-xs text-text-muted font-medium block mb-1">
-                Địa điểm
+                Địa điểm (Google Maps)
               </label>
-              <div className="flex items-center text-gray-900">
-                <MapPin size={18} className="text-accent-primary mr-2 flex-shrink-0" />
-                <input
-                  id="hero-search-location"
-                  type="text"
-                  placeholder="Thành phố, Quận..."
-                  value={searchLocation}
-                  onChange={(e) => setSearchLocation(e.target.value)}
-                  className="outline-none w-full bg-transparent text-sm placeholder:text-text-muted"
-                />
-              </div>
+              <GooglePlacesAutocomplete
+                id="hero-search-location"
+                value={searchLocation}
+                onChange={(e) => setSearchLocation(e.target.value)}
+                onSelectPlace={(place) => setSearchLocation(place.main_text || place.full_text)}
+                placeholder="Thành phố, Quận hoặc vị trí..."
+              />
             </div>
 
             {/* Schedule Slot */}
-            <div className="flex-1 w-full px-3 py-1.5">
+            {/* <div className="flex-1 w-full px-3 py-1.5">
               <label className="text-xs text-text-muted font-medium flex items-center mb-1">
                 Thời gian
                 <Badge variant="neutral" size="sm" className="ml-2 text-[10px] py-0 px-1.5">
@@ -138,7 +136,7 @@ export default function HomePage() {
                   className="outline-none w-full bg-transparent text-sm cursor-not-allowed"
                 />
               </div>
-            </div>
+            </div> */}
 
             {/* Submit CTA Button */}
             <Button
@@ -175,10 +173,10 @@ export default function HomePage() {
               to={`/search?sport=${encodeURIComponent(sport)}`}
               className="flex flex-col items-center justify-center p-6 border border-border-subtle-medium rounded-2xl hover:border-accent-primary hover:shadow-md transition-all bg-surface group cursor-pointer"
             >
-              <div className="w-14 h-14 rounded-full bg-accent-primary-light text-accent-primary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <Zap size={24} />
+              <div className="w-14 h-14 rounded-full bg-accent-primary-light text-accent-primary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-xs">
+                <SportIcon sport={sport} size={28} />
               </div>
-              <span className="font-semibold text-gray-800 text-sm group-hover:text-accent-primary transition-colors">
+              <span className="font-semibold text-gray-800 text-sm group-hover:text-accent-primary transition-colors text-center">
                 {sport}
               </span>
             </Link>
@@ -232,8 +230,8 @@ export default function HomePage() {
               <div className="w-10 h-10 rounded-full bg-white/10 text-brand-orange flex items-center justify-center mb-4">
                 <Users size={20} />
               </div>
-              <h4 className="font-bold text-xl mb-2">Ghép kèo AI</h4>
-              <p className="text-sm text-white/80 mb-4">Công nghệ AI tìm đồng đội cùng trình độ ngay tại khu vực của bạn.</p>
+              <h4 className="font-bold text-xl mb-2">Ghép kèo/Tìm trận đấu</h4>
+              <p className="text-sm text-white/80 mb-4">Tìm đồng đội cùng trình độ ngay tại khu vực của bạn.</p>
               <Link to="/search" className="text-brand-orange font-semibold text-sm flex items-center hover:underline">
                 Tìm kèo ngay <ArrowRight size={16} className="ml-1" />
               </Link>

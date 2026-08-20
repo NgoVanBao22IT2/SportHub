@@ -1,0 +1,121 @@
+/* SportHub Map Custom Marker Styles */
+.custom-sport-marker-wrapper {
+  background: transparent !important;
+  border: none !important;
+}
+
+.sport-map-pin {
+  width: 28px;
+  height: 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.3));
+  transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: pointer;
+  user-select: none;
+}
+
+.sport-map-pin:hover {
+  transform: scale(1.25) translateY(-4px);
+  z-index: 1000 !important;
+}
+
+.sport-map-pin .pin-head {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: var(--pin-color, #059669);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.22);
+}
+
+.sport-map-pin .pin-tip {
+  width: 0;
+  height: 0;
+  border-left: 4.5px solid transparent;
+  border-right: 4.5px solid transparent;
+  border-top: 6.5px solid var(--pin-color, #059669);
+  margin-top: -1px;
+}
+
+/* Selected Marker Visual State */
+.sport-map-pin.is-selected {
+  width: 34px;
+  height: 42px;
+  transform: scale(1.2) translateY(-4px);
+  z-index: 9999 !important;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
+}
+
+.sport-map-pin.is-selected .pin-head {
+  width: 34px;
+  height: 34px;
+  border: 2.5px solid #ffffff;
+  box-shadow: 0 0 0 3px var(--pin-color, #059669), 0 4px 8px rgba(0, 0, 0, 0.3);
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.sport-map-pin.is-selected .pin-tip {
+  border-left: 5.5px solid transparent;
+  border-right: 5.5px solid transparent;
+  border-top: 8px solid var(--pin-color, #059669);
+}
+
+@keyframes pulse-ring {
+  0%, 100% {
+    box-shadow: 0 0 0 3px var(--pin-color, #059669), 0 4px 8px rgba(0, 0, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(5, 150, 105, 0.4), 0 4px 8px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Custom Marker Cluster Styles */
+.custom-cluster-wrapper {
+  background: transparent !important;
+  border: none !important;
+}
+
+.custom-map-cluster {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-weight: 700;
+  font-family: inherit;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.25);
+  border: 2.5px solid rgba(255, 255, 255, 0.9);
+  transition: transform 0.15s ease-out;
+  cursor: pointer;
+}
+
+.custom-map-cluster:hover {
+  transform: scale(1.12);
+}
+
+.custom-map-cluster.cluster-small {
+  width: 34px;
+  height: 34px;
+  background: linear-gradient(135deg, #10B981, #059669);
+  font-size: 12px;
+}
+
+.custom-map-cluster.cluster-medium {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, #F59E0B, #D97706);
+  font-size: 13px;
+}
+
+.custom-map-cluster.cluster-large {
+  width: 48px;
+  height: 48px;
+  background: linear-gradient(135deg, #EF4444, #DC2626);
+  font-size: 14px;
+}

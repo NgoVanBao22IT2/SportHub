@@ -7,6 +7,7 @@ class VenueSearchService {
     const { 
       keyword, 
       sport, 
+      location,
       min_price, 
       max_price, 
       lat, 
@@ -35,6 +36,19 @@ class VenueSearchService {
     const branchWhere = {
       branch_status: 'ACTIVE'
     };
+
+    // Text location filter
+    if (location && location.trim()) {
+      const locClean = location.replace(/(thành phố|tp\.?|tỉnh|quận|huyện|phường|xã|việt nam)/gi, '').trim();
+      branchWhere[Op.or] = [
+        { ward_district_city: { [Op.like]: `%${location.trim()}%` } },
+        { street_address: { [Op.like]: `%${location.trim()}%` } },
+        ...(locClean && locClean !== location.trim() ? [
+          { ward_district_city: { [Op.like]: `%${locClean}%` } },
+          { street_address: { [Op.like]: `%${locClean}%` } }
+        ] : [])
+      ];
+    }
 
     // 07.05 & 07.07 Location / Nearby filter
     let orderClause = [['created_at', 'DESC']];
@@ -87,8 +101,21 @@ class VenueSearchService {
     };
     let includeCourt = false;
     
-    if (sport) {
-      courtWhere.sport_category = sport;
+    if (sport && sport !== 'Tất cả') {
+      const normSport = sport.toLowerCase();
+      if (normSport.includes('cầu lông') || normSport.includes('badminton')) {
+        courtWhere.sport_category = { [Op.or]: ['Cầu lông', 'Badminton', { [Op.like]: '%cầu lông%' }, { [Op.like]: '%badminton%' }] };
+      } else if (normSport.includes('bóng đá') || normSport.includes('football') || normSport.includes('soccer') || normSport.includes('futsal')) {
+        courtWhere.sport_category = { [Op.or]: ['Bóng đá', 'Football', 'Soccer', 'Futsal', { [Op.like]: '%bóng đá%' }, { [Op.like]: '%futsal%' }] };
+      } else if (normSport.includes('tennis') || normSport.includes('quần vợt')) {
+        courtWhere.sport_category = { [Op.or]: ['Tennis', 'Quần vợt', { [Op.like]: '%tennis%' }, { [Op.like]: '%quần vợt%' }] };
+      } else if (normSport.includes('bóng rổ') || normSport.includes('basketball')) {
+        courtWhere.sport_category = { [Op.or]: ['Bóng rổ', 'Basketball', { [Op.like]: '%bóng rổ%' }, { [Op.like]: '%basketball%' }] };
+      } else if (normSport.includes('pickleball') || normSport.includes('pickle')) {
+        courtWhere.sport_category = { [Op.or]: ['Pickleball', { [Op.like]: '%pickleball%' }, { [Op.like]: '%pickle%' }] };
+      } else {
+        courtWhere.sport_category = { [Op.like]: `%${sport}%` };
+      }
       includeCourt = true;
     }
 
@@ -197,6 +224,41 @@ class VenueSearchService {
       order: orderClause
     });
 
+    // Fetch active images for searched venues to populate cover/thumbnail images on card list
+    const venueIds = rows.map(v => v.venue_id);
+    if (venueIds.length > 0) {
+      const allImages = await models.VenueImage.findAll({
+        where: {
+          venue_id: { [Op.in]: venueIds },
+          is_active: true
+        },
+        order: [
+          ['is_cover', 'DESC'],
+          ['is_avatar', 'DESC'],
+          ['is_primary', 'DESC'],
+          ['display_order', 'ASC'],
+          ['created_at', 'DESC']
+        ]
+      });
+
+      const imagesByVenue = {};
+      allImages.forEach(img => {
+        const vId = img.venue_id;
+        if (!imagesByVenue[vId]) imagesByVenue[vId] = [];
+        imagesByVenue[vId].push(img.toJSON());
+      });
+
+      rows.forEach(v => {
+        v.setDataValue('images', imagesByVenue[v.venue_id] || []);
+        const coverImg = (imagesByVenue[v.venue_id] || []).find(i => i.is_cover || i.image_type === 'COVER');
+        const firstImg = (imagesByVenue[v.venue_id] || [])[0];
+        const activeImg = coverImg || firstImg;
+        if (activeImg) {
+          v.setDataValue('image_url', activeImg.cover || activeImg.avatar || activeImg.thumbnail_url || activeImg.medium_url || activeImg.large_url || activeImg.original_url);
+        }
+      });
+    }
+
     return {
       total: count,
       page: parseInt(page),
@@ -242,8 +304,17 @@ class VenueSearchService {
 
     // 1. Fetch Venue Images
     const images = await VenueImage.findAll({
-      where: { target_type: 'VENUE', target_id: venueId },
-      order: [['is_primary', 'DESC'], ['display_order', 'ASC']]
+      where: {
+        [Op.or]: [{ venue_id: venueId }, { target_id: venueId }],
+        is_active: true
+      },
+      order: [
+        ['is_cover', 'DESC'],
+        ['is_avatar', 'DESC'],
+        ['is_primary', 'DESC'],
+        ['display_order', 'ASC'],
+        ['created_at', 'DESC']
+      ]
     });
     venueJson.images = images.map(img => img.toJSON());
 
@@ -390,6 +461,268 @@ class VenueSearchService {
       group: ['sport_category']
     });
     return courts.map(c => c.sport_category).filter(Boolean);
+  }
+
+  /**
+   * PHASE 02: Spatial Bounding Box Search for Interactive Map
+   * Retrieves active, approved venues strictly within the specified viewport bounding box.
+   * Filters at the database level with ZERO N+1 queries.
+   */
+  async getVenuesForMap(queryParams, models) {
+    const {
+      north,
+      south,
+      east,
+      west,
+      sport,
+      keyword,
+      limit = 300
+    } = queryParams;
+
+    // 1. Validation of Required Bounding Box Coordinates
+    if (north === undefined || south === undefined || east === undefined || west === undefined) {
+      const error = new Error('north, south, east, and west coordinates are required');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const pNorth = parseFloat(north);
+    const pSouth = parseFloat(south);
+    const pEast = parseFloat(east);
+    const pWest = parseFloat(west);
+
+    if (isNaN(pNorth) || isNaN(pSouth) || isNaN(pEast) || isNaN(pWest)) {
+      const error = new Error('Coordinates must be valid numbers');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (pSouth < -90 || pSouth > 90 || pNorth < -90 || pNorth > 90) {
+      const error = new Error('Latitude must be between -90 and 90');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (pWest < -180 || pWest > 180 || pEast < -180 || pEast > 180) {
+      const error = new Error('Longitude must be between -180 and 180');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (pSouth > pNorth) {
+      const error = new Error('south cannot be greater than north');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    // Safety Limit Enforcement (Max 500)
+    const parsedLimit = Math.min(Math.max(1, parseInt(limit, 10) || 300), 500);
+
+    // 2. Build MySQL Spatial Bounding Box SQL expression
+    const latSql = "CAST(JSON_UNQUOTE(JSON_EXTRACT(geo_coordinates, '$.lat')) AS DECIMAL(10,6))";
+    const lngSql = "CAST(JSON_UNQUOTE(JSON_EXTRACT(geo_coordinates, '$.lng')) AS DECIMAL(10,6))";
+
+    const branchGeoConditions = [
+      models.sequelize.where(models.sequelize.literal(latSql), { [Op.between]: [pSouth, pNorth] })
+    ];
+
+    if (pWest <= pEast) {
+      branchGeoConditions.push(
+        models.sequelize.where(models.sequelize.literal(lngSql), { [Op.between]: [pWest, pEast] })
+      );
+    } else {
+      // Handles Antimeridian crossover (west > east)
+      branchGeoConditions.push({
+        [Op.or]: [
+          models.sequelize.where(models.sequelize.literal(lngSql), { [Op.gte]: pWest }),
+          models.sequelize.where(models.sequelize.literal(lngSql), { [Op.lte]: pEast })
+        ]
+      });
+    }
+
+    const branchWhere = {
+      branch_status: 'ACTIVE',
+      geo_coordinates: { [Op.ne]: null },
+      [Op.and]: branchGeoConditions
+    };
+
+    // 3. Build Venue conditions
+    const venueWhere = {
+      operating_status: 'APPROVED'
+    };
+
+    if (keyword && keyword.trim()) {
+      venueWhere[Op.or] = [
+        { venue_name: { [Op.like]: `%${keyword.trim()}%` } },
+        { venue_description: { [Op.like]: `%${keyword.trim()}%` } }
+      ];
+    }
+
+    // 4. Build Court conditions (Sport Filter)
+    const courtWhere = {
+      court_status: 'ACTIVE'
+    };
+    let includeCourt = false;
+
+    if (sport && sport !== 'Tất cả') {
+      const normSport = sport.toLowerCase();
+      if (normSport.includes('cầu lông') || normSport.includes('badminton')) {
+        courtWhere.sport_category = { [Op.or]: ['Cầu lông', 'Badminton', { [Op.like]: '%cầu lông%' }, { [Op.like]: '%badminton%' }] };
+      } else if (normSport.includes('bóng đá') || normSport.includes('football') || normSport.includes('soccer') || normSport.includes('futsal')) {
+        courtWhere.sport_category = { [Op.or]: ['Bóng đá', 'Football', 'Soccer', 'Futsal', { [Op.like]: '%bóng đá%' }, { [Op.like]: '%futsal%' }] };
+      } else if (normSport.includes('tennis') || normSport.includes('quần vợt')) {
+        courtWhere.sport_category = { [Op.or]: ['Tennis', 'Quần vợt', { [Op.like]: '%tennis%' }, { [Op.like]: '%quần vợt%' }] };
+      } else if (normSport.includes('bóng rổ') || normSport.includes('basketball')) {
+        courtWhere.sport_category = { [Op.or]: ['Bóng rổ', 'Basketball', { [Op.like]: '%bóng rổ%' }, { [Op.like]: '%basketball%' }] };
+      } else if (normSport.includes('pickleball') || normSport.includes('pickle')) {
+        courtWhere.sport_category = { [Op.or]: ['Pickleball', { [Op.like]: '%pickleball%' }, { [Op.like]: '%pickle%' }] };
+      } else {
+        courtWhere.sport_category = { [Op.like]: `%${sport}%` };
+      }
+      includeCourt = true;
+    }
+
+    const branchIncludes = [
+      {
+        model: models.Venue,
+        as: 'venue',
+        where: venueWhere,
+        required: true,
+        attributes: ['venue_id', 'venue_name', 'venue_description']
+      }
+    ];
+
+    if (includeCourt) {
+      branchIncludes.push({
+        model: models.Court,
+        as: 'courts',
+        where: courtWhere,
+        required: true,
+        attributes: ['court_id', 'court_name', 'sport_category']
+      });
+    } else {
+      branchIncludes.push({
+        model: models.Court,
+        as: 'courts',
+        required: false,
+        where: { court_status: 'ACTIVE' },
+        attributes: ['court_id', 'court_name', 'sport_category']
+      });
+    }
+
+    // 5. Execute Primary Bounding Box Query in Database
+    const matchingBranches = await models.Branch.findAll({
+      where: branchWhere,
+      include: branchIncludes,
+      limit: parsedLimit,
+      order: [['created_at', 'DESC']]
+    });
+
+    if (matchingBranches.length === 0) {
+      return { total: 0, data: [] };
+    }
+
+    // 6. Prevent N+1: Batch load images and pricing for matched venues
+    const venueIds = Array.from(new Set(matchingBranches.map(b => b.venue_id)));
+
+    const [allImages, allSchedules] = await Promise.all([
+      models.VenueImage.findAll({
+        where: {
+          venue_id: { [Op.in]: venueIds },
+          is_active: true
+        },
+        order: [
+          ['is_cover', 'DESC'],
+          ['is_avatar', 'DESC'],
+          ['is_primary', 'DESC'],
+          ['display_order', 'ASC'],
+          ['created_at', 'DESC']
+        ]
+      }),
+      models.OperatingSchedule.findAll({
+        where: {
+          is_active: true,
+          [Op.or]: [
+            { scope_target_type: 'VENUE', scope_target_id: { [Op.in]: venueIds } },
+            { scope_target_type: 'BRANCH', scope_target_id: { [Op.in]: matchingBranches.map(b => b.branch_id) } }
+          ]
+        },
+        attributes: ['scope_target_type', 'scope_target_id', 'base_hourly_price']
+      })
+    ]);
+
+    // Map images by venue
+    const coverImageByVenue = {};
+    allImages.forEach(img => {
+      if (!coverImageByVenue[img.venue_id]) {
+        coverImageByVenue[img.venue_id] = img.cover || img.avatar || img.large_url || img.medium_url || img.original_url || img.thumbnail_url;
+      }
+    });
+
+    // Map min prices by venue and branch
+    const minPriceByVenue = {};
+    const minPriceByBranch = {};
+    allSchedules.forEach(sch => {
+      const price = parseFloat(sch.base_hourly_price);
+      if (!isNaN(price) && price > 0) {
+        if (sch.scope_target_type === 'VENUE') {
+          if (!minPriceByVenue[sch.scope_target_id] || price < minPriceByVenue[sch.scope_target_id]) {
+            minPriceByVenue[sch.scope_target_id] = price;
+          }
+        } else if (sch.scope_target_type === 'BRANCH') {
+          if (!minPriceByBranch[sch.scope_target_id] || price < minPriceByBranch[sch.scope_target_id]) {
+            minPriceByBranch[sch.scope_target_id] = price;
+          }
+        }
+      }
+    });
+
+    // 7. Serialize into Optimized VenueMapDTO
+    const mapVenues = matchingBranches.map(branch => {
+      const v = branch.venue;
+      let geo = null;
+      try {
+        geo = typeof branch.geo_coordinates === 'string'
+          ? JSON.parse(branch.geo_coordinates)
+          : branch.geo_coordinates;
+      } catch {
+        geo = null;
+      }
+
+      if (!geo || typeof geo.lat !== 'number' || typeof geo.lng !== 'number') {
+        return null;
+      }
+
+      // Determine sport category
+      const courts = branch.courts || [];
+      const primarySport = courts.length > 0 ? courts[0].sport_category : 'Thể thao';
+
+      const resolvedMinPrice = minPriceByBranch[branch.branch_id] || minPriceByVenue[v.venue_id] || null;
+
+      return {
+        id: v.venue_id,
+        venue_id: v.venue_id,
+        branch_id: branch.branch_id,
+        name: v.venue_name,
+        venue_name: v.venue_name,
+        branch_name: branch.branch_name,
+        sport_category: primarySport,
+        address: `${branch.street_address || ''}, ${branch.ward_district_city || ''}`.replace(/^,\s*/, '').trim(),
+        street_address: branch.street_address,
+        ward_district_city: branch.ward_district_city,
+        latitude: geo.lat,
+        longitude: geo.lng,
+        cover_image: coverImageByVenue[v.venue_id] || null,
+        average_rating: 4.8,
+        review_count: 24,
+        min_price: resolvedMinPrice
+      };
+    }).filter(Boolean);
+
+    return {
+      total: mapVenues.length,
+      data: mapVenues
+    };
   }
 }
 

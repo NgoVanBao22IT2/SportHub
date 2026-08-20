@@ -64,9 +64,12 @@ const PostController = require('../controllers/post.controller');
 const upload = require('../middleware/upload.middleware');
 
 router.get('/venues/:venueId/media', MediaController.getOwnerVenueMedia);
-router.post('/venues/:venueId/media', upload.array('images', 10), MediaController.uploadMedia);
+router.get('/venues/:venueId/media/stats', MediaController.getMediaStats);
+router.post('/venues/:venueId/media', upload.array('images', 20), MediaController.uploadMedia);
 router.post('/venues/:venueId/media/reorder', MediaController.reorderMedia);
-router.patch('/media/:imageId', MediaController.updateMedia);
+router.post('/venues/:venueId/media/bulk-delete', MediaController.bulkDeleteMedia);
+router.post('/venues/:venueId/media/bulk-update', MediaController.bulkUpdateMedia);
+router.patch('/media/:imageId', upload.single('image'), MediaController.updateMedia);
 router.delete('/media/:imageId', MediaController.deleteMedia);
 router.post('/media/:imageId/set-cover', MediaController.setCoverImage);
 router.post('/media/:imageId/set-avatar', MediaController.setAvatarImage);

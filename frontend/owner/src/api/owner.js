@@ -562,20 +562,37 @@ export const getOwnerVenueMedia = async (venueId, params = {}) => {
   return response.data;
 };
 
-export const uploadOwnerMedia = async (venueId, formDataOrData) => {
-  const isFormData = formDataOrData instanceof FormData;
-  const config = isFormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {};
-  const response = await apiClient.post(`/owner/venues/${venueId}/media`, formDataOrData, config);
+export const getOwnerMediaStats = async (venueId) => {
+  const response = await apiClient.get(`/owner/venues/${venueId}/media/stats`);
   return response.data;
 };
 
-export const updateOwnerMedia = async (imageId, payload) => {
-  const response = await apiClient.patch(`/owner/media/${imageId}`, payload);
+export const uploadOwnerMedia = async (venueId, formDataOrData) => {
+  const response = await apiClient.post(`/owner/venues/${venueId}/media`, formDataOrData);
+  return response.data;
+};
+
+export const updateOwnerMedia = async (imageId, payloadOrFormData) => {
+  const response = await apiClient.patch(`/owner/media/${imageId}`, payloadOrFormData);
   return response.data;
 };
 
 export const deleteOwnerMedia = async (imageId) => {
   const response = await apiClient.delete(`/owner/media/${imageId}`);
+  return response.data;
+};
+
+export const bulkDeleteOwnerMedia = async (venueId, imageIds) => {
+  const response = await apiClient.post(`/owner/venues/${venueId}/media/bulk-delete`, { image_ids: imageIds });
+  return response.data;
+};
+
+export const bulkUpdateOwnerMedia = async (venueId, imageIds, updateData) => {
+  const response = await apiClient.post(`/owner/venues/${venueId}/media/bulk-update`, {
+    image_ids: imageIds,
+    category: updateData.category,
+    status: updateData.status
+  });
   return response.data;
 };
 

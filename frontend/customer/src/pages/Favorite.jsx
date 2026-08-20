@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Heart, RefreshCw, ArrowRight } from 'lucide-react';
-import { getFavorites, removeFavorite } from '../api/favorites';
+import { useFavorites } from '../context/FavoritesContext';
+import { useAuth } from '../context/AuthContext';
 
 // Design System Imports
 import Button from '../components/ui/Button';
@@ -13,98 +14,34 @@ import VenueCard from '../components/domain/VenueCard';
 
 export default function Favorite() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const { favorites, loadingFavorites: loading, fetchFavorites, toggleFavorite } = useFavorites();
 
-  // State Management
-  const [favorites, setFavorites] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [errorInfo, setErrorInfo] = useState(null);
-  const [removingId, setRemovingId] = useState(null);
   const [noticeModal, setNoticeModal] = useState({ open: false, title: '', message: '', type: 'info' });
 
-  // Fetch Favorite Venues from Backend API (No Fake Persistence / Backend Source of Truth)
-  const fetchFavoriteVenues = useCallback(async () => {
-    try {
-      setLoading(true);
-      setErrorInfo(null);
-
-      const response = await getFavorites();
-      const list = response?.data || (Array.isArray(response) ? response : []);
-      setFavorites(list);
-    } catch (err) {
-      console.error("Failed to fetch favorite venues", err);
-      const status = err.response?.status;
-      if (status === 401) {
-        setErrorInfo({ code: 401, title: 'Yêu cầu đăng nhập', description: 'Vui lòng đăng nhập để xem danh sách sân thể thao yêu thích của bạn.' });
-      } else if (status === 403) {
-        setErrorInfo({ code: 403, title: 'Không có quyền truy cập', description: 'Tài khoản của bạn không có quyền xem danh sách yêu thích này.' });
-      } else if (status === 429) {
-        setErrorInfo({ code: 429, title: 'Hệ thống quá tải', description: 'Hệ thống đang tiếp nhận quá nhiều yêu cầu. Vui lòng thử lại sau ít phút.' });
-      } else {
-        // Backend Blocker: Backend Favorites API endpoint does not exist yet (/api/v1/favorites)
-        setErrorInfo({
-          code: status || 404,
-          title: 'Tính năng Backend Favorites chưa khả dụng',
-          description: 'Hệ thống máy chủ chưa hoàn thiện API danh sách yêu thích (/api/v1/favorites). Vui lòng tích hợp Backend API.'
-        });
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    fetchFavoriteVenues();
-  }, [fetchFavoriteVenues]);
+    fetchFavorites();
+  }, [fetchFavorites]);
 
-  // Handle Remove Favorite with Double Click Protection
-  const handleRemoveFavorite = async (venueId) => {
-    if (!venueId || removingId) return; // Prevent double submit
-
+  const handleRemoveFavorite = async (venue) => {
     try {
-      setRemovingId(venueId);
-      await removeFavorite(venueId);
-      // Re-fetch backend list upon confirmed backend success (No un-rollbacked optimistic UI)
-      await fetchFavoriteVenues();
+      await toggleFavorite(venue);
     } catch (err) {
       console.error("Failed to remove favorite venue", err);
-      const status = err.response?.status;
-      if (status === 401) {
-        setNoticeModal({ open: true, title: 'Hết phiên đăng nhập', message: 'Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại.', type: 'error' });
-      } else {
-        setNoticeModal({ open: true, title: 'Thao tác thất bại', message: 'Không thể xoá sân khỏi danh sách yêu thích.', type: 'error' });
-      }
-    } finally {
-      setRemovingId(null);
+      setNoticeModal({ open: true, title: 'Thao tác thất bại', message: 'Không thể xoá sân khỏi danh sách yêu thích.', type: 'error' });
     }
   };
 
   // 401 / Auth Required Error State
-  if (errorInfo?.code === 401) {
+  if (!isAuthenticated) {
     return (
       <div className="container mx-auto px-4 py-20 max-w-3xl">
         <EmptyState
-          title={errorInfo.title}
-          description={errorInfo.description}
+          title="Yêu cầu đăng nhập"
+          description="Vui lòng đăng nhập để xem danh sách sân thể thao yêu thích của bạn."
           action={
             <Button variant="primary" onClick={() => navigate('/login')}>
               Đăng nhập ngay
-            </Button>
-          }
-        />
-      </div>
-    );
-  }
-
-  // General Error / Backend Blocker State
-  if (errorInfo) {
-    return (
-      <div className="container mx-auto px-4 py-20 max-w-3xl">
-        <ErrorState
-          title={errorInfo.title}
-          description={errorInfo.description}
-          action={
-            <Button variant="primary" leftIcon={<RefreshCw size={16} />} onClick={fetchFavoriteVenues}>
-              Thử lại kết nối API
             </Button>
           }
         />
@@ -137,7 +74,7 @@ export default function Favorite() {
               variant="outline"
               size="sm"
               leftIcon={<RefreshCw size={14} />}
-              onClick={fetchFavoriteVenues}
+              onClick={fetchFavorites}
             >
               Làm mới danh sách
             </Button>
@@ -180,7 +117,6 @@ export default function Favorite() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {favorites.map((venue) => {
               const vId = venue.venue_id || venue.id;
-              const isPendingThis = removingId === vId;
 
               return (
                 <VenueCard
@@ -188,7 +124,6 @@ export default function Favorite() {
                   venue={venue}
                   isFavorite={true}
                   onFavorite={() => handleRemoveFavorite(venue)}
-                  aria-busy={isPendingThis}
                 />
               );
             })}

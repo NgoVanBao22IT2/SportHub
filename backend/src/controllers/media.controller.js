@@ -10,13 +10,46 @@ class MediaController {
     try {
       const ownerUserId = req.user.userId;
       const { venueId } = req.params;
-      const { page, limit, image_type, search } = req.query;
+      const { page, limit, image_type, status, search, dateFrom, dateTo, sortBy, sortOrder } = req.query;
 
-      const result = await MediaService.getOwnerVenueMedia(ownerUserId, venueId, { page, limit, image_type, search });
+      const result = await MediaService.getOwnerVenueMedia(ownerUserId, venueId, {
+        page,
+        limit,
+        image_type,
+        status,
+        search,
+        dateFrom,
+        dateTo,
+        sortBy,
+        sortOrder
+      });
+
       res.status(200).json({
         status: 'success',
         data: result.data,
         meta: result.meta
+      });
+    } catch (error) {
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ error: { message: error.message } });
+      }
+      next(error);
+    }
+  }
+
+  /**
+   * GET /api/v1/owner/venues/:venueId/media/stats
+   */
+  static async getMediaStats(req, res, next) {
+    try {
+      const ownerUserId = req.user.userId;
+      const { venueId } = req.params;
+
+      const stats = await MediaService.getMediaStats(ownerUserId, venueId);
+
+      res.status(200).json({
+        status: 'success',
+        data: stats
       });
     } catch (error) {
       if (error.statusCode) {
@@ -62,7 +95,7 @@ class MediaController {
       const ownerUserId = req.user.userId;
       const { imageId } = req.params;
 
-      const updated = await MediaService.updateMedia(ownerUserId, imageId, req.body);
+      const updated = await MediaService.updateMedia(ownerUserId, imageId, req.body, req.file);
       res.status(200).json({
         status: 'success',
         message: 'Đã cập nhật thông tin hình ảnh thành công.',
@@ -88,6 +121,56 @@ class MediaController {
       res.status(200).json({
         status: 'success',
         message: result.message
+      });
+    } catch (error) {
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ error: { message: error.message } });
+      }
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/owner/venues/:venueId/media/bulk-delete
+   */
+  static async bulkDeleteMedia(req, res, next) {
+    try {
+      const ownerUserId = req.user.userId;
+      const { venueId } = req.params;
+      const { image_ids } = req.body;
+
+      const result = await MediaService.bulkDeleteMedia(ownerUserId, venueId, image_ids || []);
+      res.status(200).json({
+        status: 'success',
+        message: result.message,
+        data: result
+      });
+    } catch (error) {
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ error: { message: error.message } });
+      }
+      next(error);
+    }
+  }
+
+  /**
+   * POST /api/v1/owner/venues/:venueId/media/bulk-update
+   */
+  static async bulkUpdateMedia(req, res, next) {
+    try {
+      const ownerUserId = req.user.userId;
+      const { venueId } = req.params;
+      const { image_ids, category, status } = req.body;
+
+      const result = await MediaService.bulkUpdateMedia(ownerUserId, venueId, image_ids || [], {
+        image_type: category,
+        status
+      });
+
+      res.status(200).json({
+        status: 'success',
+        message: result.message,
+        data: result
       });
     } catch (error) {
       if (error.statusCode) {

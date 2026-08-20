@@ -34,21 +34,39 @@ class FavoriteService {
       ]
     });
 
+    // Fetch active images for venues
+    const allImages = await VenueImage.findAll({
+      where: {
+        venue_id: { [Op.in]: venueIds },
+        is_active: true
+      },
+      order: [
+        ['is_cover', 'DESC'],
+        ['is_avatar', 'DESC'],
+        ['is_primary', 'DESC'],
+        ['display_order', 'ASC'],
+        ['created_at', 'DESC']
+      ]
+    });
+
+    const imagesByVenue = {};
+    allImages.forEach(img => {
+      const vId = img.venue_id;
+      if (!imagesByVenue[vId]) imagesByVenue[vId] = [];
+      imagesByVenue[vId].push(img.toJSON());
+    });
+
     // Map images, ratings for each venue
     const venueList = await Promise.all(venues.map(async (v) => {
       const vJson = v.toJSON();
+      const vImgs = imagesByVenue[v.venue_id] || [];
+      vJson.images = vImgs;
 
-      // Images
-      const primaryImage = await VenueImage.findOne({
-        where: { target_type: 'VENUE', target_id: v.venue_id, is_primary: true }
-      });
-      if (primaryImage) {
-        vJson.image_url = primaryImage.image_url;
-      } else {
-        const firstImg = await VenueImage.findOne({
-          where: { target_type: 'VENUE', target_id: v.venue_id }
-        });
-        vJson.image_url = firstImg ? firstImg.image_url : null;
+      const coverImg = vImgs.find(i => i.is_cover || i.image_type === 'COVER');
+      const firstImg = vImgs[0];
+      const activeImg = coverImg || firstImg;
+      if (activeImg) {
+        vJson.image_url = activeImg.cover || activeImg.avatar || activeImg.image_url || activeImg.thumbnail_url || activeImg.medium_url || activeImg.large_url || activeImg.original_url;
       }
 
       // Ratings
@@ -76,7 +94,11 @@ class FavoriteService {
       return vJson;
     }));
 
-    return venueList;
+    // Preserve the order of favorites
+    const venueMap = new Map(venueList.map(v => [v.venue_id, v]));
+    const orderedList = venueIds.map(id => venueMap.get(id)).filter(Boolean);
+
+    return orderedList;
   }
 
   /**

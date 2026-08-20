@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { MapPin, Clock, Phone, Heart, Calendar, Star, CheckCircle2, Navigation, Image as ImageIcon, LayoutGrid, RefreshCw, ArrowRight, User } from 'lucide-react';
+import { MapPin, Clock, Phone, Heart, Calendar, Star, CheckCircle2, Navigation, Image as ImageIcon, LayoutGrid, RefreshCw, ArrowRight, User, X, ZoomIn } from 'lucide-react';
 import { getVenueById, getSimilarVenues, getVenueImages } from '../../api/venues';
 import { getPublicVenuePosts } from '../../api/public';
-import { addFavorite } from '../../api/favorites';
+import { useFavorites } from '../../context/FavoritesContext';
 
 // Design System Imports
 import Button from '../../components/ui/Button';
@@ -15,10 +15,12 @@ import EmptyState from '../../components/ui/EmptyState';
 import ErrorState from '../../components/ui/ErrorState';
 import VenueCard from '../../components/domain/VenueCard';
 import BookingModal from '../../components/domain/BookingModal';
+import { getImageUrl, getVenueImageUrl, getDeterministicFallback } from '../../utils/imageUrl';
 
 export default function VenueDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isFavorite, toggleFavorite } = useFavorites();
 
   const [venue, setVenue] = useState(null);
   const [similarVenues, setSimilarVenues] = useState([]);
@@ -30,6 +32,7 @@ export default function VenueDetail() {
   const [favPending, setFavPending] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [noticeModal, setNoticeModal] = useState({ open: false, title: '', message: '', type: 'error' });
+  const [lightboxImage, setLightboxImage] = useState(null);
 
   const fetchVenueDetails = useCallback(async () => {
     try {
@@ -147,52 +150,20 @@ export default function VenueDetail() {
     'Pickleball'
   );
 
-  // Sport-specific high-quality fallback image pools
-  const SPORT_FALLBACK_POOLS = {
-    'Bóng đá': [
-      "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?q=80&w=1200&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?q=80&w=1200&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1551958219-acbc608c6377?q=80&w=1200&auto=format&fit=crop"
-    ],
-    'Tennis': [
-      "https://images.unsplash.com/photo-1595435934249-5df7ed86e1c0?q=80&w=1200&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1530915534664-4ac6423ca938?q=80&w=1200&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1542144582-1ba00456b5e3?q=80&w=1200&auto=format&fit=crop"
-    ],
-    'Cầu lông': [
-      "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=1200&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1521537634581-0dced2efa2a3?q=80&w=1200&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1613918108466-292b78a8ef95?q=80&w=1200&auto=format&fit=crop"
-    ],
-    'Pickleball': [
-      "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=1200&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1554068865-24cecd4e34b8?q=80&w=1200&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1622279457486-62dcc4a431d6?q=80&w=1200&auto=format&fit=crop"
-    ],
-    'Default': [
-      "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=1200&auto=format&fit=crop",
-      "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1200&auto=format&fit=crop"
-    ]
-  };
-
-  const defaultFallbackImages = SPORT_FALLBACK_POOLS[primarySportCategory] || SPORT_FALLBACK_POOLS['Default'];
-  const defaultFallbackImage = defaultFallbackImages[0];
-
   // Gallery Photos list from Database / Dataset
-  const rawPhotos = (venueImages && venueImages.length > 0 ? venueImages : (venue.images || []));
-  const galleryPhotos = rawPhotos.map((img, idx) => {
-    const url = typeof img === 'string' ? img : img?.image_url;
-    if (!url || url.includes('m-files.alobo.vn')) {
-      return defaultFallbackImages[idx % defaultFallbackImages.length];
-    }
-    return url;
-  }).filter(Boolean);
+  const rawPhotos = (venueImages && venueImages.length > 0 ? venueImages : (venue?.images || []));
 
+  // Extract explicit Cover Image & Avatar Image
+  const coverObj = rawPhotos.find(img => typeof img === 'object' && (img.is_cover || img.image_type === 'COVER'));
+  const avatarObj = rawPhotos.find(img => typeof img === 'object' && (img.is_avatar || img.image_type === 'AVATAR'));
+
+  const heroImage = getVenueImageUrl(coverObj || rawPhotos[0] || venue, 'cover', id);
+  const avatarUrl = getVenueImageUrl(avatarObj || venue, 'avatar', id);
+
+  const galleryPhotos = rawPhotos.map((img) => getVenueImageUrl(img, 'gallery', id)).filter(Boolean);
   if (galleryPhotos.length === 0) {
-    galleryPhotos.push(...defaultFallbackImages);
+    galleryPhotos.push(heroImage);
   }
-
-  const heroImage = galleryPhotos[0];
 
   // Real Geo Coordinates for Google Maps Navigation
   let mapCoordinates = null;
@@ -200,7 +171,7 @@ export default function VenueDetail() {
     try {
       mapCoordinates = typeof mainBranch.geo_coordinates === 'string'
         ? JSON.parse(mainBranch.geo_coordinates)
-        : mainBranch.geo_coordinates;
+        : mapCoordinates = mainBranch.geo_coordinates;
     } catch (e) {}
   }
 
@@ -213,14 +184,22 @@ export default function VenueDetail() {
   return (
     <div className="w-full bg-surface-subtle pb-20">
       {/* 1. HERO BANNER */}
-      <section className="w-full h-[300px] md:h-[380px] relative bg-dark">
+      <section className="w-full h-[280px] md:h-[360px] relative bg-neutral-900 overflow-hidden">
+        {/* Ambient Blur Backdrop for non-distorted atmosphere */}
+        <img
+          src={heroImage}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover blur-2xl scale-125 opacity-40 pointer-events-none"
+        />
+        {/* Main Banner Image */}
         <img
           src={heroImage}
           alt={`${venue.venue_name} Hero`}
-          className="w-full h-full object-cover opacity-80"
-          onError={(e) => { e.currentTarget.src = defaultFallbackImage; }}
+          className="relative w-full h-full object-cover object-center opacity-90 transition-opacity duration-300"
+          onError={(e) => { e.currentTarget.src = getDeterministicFallback(id); }}
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-dark/60 via-transparent to-transparent"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-dark/75 via-dark/25 to-transparent"></div>
       </section>
 
       {/* 2. OVERLAPPING INFO CARD */}
@@ -230,9 +209,19 @@ export default function VenueDetail() {
 
             {/* Venue Avatar / Logo */}
             <div className="w-32 h-32 md:w-36 md:h-36 rounded-2xl border border-border-subtle-medium shadow-sm bg-surface flex items-center justify-center flex-shrink-0 p-2 overflow-hidden -mt-14 md:-mt-0 relative">
-              <div className="w-full h-full border border-accent-primary-light rounded-xl flex items-center justify-center font-bold text-2xl text-accent-primary bg-surface-subtle shadow-inner">
-                {venue.venue_name.substring(0, 3).toUpperCase()}
-              </div>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt={`${venue.venue_name} Avatar`}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover rounded-xl"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+              ) : (
+                <div className="w-full h-full border border-accent-primary-light rounded-xl flex items-center justify-center font-bold text-2xl text-accent-primary bg-surface-subtle shadow-inner">
+                  {venue.venue_name.substring(0, 3).toUpperCase()}
+                </div>
+              )}
             </div>
 
             {/* Venue Metadata */}
@@ -281,35 +270,30 @@ export default function VenueDetail() {
                 Đặt lịch
               </Button>
               <Button
-                variant="outline"
+                variant={isFavorite(id) ? "secondary" : "outline"}
                 size="md"
                 fullWidth
                 disabled={favPending}
                 aria-busy={favPending}
-                leftIcon={<Heart size={18} />}
-                aria-label="Thêm sân vào danh sách yêu thích"
+                leftIcon={
+                  <Heart
+                    size={18}
+                    className={isFavorite(id) ? "fill-red-500 text-red-500" : "text-gray-500"}
+                  />
+                }
+                aria-label={isFavorite(id) ? "Bỏ yêu thích sân này" : "Thêm sân vào danh sách yêu thích"}
                 onClick={async () => {
                   if (favPending) return;
                   try {
                     setFavPending(true);
-                    await addFavorite(id);
-                    setNoticeModal({ open: true, title: 'Danh sách yêu thích', message: 'Đã thêm vào danh sách yêu thích thành công.', type: 'success' });
-                  } catch (err) {
-                    console.error("Failed to add favorite", err);
-                    const status = err.response?.status;
-                    if (status === 401) {
-                      setNoticeModal({ open: true, title: 'Yêu cầu đăng nhập', message: 'Vui lòng đăng nhập để sử dụng danh sách yêu thích.', type: 'error' });
-                    } else if (status === 409) {
-                      setNoticeModal({ open: true, title: 'Đã tồn tại', message: 'Sân này đã có trong danh sách yêu thích của bạn.', type: 'info' });
-                    } else {
-                      setNoticeModal({ open: true, title: 'Thông báo', message: 'Tính năng danh sách yêu thích hiện chưa khả dụng trên máy chủ.', type: 'error' });
-                    }
+                    await toggleFavorite(venue || id);
                   } finally {
                     setFavPending(false);
                   }
                 }}
+                className={isFavorite(id) ? "!border-red-200 !bg-red-50 !text-red-600 hover:!bg-red-100" : ""}
               >
-                Yêu thích
+                {isFavorite(id) ? 'Đã yêu thích' : 'Yêu thích'}
               </Button>
             </div>
 
@@ -416,16 +400,21 @@ export default function VenueDetail() {
             </div>
           </Tabs.Panel>
 
-          {/* TAB 2: HÌNH ẢNH (BENTO GALLERY) */}
+          {/* TAB 2: HÌNH ẢNH (ADAPTIVE GALLERY) */}
           <Tabs.Panel value="Hình ảnh">
             <Card radius="xl" padding="md" className="border border-border-subtle-medium space-y-6">
               <Card.Header className="mb-2">
-                <h3 className="font-bold text-gray-900 text-lg flex items-center">
-                  <span className="w-8 h-8 rounded-lg bg-status-info-bg text-status-info-text flex items-center justify-center mr-3">
-                    <ImageIcon size={18} />
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h3 className="font-bold text-gray-900 text-lg flex items-center">
+                    <span className="w-8 h-8 rounded-lg bg-status-info-bg text-status-info-text flex items-center justify-center mr-3">
+                      <ImageIcon size={18} />
+                    </span>
+                    Thư viện hình ảnh ({galleryPhotos.length})
+                  </h3>
+                  <span className="text-xs text-text-muted flex items-center gap-1">
+                    <ZoomIn size={13} className="text-accent-primary" /> Nhấp vào ảnh để xem kích thước gốc
                   </span>
-                  Thư viện hình ảnh ({galleryPhotos.length})
-                </h3>
+                </div>
               </Card.Header>
               <Card.Body>
                 {galleryPhotos.length === 0 ? (
@@ -433,29 +422,128 @@ export default function VenueDetail() {
                     title="Chưa có hình ảnh"
                     description="Thư viện hình ảnh của câu lạc bộ chưa có dữ liệu trong cơ sở dữ liệu."
                   />
-                ) : (
-                  /* GALLERY BENTO GRID */
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4 h-auto md:h-[450px]">
-                    {/* Main Big Photo (Left - 7 cols) */}
-                    <div className="md:col-span-7 h-[260px] md:h-full rounded-2xl overflow-hidden shadow-sm relative group">
+                ) : galleryPhotos.length === 1 ? (
+                  /* 1 PHOTO: Full-width balanced banner */
+                  <div
+                    onClick={() => setLightboxImage(galleryPhotos[0])}
+                    className="w-full h-[280px] md:h-[420px] rounded-2xl overflow-hidden shadow-sm relative group cursor-pointer border border-border-subtle bg-surface-subtle"
+                  >
+                    <img
+                      src={galleryPhotos[0]}
+                      alt={`${venue.venue_name} Photo`}
+                      onError={(e) => { e.currentTarget.src = getDeterministicFallback(id); }}
+                      className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-dark/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <span className="px-4 py-2 bg-surface/90 text-gray-900 rounded-full shadow-lg backdrop-blur-xs flex items-center gap-2 text-xs font-bold">
+                        <ZoomIn size={15} /> Xem ảnh kích thước đầy đủ
+                      </span>
+                    </div>
+                  </div>
+                ) : galleryPhotos.length === 2 ? (
+                  /* 2 PHOTOS: Symmetrical 50-50 2-column grid */
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {galleryPhotos.map((photoUrl, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => setLightboxImage(photoUrl)}
+                        className="rounded-2xl overflow-hidden shadow-sm h-[240px] md:h-[340px] relative group cursor-pointer border border-border-subtle bg-surface-subtle"
+                      >
+                        <img
+                          src={photoUrl}
+                          alt={`Gallery Photo ${idx + 1}`}
+                          onError={(e) => { e.currentTarget.src = getDeterministicFallback(id); }}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-dark/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="px-3 py-1.5 bg-surface/90 text-gray-900 rounded-full shadow-lg backdrop-blur-xs flex items-center gap-1.5 text-xs font-bold">
+                            <ZoomIn size={14} /> Phóng to
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : galleryPhotos.length === 3 ? (
+                  /* 3 PHOTOS: 1 Big (Left) + 2 Vertical Stacks (Right) */
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    <div
+                      onClick={() => setLightboxImage(galleryPhotos[0])}
+                      className="md:col-span-7 h-[260px] md:h-[380px] rounded-2xl overflow-hidden shadow-sm relative group cursor-pointer border border-border-subtle bg-surface-subtle"
+                    >
                       <img
-                        src={galleryPhotos[0] || defaultFallbackImage}
-                        alt={`${venue.venue_name} Photo 1`}
-                        onError={(e) => { e.currentTarget.src = defaultFallbackImage; }}
+                        src={galleryPhotos[0]}
+                        alt={`${venue.venue_name} Main`}
+                        onError={(e) => { e.currentTarget.src = getDeterministicFallback(id); }}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
+                      <div className="absolute inset-0 bg-dark/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="px-3 py-1.5 bg-surface/90 text-gray-900 rounded-full shadow-lg backdrop-blur-xs flex items-center gap-1.5 text-xs font-bold">
+                          <ZoomIn size={14} /> Phóng to
+                        </span>
+                      </div>
+                    </div>
+                    <div className="md:col-span-5 flex flex-col gap-4 h-[260px] md:h-[380px]">
+                      {galleryPhotos.slice(1, 3).map((photoUrl, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => setLightboxImage(photoUrl)}
+                          className="flex-1 rounded-2xl overflow-hidden shadow-sm relative group cursor-pointer border border-border-subtle bg-surface-subtle min-h-[120px]"
+                        >
+                          <img
+                            src={photoUrl}
+                            alt={`Gallery Photo ${idx + 2}`}
+                            onError={(e) => { e.currentTarget.src = getDeterministicFallback(id); }}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                          <div className="absolute inset-0 bg-dark/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="px-2.5 py-1 bg-surface/90 text-gray-900 rounded-full shadow-lg backdrop-blur-xs flex items-center gap-1 text-xs font-bold">
+                              <ZoomIn size={13} /> Phóng to
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  /* 4+ PHOTOS: Harmonious Bento Grid */
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                    {/* Main Big Photo (Left - 7 cols) */}
+                    <div
+                      onClick={() => setLightboxImage(galleryPhotos[0])}
+                      className="md:col-span-7 h-[260px] md:h-[380px] rounded-2xl overflow-hidden shadow-sm relative group cursor-pointer border border-border-subtle bg-surface-subtle"
+                    >
+                      <img
+                        src={galleryPhotos[0]}
+                        alt={`${venue.venue_name} Main`}
+                        onError={(e) => { e.currentTarget.src = getDeterministicFallback(id); }}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-dark/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <span className="px-3 py-1.5 bg-surface/90 text-gray-900 rounded-full shadow-lg backdrop-blur-xs flex items-center gap-1.5 text-xs font-bold">
+                          <ZoomIn size={14} /> Phóng to
+                        </span>
+                      </div>
                     </div>
 
                     {/* Small Photos (Right - 5 cols in 2x2 grid) */}
-                    <div className="md:col-span-5 grid grid-cols-2 gap-4 h-full">
+                    <div className="md:col-span-5 grid grid-cols-2 gap-4 h-[260px] md:h-[380px]">
                       {(galleryPhotos.slice(1, 5)).map((photoUrl, idx) => (
-                        <div key={idx} className="rounded-2xl overflow-hidden shadow-sm h-[120px] md:h-full relative group">
+                        <div
+                          key={idx}
+                          onClick={() => setLightboxImage(photoUrl)}
+                          className="rounded-2xl overflow-hidden shadow-sm relative group cursor-pointer border border-border-subtle bg-surface-subtle h-full min-h-[120px]"
+                        >
                           <img
-                            src={photoUrl || defaultFallbackImage}
+                            src={photoUrl}
                             alt={`Gallery Photo ${idx + 2}`}
-                            onError={(e) => { e.currentTarget.src = defaultFallbackImage; }}
+                            onError={(e) => { e.currentTarget.src = getDeterministicFallback(id); }}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
+                          <div className="absolute inset-0 bg-dark/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <span className="p-1.5 bg-surface/90 text-gray-900 rounded-full shadow-lg backdrop-blur-xs flex items-center gap-1 text-[11px] font-bold">
+                              <ZoomIn size={12} />
+                            </span>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -677,6 +765,32 @@ export default function VenueDetail() {
                 Đóng
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* IMAGE LIGHTBOX MODAL */}
+      {lightboxImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/85 backdrop-blur-sm animate-fade-in"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-surface rounded-2xl p-2 shadow-2xl border border-border-subtle overflow-hidden flex items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setLightboxImage(null)}
+              className="absolute top-4 right-4 z-10 w-9 h-9 rounded-full bg-dark/70 hover:bg-dark text-white flex items-center justify-center transition-colors shadow-lg cursor-pointer"
+              title="Đóng"
+            >
+              <X size={20} />
+            </button>
+            <img
+              src={lightboxImage}
+              alt="Venue Photo Full"
+              className="max-h-[82vh] w-auto max-w-full object-contain rounded-xl"
+            />
           </div>
         </div>
       )}

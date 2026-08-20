@@ -8,11 +8,14 @@ const apiClient = axios.create({
   },
 });
 
-// Request Interceptor: Attach Bearer token if valid accessToken exists
+// Request Interceptor: Attach Bearer token if valid accessToken exists & handle FormData Content-Type
 apiClient.interceptors.request.use((config) => {
   const token = getAccessToken();
   if (token && token !== 'undefined' && token !== 'null' && token.trim() !== '') {
     config.headers.Authorization = `Bearer ${token}`;
+  }
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
   }
   return config;
 });

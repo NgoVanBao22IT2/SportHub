@@ -90,3 +90,16 @@ export const getSportsCategories = async () => {
     return [];
   }
 };
+
+/**
+ * Fetch venues within a viewport bounding box for the Interactive Map (Phase 2).
+ */
+export const getVenuesForMap = async (params) => {
+  try {
+    const response = await apiClient.get('/venues/map', { params });
+    return response.data.data || [];
+  } catch (error) {
+    console.error('Error fetching venues for map:', error);
+    throw error;
+  }
+};

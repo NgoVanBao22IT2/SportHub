@@ -4,20 +4,12 @@ import { MapPin, Calendar, Heart, Star, ImageOff } from 'lucide-react';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
+import { useFavorites } from '../../context/FavoritesContext';
+
+import { getVenueImageUrl, getDeterministicFallback } from '../../utils/imageUrl';
 
 /**
  * Reusable VenueCard Domain Component for SportHubAI Platform
- *
- * @param {Object} props
- * @param {Object} props.venue - Venue data object from backend API
- * @param {'default' | 'compact'} [props.variant='default'] - Card layout variant
- * @param {string} [props.href] - Optional target link URL (e.g. `/venues/${venue_id}`)
- * @param {Function} [props.onBook] - Callback fired when clicking 'Đặt lịch' button
- * @param {Function} [props.onFavorite] - Callback fired when clicking Favorite heart button
- * @param {boolean} [props.isFavorite=false] - Favorite state
- * @param {boolean} [props.showRating=true] - Toggle rating display
- * @param {boolean} [props.showLocation=true] - Toggle location display
- * @param {string} [props.className=''] - Additional extension class
  */
 export default function VenueCard({
   venue,
@@ -25,13 +17,14 @@ export default function VenueCard({
   href,
   onBook,
   onFavorite,
-  isFavorite = false,
+  isFavorite: isFavoriteProp,
   showRating = true,
   showLocation = true,
   className = '',
   ...restProps
 }) {
   const [imageError, setImageError] = useState(false);
+  const { isFavorite: checkIsFavorite, toggleFavorite } = useFavorites();
 
   if (!venue) return null;
 
@@ -40,30 +33,31 @@ export default function VenueCard({
   const venueName = venue.venue_name || venue.name || 'Sân thể thao';
   const targetHref = href || (venueId ? `/venues/${venueId}` : '#');
 
+  // Determine active favorite status: prop override or from global FavoritesContext
+  const isFavorite = isFavoriteProp !== undefined ? isFavoriteProp : checkIsFavorite(venueId);
+
   // Extract branch location string safely
   const locationStr = venue.branches && venue.branches.length > 0
     ? (venue.branches[0].ward_district_city || venue.branches[0].street_address || 'Địa chỉ đang cập nhật')
     : (venue.location || 'Địa chỉ đang cập nhật');
 
-  // Extract primary venue image URL safely from dataset / DB API
-  const defaultFallbackImage = "https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=600&auto=format&fit=crop";
-
-  const datasetImage = venue.image_url ||
-    venue.cover_image ||
-    (Array.isArray(venue.images) && venue.images.length > 0
-      ? (typeof venue.images[0] === 'string' ? venue.images[0] : venue.images[0]?.image_url)
-      : null);
-
-  const displayImage = (!imageError && datasetImage) ? datasetImage : defaultFallbackImage;
+  // Purpose-driven image resolution selection with deterministic seed fallback
+  const displayImage = !imageError 
+    ? getVenueImageUrl(venue, 'card', venue) 
+    : getDeterministicFallback(venue);
 
   // Normalize rating & review count from real API data
   const ratingValue = venue.average_rating || venue.rating || null;
   const reviewCountStr = venue.review_count ? `(${venue.review_count})` : '';
 
-  const handleFavoriteClick = (e) => {
+  const handleFavoriteClick = async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (onFavorite) onFavorite(venue);
+    if (onFavorite) {
+      onFavorite(venue);
+    } else {
+      await toggleFavorite(venue);
+    }
   };
 
   const handleBookClick = (e) => {
@@ -90,6 +84,7 @@ export default function VenueCard({
         <img
           src={displayImage}
           alt={`${venueName} - sân thể thao`}
+          referrerPolicy="no-referrer"
           onError={() => setImageError(true)}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
           loading="lazy"
@@ -121,13 +116,16 @@ export default function VenueCard({
           aria-label={isFavorite ? 'Bỏ lưu sân yêu thích' : 'Lưu sân yêu thích'}
           onClick={handleFavoriteClick}
           className={[
-            'absolute top-3 right-3 z-10 w-9 h-9 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center transition-colors shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-orange',
+            'absolute top-3 right-3 z-10 w-9 h-9 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center transition-all duration-200 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-red-400 cursor-pointer',
             isFavorite
-              ? 'bg-surface text-status-error'
-              : 'bg-surface/80 backdrop-blur-md text-text-muted hover:text-status-error hover:bg-surface'
+              ? 'bg-white text-red-500 shadow-md scale-105 hover:scale-110'
+              : 'bg-white/80 backdrop-blur-md text-gray-400 hover:text-red-500 hover:bg-white hover:scale-105'
           ].join(' ')}
         >
-          <Heart size={16} className={isFavorite ? 'fill-current text-status-error' : ''} />
+          <Heart
+            size={18}
+            className={isFavorite ? 'fill-red-500 text-red-500 transition-colors duration-200' : 'text-gray-500 hover:text-red-500 transition-colors duration-200'}
+          />
         </button>
       </div>
 

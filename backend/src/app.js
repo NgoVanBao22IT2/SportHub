@@ -6,8 +6,17 @@ const path = require('path');
 const cors = require('cors');
 const authRoutes = require('./routes/auth.routes');
 
+const crypto = require('crypto');
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Request ID & Correlation Tracking Middleware
+app.use((req, res, next) => {
+  const requestId = req.headers['x-request-id'] || crypto.randomUUID();
+  req.id = requestId;
+  res.setHeader('X-Request-ID', requestId);
+  next();
+});
 
 const allowedOrigins = [
   'http://localhost:5173', // Admin Frontend
@@ -83,11 +92,12 @@ app.get('/health', (req, res) => {
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-  console.error('[Global Error]', err);
+  console.error(`[Global Error] [${req.id || 'N/A'}]`, err.message);
   res.status(err.statusCode || 500).json({
     success: false,
     code: err.code || 'SERVER_ERROR',
-    message: err.message || 'Internal Server Error'
+    message: err.message || 'Internal Server Error',
+    requestId: req.id
   });
 });
 
