@@ -87,6 +87,14 @@ export default function MediaCard({
     }
   };
 
+  const cleanTitle = React.useMemo(() => {
+    if (!item?.title) return 'Ảnh chưa đặt tên';
+    let str = String(item.title);
+    str = str.replace(/AÌ[\s\S]?nh|AÌ‰nh/g, 'Ảnh')
+             .replace(/biÌ[\s\S]?a|biÌ€a/g, 'bìa');
+    return str.normalize('NFC');
+  }, [item?.title]);
+
   return (
     <div
       className={`group relative bg-surface border rounded-2xl overflow-hidden transition-all duration-200 shadow-2xs hover:shadow-md flex flex-col ${
@@ -209,11 +217,11 @@ export default function MediaCard({
         <div className="space-y-1">
           <div className="flex items-start justify-between gap-1">
             <h3
-              className="text-xs font-bold text-gray-900 truncate hover:text-accent-primary cursor-pointer"
+              className="text-xs font-bold text-gray-900 truncate hover:text-accent-primary cursor-pointer font-sans"
               onClick={() => onPreview && onPreview(item)}
-              title={item.title || 'Không có tên'}
+              title={cleanTitle}
             >
-              {item.title || 'Ảnh chưa đặt tên'}
+              {cleanTitle}
             </h3>
 
             {/* CONTEXT MENU (⋮) */}

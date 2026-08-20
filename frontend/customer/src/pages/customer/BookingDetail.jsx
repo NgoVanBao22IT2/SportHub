@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Calendar, Clock, RefreshCw, ArrowLeft, AlertCircle, ShieldCheck, CreditCard, XCircle, Tag, UserCheck } from 'lucide-react';
+import { Calendar, Clock, RefreshCw, ArrowLeft, AlertCircle, ShieldCheck, CreditCard, XCircle, Tag, UserCheck, Star, CheckCircle2 } from 'lucide-react';
 import { getBookingById, cancelBooking } from '../../api/bookings';
 
 // Design System Imports
@@ -10,6 +10,7 @@ import Card from '../../components/ui/Card';
 import Skeleton from '../../components/ui/Skeleton';
 import EmptyState from '../../components/ui/EmptyState';
 import ErrorState from '../../components/ui/ErrorState';
+import ReviewModal from '../../components/domain/review/ReviewModal';
 
 // Centralized Cancellable Booking Statuses based on Backend Audit (booking.service.js)
 const CANCELLABLE_BOOKING_STATUSES = ['HOLDING', 'CONFIRMED'];
@@ -30,9 +31,10 @@ export default function BookingDetail() {
   const [errorMessage, setErrorMessage] = useState('');
   const [unauthorized, setUnauthorized] = useState(false);
 
-  // Cancellation States
+  // Cancellation & Review States
   const [cancelling, setCancelling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const [cancelError, setCancelError] = useState('');
   const [refreshError, setRefreshError] = useState('');
 
@@ -163,7 +165,7 @@ export default function BookingDetail() {
     const status = String(statusStr).toUpperCase();
     switch (status) {
       case 'CONFIRMED':
-        return { variant: 'success', label: 'Đã xác nhận (CONFIRMED)' };
+        return { variant: 'success', label: 'Đã xác nhận' };
       case 'WAITING_OWNER_CONFIRMATION':
         return { variant: 'warning', label: 'Chờ chủ sân xác nhận' };
       case 'PAYMENT_SUCCESS':
@@ -190,23 +192,44 @@ export default function BookingDetail() {
     }
   };
 
-  // Status Badge Helper for Payment Status (Independent State Machine & Neutral Fallback)
-  const getPaymentStatusBadge = (statusStr) => {
-    if (!statusStr) return { variant: 'default', label: 'Thanh toán: Chưa có dữ liệu' };
-    const status = String(statusStr).toUpperCase();
+  // Status Badge Helper for Payment Status (Independent State Machine & Logical Lifecycle Derivation)
+  const getPaymentStatusBadge = (statusStr, bookingStatusStr) => {
+    let status = statusStr ? String(statusStr).toUpperCase() : null;
+    const bStatus = bookingStatusStr ? String(bookingStatusStr).toUpperCase() : '';
+
+    // If explicit payment record status is missing, derive it from booking lifecycle status
+    if (!status) {
+      if (['CONFIRMED', 'COMPLETED'].includes(bStatus)) {
+        status = 'PAID';
+      } else if (['WAITING_OWNER_CONFIRMATION', 'PAYMENT_SUCCESS'].includes(bStatus)) {
+        status = 'WAITING_CONFIRMATION';
+      } else if (['HOLDING', 'PENDING', 'PAYMENT_PENDING'].includes(bStatus)) {
+        status = 'PENDING';
+      } else if (['PAYMENT_FAILED', 'FAILED'].includes(bStatus)) {
+        status = 'FAILED';
+      } else if (['CANCELLED', 'EXPIRED', 'REJECTED'].includes(bStatus)) {
+        status = Number(booking?.refund_amount) > 0 ? 'REFUNDED' : 'CANCELLED';
+      }
+    }
+
     switch (status) {
       case 'PAID':
+      case 'SUCCESS':
         return { variant: 'success', label: 'Đã thanh toán' };
+      case 'WAITING_CONFIRMATION':
+        return { variant: 'warning', label: 'Đã chuyển khoản — Chờ duyệt' };
       case 'PENDING':
       case 'UNPAID':
       case 'PAYMENT_PENDING':
         return { variant: 'warning', label: 'Chưa thanh toán' };
       case 'REFUNDED':
         return { variant: 'info', label: 'Đã hoàn tiền' };
+      case 'CANCELLED':
+        return { variant: 'neutral', label: 'Đã hủy' };
       case 'FAILED':
         return { variant: 'danger', label: 'Thanh toán thất bại' };
       default:
-        return { variant: 'default', label: `Thanh toán: ${statusStr}` };
+        return { variant: 'default', label: status ? `Thanh toán: ${status}` : 'Chưa có thông tin thanh toán' };
     }
   };
 
@@ -254,7 +277,7 @@ export default function BookingDetail() {
   const canCancel = isBookingCancellable(bookingStatusRaw);
 
   const bookingBadge = getBookingStatusBadge(bookingStatusRaw);
-  const paymentBadge = getPaymentStatusBadge(paymentStatusRaw);
+  const paymentBadge = getPaymentStatusBadge(paymentStatusRaw, bookingStatusRaw);
 
   const displayId = booking?.booking_id || booking?.id || bookingId || '';
 
@@ -274,13 +297,13 @@ export default function BookingDetail() {
       {/* HEADER SECTION */}
       <section className="bg-surface border-b border-border-subtle-medium py-8 px-4">
         <div className="container mx-auto max-w-4xl space-y-4">
-          <div className="flex items-center text-xs text-text-muted gap-2">
+          {/* <div className="flex items-center text-xs text-text-muted gap-2">
             <Link to="/" className="hover:text-accent-primary">Trang chủ</Link>
             <span>/</span>
             <Link to="/my-bookings" className="hover:text-accent-primary">Đơn đặt của tôi</Link>
-            {/* <span>/</span>
-            <span className="text-gray-900 font-medium font-mono">#{displayId.substring(0, 8)}</span> */}
-          </div>
+            <span>/</span>
+            <span className="text-gray-900 font-medium font-mono">#{displayId.substring(0, 8)}</span>
+          </div> */}
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -444,6 +467,34 @@ export default function BookingDetail() {
                 </div>
               )}
 
+              {/* REVIEW INFORMATION CARD IF ALREADY REVIEWED */}
+              {booking?.review && (
+                <div className="p-4 bg-amber-50/70 border border-amber-200/80 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                      <CheckCircle2 size={16} className="text-emerald-600" />
+                      <span>Đánh giá của bạn ({booking.review.rating}★)</span>
+                    </div>
+                    <div className="flex text-amber-500">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star key={s} size={14} className={s <= booking.review.rating ? 'fill-amber-500 text-amber-500' : 'text-gray-300'} />
+                      ))}
+                    </div>
+                  </div>
+                  {booking.review.comment && (
+                    <p className="text-xs text-gray-700 italic leading-relaxed">
+                      "{booking.review.comment}"
+                    </p>
+                  )}
+                  {booking.review.owner_reply && (
+                    <div className="mt-2 p-2.5 bg-white/80 rounded-xl border border-amber-200 text-xs">
+                      <strong className="text-amber-900 block mb-0.5">Phản hồi từ chủ sân:</strong>
+                      <span className="text-gray-800 italic">"{booking.review.owner_reply}"</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* FOOTER ACTIONS */}
               <div className="pt-4 border-t border-border-subtle flex flex-wrap justify-between items-center gap-3">
                 <Button
@@ -455,23 +506,50 @@ export default function BookingDetail() {
                   Trở về danh sách đơn đặt
                 </Button>
 
-                {canCancel && (
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    disabled={cancelling}
-                    aria-busy={cancelling}
-                    leftIcon={<XCircle size={16} />}
-                    onClick={() => setShowCancelModal(true)}
-                  >
-                    Hủy đơn này
-                  </Button>
-                )}
+                <div className="flex items-center gap-2">
+                  {/* COMPLETED BOOKING REVIEW CTA */}
+                  {String(bookingStatusRaw).toUpperCase() === 'COMPLETED' && !booking?.review && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      leftIcon={<Star size={16} className="fill-current" />}
+                      onClick={() => setShowReviewModal(true)}
+                    >
+                      Đánh giá sân
+                    </Button>
+                  )}
+
+                  {canCancel && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={cancelling}
+                      aria-busy={cancelling}
+                      leftIcon={<XCircle size={16} />}
+                      onClick={() => setShowCancelModal(true)}
+                    >
+                      Hủy đơn này
+                    </Button>
+                  )}
+                </div>
               </div>
             </Card>
           </div>
         )}
       </div>
+
+      {/* REVIEW MODAL */}
+      {showReviewModal && (
+        <ReviewModal
+          isOpen={showReviewModal}
+          onClose={() => setShowReviewModal(false)}
+          bookingId={bookingId}
+          venueName={venueName}
+          courtName={courtName}
+          bookingDate={dateStr}
+          onSuccess={() => fetchDetail()}
+        />
+      )}
 
       {/* CONFIRMATION OVERLAY FOR DESTRUCTIVE CANCELLATION ACTION */}
       {showCancelModal && (

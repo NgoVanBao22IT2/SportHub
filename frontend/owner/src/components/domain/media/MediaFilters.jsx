@@ -55,9 +55,9 @@ export default function MediaFilters({
             className="px-3 py-2 bg-surface border border-border-subtle rounded-xl text-xs font-medium text-gray-800 focus:ring-2 focus:ring-accent-primary/20 focus:border-accent-primary outline-none transition cursor-pointer"
           >
             <option value="ALL">Tất cả trạng thái</option>
-            <option value="PUBLISHED">Đã xuất bản (Published)</option>
-            <option value="DRAFT">Bản nháp (Draft)</option>
-            <option value="ARCHIVED">Lưu trữ (Archived)</option>
+            <option value="PUBLISHED">Đã xuất bản </option>
+            <option value="DRAFT">Bản nháp </option>
+            <option value="ARCHIVED">Lưu trữ </option>
           </select>
 
           {/* Date From */}
@@ -121,22 +121,20 @@ export default function MediaFilters({
           <div className="flex items-center bg-gray-100 p-0.5 rounded-xl border border-gray-200 ml-auto lg:ml-0">
             <button
               onClick={() => onViewModeChange && onViewModeChange('grid')}
-              className={`p-1.5 rounded-lg transition ${
-                viewMode === 'grid'
+              className={`p-1.5 rounded-lg transition ${viewMode === 'grid'
                   ? 'bg-white text-accent-primary shadow-2xs font-bold'
                   : 'text-text-muted hover:text-gray-900'
-              }`}
+                }`}
               title="Chế độ Lưới (Grid)"
             >
               <LayoutGrid size={16} />
             </button>
             <button
               onClick={() => onViewModeChange && onViewModeChange('list')}
-              className={`p-1.5 rounded-lg transition ${
-                viewMode === 'list'
+              className={`p-1.5 rounded-lg transition ${viewMode === 'list'
                   ? 'bg-white text-accent-primary shadow-2xs font-bold'
                   : 'text-text-muted hover:text-gray-900'
-              }`}
+                }`}
               title="Chế độ Danh sách (List)"
             >
               <List size={16} />

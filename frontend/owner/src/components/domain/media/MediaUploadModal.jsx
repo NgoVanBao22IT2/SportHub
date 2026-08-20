@@ -164,7 +164,7 @@ export default function MediaUploadModal({
                 Kéo & thả hình ảnh vào đây
               </span>
               <span className="text-xs text-text-muted mt-0.5">
-                hoặc <span className="text-accent-primary font-semibold underline">Chọn ảnh từ máy tính</span>
+                hoặc <span className="text-accent-primary font-semibold underline">Chọn ảnh từ máy</span>
               </span>
               <span className="text-[11px] text-text-muted/80 mt-1">
                 Hỗ trợ JPG, PNG, WEBP (Tối đa 10MB/tệp)

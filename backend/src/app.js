@@ -76,10 +76,14 @@ app.use('/api/v1/public', publicRoutes);
 const ownerRegistrationRoutes = require('./routes/owner-registration.routes');
 app.use('/api/v1/owner-registrations', ownerRegistrationRoutes);
 
-// Mount Venue Discovery & Venue Management Routes
-const venueRoutes = require('./routes/venue.routes');
+// Mount Notifications & Reviews & Discovery Routes
+const notificationRoutes = require('./routes/notification.routes');
+const reviewRoutes = require('./routes/review.routes');
 const venueSearchRoutes = require('./routes/venue-search.routes');
+const venueRoutes = require('./routes/venue.routes');
 
+app.use('/api/v1/notifications', notificationRoutes); // user notifications API routes
+app.use('/api/v1', reviewRoutes); // reviews & rating API routes
 app.use('/api/v1', venueSearchRoutes); // public GET /venues
 app.use('/api/v1', venueRoutes); // protected POST/PUT/DELETE /venues
 

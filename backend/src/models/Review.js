@@ -9,7 +9,8 @@ module.exports = (sequelize, DataTypes) => {
     },
     booking_id: {
       type: DataTypes.STRING(36),
-      allowNull: true
+      allowNull: false,
+      unique: true
     },
     customer_user_id: {
       type: DataTypes.STRING(36),
@@ -18,6 +19,10 @@ module.exports = (sequelize, DataTypes) => {
     court_id: {
       type: DataTypes.STRING(36),
       allowNull: false
+    },
+    venue_id: {
+      type: DataTypes.STRING(36),
+      allowNull: true
     },
     rating: {
       type: DataTypes.INTEGER,
@@ -30,6 +35,11 @@ module.exports = (sequelize, DataTypes) => {
     comment: {
       type: DataTypes.TEXT,
       allowNull: true
+    },
+    status: {
+      type: DataTypes.ENUM('PUBLISHED', 'HIDDEN'),
+      allowNull: false,
+      defaultValue: 'PUBLISHED'
     },
     owner_reply: {
       type: DataTypes.TEXT,
@@ -53,6 +63,7 @@ module.exports = (sequelize, DataTypes) => {
     Review.belongsTo(models.User, { foreignKey: 'customer_user_id', as: 'customer' });
     Review.belongsTo(models.Booking, { foreignKey: 'booking_id', as: 'booking' });
     Review.belongsTo(models.Court, { foreignKey: 'court_id', as: 'court' });
+    Review.belongsTo(models.Venue, { foreignKey: 'venue_id', as: 'venue' });
   };
 
   return Review;

@@ -104,7 +104,7 @@ export default function VenueCard({
                   {ratingValue} <span className="text-text-muted text-[11px] font-normal ml-0.5">{reviewCountStr}</span>
                 </>
               ) : (
-                'Mới'
+                'HOT'
               )}
             </Badge>
           </div>

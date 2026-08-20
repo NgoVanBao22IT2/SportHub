@@ -12,6 +12,7 @@ import Checkout from './pages/Checkout';
 import MyBooking from './pages/MyBooking';
 import Favorite from './pages/Favorite';
 import Profile from './pages/Profile';
+import Notification from './pages/Notification';
 import ResetPassword from './pages/ResetPassword';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -94,6 +95,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="notifications"
+            element={
+              <ProtectedRoute>
+                <Notification />
               </ProtectedRoute>
             }
           />

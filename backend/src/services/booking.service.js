@@ -143,6 +143,22 @@ class BookingService {
       }, { transaction });
 
       await transaction.commit();
+
+      // Notify customer on booking creation
+      try {
+        const NotificationService = require('./notification.service');
+        await NotificationService.createNotification({
+          recipientUserId: userId,
+          type: 'BOOKING_CREATED',
+          title: 'Đặt giữ sân thành công',
+          message: `Đơn đặt sân #${booking.booking_id.substring(0, 8)} ngày ${booking.booking_date} (${String(booking.start_time).substring(0, 5)} - ${String(booking.end_time).substring(0, 5)}) đã được khởi tạo thành công.`,
+          entityType: 'BOOKING',
+          entityId: booking.booking_id
+        });
+      } catch (e) {
+        console.error('Failed to notify customer on booking creation:', e.message);
+      }
+
       return booking;
 
     } catch (error) {
@@ -319,7 +335,7 @@ class BookingService {
    * 09.05 Booking Detail
    */
   static async getBooking(userId, bookingId) {
-    const { Court, Branch, Venue, Payment } = require('../models');
+    const { Court, Branch, Venue, Payment, Review } = require('../models');
     const booking = await Booking.findOne({
       where: {
         booking_id: bookingId,
@@ -345,6 +361,10 @@ class BookingService {
         {
           model: Payment,
           as: 'payments'
+        },
+        {
+          model: Review,
+          as: 'review'
         }
       ]
     });
@@ -361,7 +381,7 @@ class BookingService {
    * 09.08 Booking History (Pagination supported)
    */
   static async getUserBookings(userId, options = {}) {
-    const { Court, Branch, Venue, Payment } = require('../models');
+    const { Court, Branch, Venue, Payment, Review } = require('../models');
     const { page = 1, limit = 10 } = options;
     const offset = (page - 1) * limit;
 
@@ -393,6 +413,10 @@ class BookingService {
         {
           model: Payment,
           as: 'payments'
+        },
+        {
+          model: Review,
+          as: 'review'
         }
       ],
       order: [['created_at', 'DESC']],
@@ -514,6 +538,22 @@ class BookingService {
         }, { transaction });
 
         await transaction.commit();
+
+        // Notify customer on immediate cancel
+        try {
+          const NotificationService = require('./notification.service');
+          await NotificationService.createNotification({
+            recipientUserId: userId,
+            type: 'BOOKING_CANCELLED',
+            title: 'Hủy đơn đặt sân thành công',
+            message: `Đơn đặt sân #${booking.booking_id.substring(0, 8)} đã được hủy thành công.`,
+            entityType: 'BOOKING',
+            entityId: booking.booking_id
+          });
+        } catch (e) {
+          console.error('Failed to notify customer on cancel:', e.message);
+        }
+
         return booking;
       }
 
@@ -539,6 +579,22 @@ class BookingService {
       }, { transaction });
 
       await transaction.commit();
+
+      // Notify customer on cancel request
+      try {
+        const NotificationService = require('./notification.service');
+        await NotificationService.createNotification({
+          recipientUserId: userId,
+          type: 'BOOKING_CANCELLED',
+          title: 'Đã gửi yêu cầu hủy đơn đặt sân',
+          message: `Yêu cầu hủy đơn đặt sân #${booking.booking_id.substring(0, 8)} đã được gửi tới chủ sân để xử lý (${policy.policy_description}).`,
+          entityType: 'BOOKING',
+          entityId: booking.booking_id
+        });
+      } catch (e) {
+        console.error('Failed to notify customer on cancel request:', e.message);
+      }
+
       return booking;
 
     } catch (error) {

@@ -44,6 +44,7 @@ module.exports = (sequelize, DataTypes) => {
     Venue.belongsToMany(models.Facility, { through: models.VenueFacility, foreignKey: 'venue_id', otherKey: 'facility_id', as: 'facilities' });
     Venue.hasMany(models.VenueImage, { foreignKey: 'venue_id', as: 'images' });
     Venue.hasMany(models.VenuePost, { foreignKey: 'venue_id', as: 'posts' });
+    Venue.hasMany(models.Review, { foreignKey: 'venue_id', as: 'reviews' });
   };
 
   return Venue;

@@ -859,6 +859,22 @@ class OwnerService {
       change_reason: 'Owner Approved Booking'
     });
 
+    // Notify Customer about Booking Confirmation
+    try {
+      const NotificationService = require('./notification.service');
+      const venueName = booking.court?.branch?.venue?.venue_name || 'Sân thể thao';
+      await NotificationService.createNotification({
+        recipientUserId: booking.customer_user_id,
+        type: 'BOOKING_CONFIRMED',
+        title: 'Đặt sân thành công',
+        message: `Đơn đặt sân #${booking.booking_id.substring(0, 8)} (${booking.court?.court_name || 'Sân'}) tại ${venueName} đã được chủ sân xác nhận thành công. Giờ chơi: ${String(booking.start_time).substring(0, 5)} - ${String(booking.end_time).substring(0, 5)} ngày ${booking.booking_date}.`,
+        entityType: 'BOOKING',
+        entityId: booking.booking_id
+      });
+    } catch (e) {
+      console.error('Failed to send confirmation notification to customer:', e.message);
+    }
+
     return booking;
   }
 
@@ -920,13 +936,28 @@ class OwnerService {
       change_reason: `Chủ sân chấp nhận yêu cầu hủy & hoàn tiền (${booking.refund_rate}%: ${booking.refund_amount}đ)`
     });
 
+    // Notify Customer about Cancellation Approval
+    try {
+      const NotificationService = require('./notification.service');
+      await NotificationService.createNotification({
+        recipientUserId: booking.customer_user_id,
+        type: 'BOOKING_CANCELLED',
+        title: 'Hủy đơn đặt sân đã được duyệt',
+        message: `Yêu cầu hủy đơn đặt sân #${booking.booking_id.substring(0, 8)} đã được chủ sân chấp thuận. Tỷ lệ hoàn tiền: ${booking.refund_rate || 0}% (${Number(booking.refund_amount || 0).toLocaleString('vi-VN')}đ).`,
+        entityType: 'BOOKING',
+        entityId: booking.booking_id
+      });
+    } catch (e) {
+      console.error('Failed to send cancel approval notification:', e.message);
+    }
+
     return booking;
   }
 
   /**
    * Reject a customer cancellation request
    */
-  static async rejectCancellation(ownerId, bookingId, note = '') {
+  static async rejectCancellation(ownerId, bookingId, note) {
     const { v4: uuidv4 } = require('uuid');
     const { BookingStatusHistory } = require('../models');
 
@@ -981,6 +1012,21 @@ class OwnerService {
       changed_by_user_id: ownerId,
       change_reason: `Chủ sân từ chối yêu cầu hủy: ${note || 'Không đồng ý hủy'}`
     });
+
+    // Notify Customer about Cancellation Rejection
+    try {
+      const NotificationService = require('./notification.service');
+      await NotificationService.createNotification({
+        recipientUserId: booking.customer_user_id,
+        type: 'BOOKING_CANCEL_REJECTED',
+        title: 'Yêu cầu hủy đơn bị từ chối',
+        message: `Yêu cầu hủy đơn đặt sân #${booking.booking_id.substring(0, 8)} đã bị từ chối: ${booking.cancel_owner_note}. Đơn vẫn giữ trạng thái Đã xác nhận.`,
+        entityType: 'BOOKING',
+        entityId: booking.booking_id
+      });
+    } catch (e) {
+      console.error('Failed to send cancel rejection notification:', e.message);
+    }
 
     return booking;
   }
@@ -1037,6 +1083,22 @@ class OwnerService {
       changed_by_user_id: ownerId,
       change_reason: `Owner Rejected: ${reason || 'Không thể phục vụ'}`
     });
+
+    // Notify Customer about Booking Rejection
+    try {
+      const NotificationService = require('./notification.service');
+      const venueName = booking.court?.branch?.venue?.venue_name || 'Sân thể thao';
+      await NotificationService.createNotification({
+        recipientUserId: booking.customer_user_id,
+        type: 'BOOKING_REJECTED',
+        title: 'Đơn đặt sân bị từ chối',
+        message: `Đơn đặt sân #${booking.booking_id.substring(0, 8)} tại ${venueName} ngày ${booking.booking_date} đã bị từ chối: ${booking.rejection_reason}.`,
+        entityType: 'BOOKING',
+        entityId: booking.booking_id
+      });
+    } catch (e) {
+      console.error('Failed to send rejection notification:', e.message);
+    }
 
     return booking;
   }

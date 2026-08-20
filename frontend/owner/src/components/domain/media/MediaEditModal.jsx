@@ -238,9 +238,9 @@ export default function MediaEditModal({
                 onChange={(e) => setStatus(e.target.value)}
                 className="w-full px-3 py-2 bg-surface border border-border-subtle rounded-xl text-xs font-medium text-gray-900 focus:ring-2 focus:ring-accent-primary/20 focus:border-accent-primary outline-none"
               >
-                <option value="PUBLISHED">Công khai (Published)</option>
-                <option value="DRAFT">Lưu nháp (Draft)</option>
-                <option value="ARCHIVED">Lưu trữ (Archived)</option>
+                <option value="PUBLISHED">Công khai </option>
+                <option value="DRAFT">Lưu nháp </option>
+                <option value="ARCHIVED">Lưu trữ </option>
               </select>
             </div>
 
@@ -261,7 +261,7 @@ export default function MediaEditModal({
             {/* Caption */}
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Mô tả (Caption)
+                Mô tả
               </label>
               <textarea
                 rows={2}
@@ -275,7 +275,7 @@ export default function MediaEditModal({
             {/* Tags */}
             <div className="sm:col-span-2">
               <label className="block text-xs font-semibold text-gray-700 mb-1">
-                Tags (phân cách bằng dấu phẩy)
+                Tags
               </label>
               <input
                 type="text"

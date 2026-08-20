@@ -100,7 +100,7 @@ export default function MediaBulkActionBar({
                     }}
                     className="w-full px-3 py-2 text-left hover:bg-surface-subtle font-medium text-emerald-600"
                   >
-                    Công khai (Published)
+                    Công khai
                   </button>
                   <button
                     onClick={() => {
@@ -109,7 +109,7 @@ export default function MediaBulkActionBar({
                     }}
                     className="w-full px-3 py-2 text-left hover:bg-surface-subtle font-medium text-amber-600"
                   >
-                    Lưu nháp (Draft)
+                    Lưu nháp
                   </button>
                 </div>
               </>

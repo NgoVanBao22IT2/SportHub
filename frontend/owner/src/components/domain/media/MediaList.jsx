@@ -113,7 +113,10 @@ export default function MediaList({
                       </div>
                       <div className="min-w-0">
                         <div className="font-bold text-gray-900 truncate group-hover:text-accent-primary transition">
-                          {item.title || 'Ảnh chưa đặt tên'}
+                          {(item.title || 'Ảnh chưa đặt tên')
+                            .replace(/AÌ[\s\S]?nh|AÌ‰nh/g, 'Ảnh')
+                            .replace(/biÌ[\s\S]?a|biÌ€a/g, 'bìa')
+                            .normalize('NFC')}
                         </div>
                         <div className="text-[11px] text-text-muted truncate max-w-[240px]">
                           {item.caption || item.alt_text || item.image_url}

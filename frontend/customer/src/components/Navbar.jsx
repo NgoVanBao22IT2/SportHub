@@ -1,9 +1,11 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { Bell, User, LogOut } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { User, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import NotificationDropdown from './domain/NotificationDropdown';
 
 export default function Navbar() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentUser, isAuthenticated, logout } = useAuth();
 
   const handleLogout = async () => {
@@ -15,6 +17,25 @@ export default function Navbar() {
     }
   };
 
+  const isNavActive = (path) => {
+    if (path === '/') {
+      return location.pathname === '/';
+    }
+    if (path === '/search') {
+      return location.pathname.startsWith('/search') || location.pathname.startsWith('/venues') || location.pathname.startsWith('/venue');
+    }
+    return location.pathname.startsWith(path);
+  };
+
+  const getNavItemClass = (path, extraClass = '') => {
+    const active = isNavActive(path);
+    return `pb-1 transition-all border-b-2 ${extraClass} ${
+      active
+        ? 'border-white text-white font-bold'
+        : 'border-transparent text-white/90 hover:text-white hover:border-white/40 font-medium'
+    }`;
+  };
+
   return (
     <header className="bg-primary text-white w-full h-16 flex items-center justify-center sticky top-0 z-50">
       <div className="container mx-auto px-4 max-w-7xl flex items-center justify-between">
@@ -23,14 +44,14 @@ export default function Navbar() {
           <img src="/logo-badminton.png" alt="logo" className=" w-10 h-15 " />
           <span className="font-bold text-2xl tracking-tight">SPORTHUB</span>
 
-          <nav className="hidden md:flex space-x-6 text-dm font-medium">
-            <Link to="/" className="hover:text-green-200 ml-10">Trang chủ</Link>
-            <Link to="/search" className="hover:text-green-200 pb-1">Đặt sân</Link>
-            <Link to="/map" className="hover:text-green-200 pb-1">Bản đồ sân</Link>
+          <nav className="hidden md:flex space-x-6 text-dm font-medium items-center">
+            <Link to="/" className={getNavItemClass('/', 'ml-10')}>Trang chủ</Link>
+            <Link to="/search" className={getNavItemClass('/search')}>Đặt sân</Link>
+            <Link to="/map" className={getNavItemClass('/map')}>Bản đồ sân</Link>
             {isAuthenticated && (
               <>
-                <Link to="/my-bookings" className="hover:text-green-200 pb-1">Lịch sử đặt sân</Link>
-                <Link to="/favorites" className="hover:text-green-200 pb-1">Yêu thích</Link>
+                <Link to="/my-bookings" className={getNavItemClass('/my-bookings')}>Lịch sử đặt sân</Link>
+                <Link to="/favorites" className={getNavItemClass('/favorites')}>Yêu thích</Link>
               </>
             )}
           </nav>
@@ -75,10 +96,8 @@ export default function Navbar() {
             </>
           )}
 
-          <button className="p-2 hover:bg-white/10 rounded-full transition-colors relative" title="Tính năng thông báo sắp ra mắt">
-            <Bell size={20} />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
+          {/* Notification Dropdown */}
+          <NotificationDropdown />
         </div>
       </div>
     </header>

@@ -54,11 +54,11 @@ export default function Favorite() {
       {/* HEADER & BREADCRUMB */}
       <section className="bg-surface border-b border-border-subtle-medium py-8 px-4">
         <div className="container mx-auto max-w-6xl space-y-4">
-          <div className="flex items-center text-xs text-text-muted gap-2">
+          {/* <div className="flex items-center text-xs text-text-muted gap-2">
             <Link to="/" className="hover:text-accent-primary">Trang chủ</Link>
             <span>/</span>
             <span className="text-gray-900 font-medium">Sân yêu thích</span>
-          </div>
+          </div> */}
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -76,7 +76,7 @@ export default function Favorite() {
               leftIcon={<RefreshCw size={14} />}
               onClick={fetchFavorites}
             >
-              Làm mới danh sách
+              Làm mới
             </Button>
           </div>
         </div>
@@ -84,7 +84,7 @@ export default function Favorite() {
 
       {/* MAIN CONTENT AREA */}
       <div className="container mx-auto px-4 max-w-6xl py-8">
-        
+
         {/* LOADING SKELETON STATE */}
         {loading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

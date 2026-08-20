@@ -344,26 +344,29 @@ class VenueSearchService {
     let reviewCount = 0;
     let reviewsList = [];
 
-    if (courtIds.length > 0 && Review) {
+    if (Review) {
       try {
-        reviewCount = await Review.count({
-          where: { court_id: { [Op.in]: courtIds } }
-        });
+        const reviewWhere = {
+          status: 'PUBLISHED',
+          ...(courtIds.length > 0
+            ? { [Op.or]: [{ venue_id: id }, { court_id: { [Op.in]: courtIds } }] }
+            : { venue_id: id })
+        };
+
+        reviewCount = await Review.count({ where: reviewWhere });
 
         if (reviewCount > 0) {
-          const ratingSum = await Review.sum('rating', {
-            where: { court_id: { [Op.in]: courtIds } }
-          });
+          const ratingSum = await Review.sum('rating', { where: reviewWhere });
           averageRating = parseFloat((ratingSum / reviewCount).toFixed(1));
         }
 
         reviewsList = await Review.findAll({
-          where: { court_id: { [Op.in]: courtIds } },
+          where: reviewWhere,
           include: [
             {
               model: User,
               as: 'customer',
-              attributes: ['user_id', 'full_name']
+              attributes: ['user_id', 'full_name', 'avatar_url']
             },
             {
               model: Court,
@@ -375,7 +378,7 @@ class VenueSearchService {
           limit: 10
         });
       } catch (err) {
-        console.warn('Notice: Review query skipped (reviews table may not exist yet):', err.message);
+        console.warn('Notice: Review query skipped in getVenueById:', err.message);
       }
     }
 

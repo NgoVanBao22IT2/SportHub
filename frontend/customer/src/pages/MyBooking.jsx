@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Calendar, Clock, RefreshCw, ArrowRight, AlertCircle, ShieldCheck, XCircle, CheckCircle2 } from 'lucide-react';
+import { Calendar, Clock, RefreshCw, ArrowRight, AlertCircle, ShieldCheck, XCircle, CheckCircle2, Star } from 'lucide-react';
 import { getUserBookings, cancelBooking } from '../api/bookings';
 
 // Design System Imports
@@ -11,6 +11,7 @@ import Skeleton from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
 import ErrorState from '../components/ui/ErrorState';
 import Tabs from '../components/ui/Tabs';
+import ReviewModal from '../components/domain/review/ReviewModal';
 
 // Centralized Cancellable Booking Statuses based on Backend Audit (booking.service.js)
 const CANCELLABLE_BOOKING_STATUSES = ['HOLDING', 'CONFIRMED'];
@@ -32,6 +33,7 @@ export default function MyBooking() {
   // Hardened Cancellation States
   const [cancellingId, setCancellingId] = useState(null);
   const [confirmCancelModal, setConfirmCancelModal] = useState(null);
+  const [reviewModalBooking, setReviewModalBooking] = useState(null);
   const [actionError, setActionError] = useState('');
   const [refreshError, setRefreshError] = useState('');
 
@@ -195,11 +197,11 @@ export default function MyBooking() {
       {/* HEADER SECTION */}
       <section className="bg-surface border-b border-border-subtle-medium py-8 px-4">
         <div className="container mx-auto max-w-6xl space-y-4">
-          <div className="flex items-center text-xs text-text-muted gap-2">
+          {/* <div className="flex items-center text-xs text-text-muted gap-2">
             <Link to="/" className="hover:text-accent-primary">Trang chủ</Link>
             <span>/</span>
             <span className="text-gray-900 font-medium">Đơn đặt của tôi</span>
-          </div>
+          </div> */}
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -217,7 +219,7 @@ export default function MyBooking() {
               leftIcon={<RefreshCw size={16} />}
               onClick={fetchBookingHistory}
             >
-              Làm mới dữ liệu
+              Làm mới
             </Button>
           </div>
 
@@ -363,7 +365,7 @@ export default function MyBooking() {
                     </div>
                   </Card.Body>
 
-                  <Card.Footer className="pt-2 flex flex-wrap gap-2">
+                  <Card.Footer className="pt-2 flex flex-wrap gap-2 items-center">
                     <Button
                       variant="outline"
                       size="sm"
@@ -372,6 +374,26 @@ export default function MyBooking() {
                     >
                       Xem chi tiết
                     </Button>
+
+                    {/* COMPLETED Booking Review Action */}
+                    {statusStr === 'COMPLETED' && (
+                      item.review ? (
+                        <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-xl border border-emerald-200 shrink-0">
+                          <CheckCircle2 size={13} className="text-emerald-600" />
+                          <span>Đã đánh giá ({item.review.rating}★)</span>
+                        </span>
+                      ) : (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          className="flex-1 shadow-xs"
+                          leftIcon={<Star size={14} className="fill-current" />}
+                          onClick={() => setReviewModalBooking(item)}
+                        >
+                          Đánh giá
+                        </Button>
+                      )
+                    )}
 
                     {/* CTA "Hủy đơn" rendered ONLY for verified Backend Cancellable Statuses (HOLDING, CONFIRMED) */}
                     {canCancel && (
@@ -399,6 +421,27 @@ export default function MyBooking() {
         )}
 
       </div>
+
+      {/* REVIEW MODAL FOR COMPLETED BOOKINGS */}
+      {reviewModalBooking && (
+        <ReviewModal
+          isOpen={Boolean(reviewModalBooking)}
+          onClose={() => setReviewModalBooking(null)}
+          bookingId={reviewModalBooking.booking_id || reviewModalBooking.id}
+          venueName={reviewModalBooking.court?.branch?.venue?.venue_name || reviewModalBooking.Venue?.venue_name || reviewModalBooking.venue_name || 'Câu lạc bộ thể thao'}
+          courtName={reviewModalBooking.court?.court_name || reviewModalBooking.Court?.court_name || reviewModalBooking.court_name}
+          bookingDate={reviewModalBooking.booking_date}
+          onSuccess={(createdReview) => {
+            setBookings((prev) =>
+              prev.map((b) =>
+                (b.booking_id || b.id) === (reviewModalBooking.booking_id || reviewModalBooking.id)
+                  ? { ...b, review: createdReview }
+                  : b
+              )
+            );
+          }}
+        />
+      )}
 
       {/* CONFIRMATION OVERLAY FOR DESTRUCTIVE CANCELLATION ACTION */}
       {confirmCancelModal && (

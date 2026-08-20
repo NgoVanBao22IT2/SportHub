@@ -236,11 +236,11 @@ export default function Profile() {
       {/* HEADER & BREADCRUMB */}
       <section className="bg-surface border-b border-border-subtle-medium py-8 px-4">
         <div className="container mx-auto max-w-5xl space-y-4">
-          <div className="flex items-center text-xs text-text-muted gap-2">
+          {/* <div className="flex items-center text-xs text-text-muted gap-2">
             <Link to="/" className="hover:text-accent-primary">Trang chủ</Link>
             <span>/</span>
             <span className="text-gray-900 font-medium">Hồ sơ cá nhân</span>
-          </div>
+          </div> */}
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>

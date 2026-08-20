@@ -15,6 +15,7 @@ import EmptyState from '../../components/ui/EmptyState';
 import ErrorState from '../../components/ui/ErrorState';
 import VenueCard from '../../components/domain/VenueCard';
 import BookingModal from '../../components/domain/BookingModal';
+import VenueReviewsTab from '../../components/domain/review/VenueReviewsTab';
 import { getImageUrl, getVenueImageUrl, getDeterministicFallback } from '../../utils/imageUrl';
 
 export default function VenueDetail() {
@@ -656,53 +657,7 @@ export default function VenueDetail() {
 
           {/* TAB 5: ĐÁNH GIÁ */}
           <Tabs.Panel value="Đánh giá">
-            <Card radius="xl" padding="md" className="border border-border-subtle-medium space-y-4">
-              <div className="flex items-center justify-between border-b border-border-subtle pb-3">
-                <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
-                  <Star size={18} className="text-amber-500 fill-amber-500" />
-                  Đánh giá từ người chơi ({reviewsList.length})
-                </h3>
-
-                {venue.average_rating && (
-                  <div className="text-sm font-extrabold text-gray-900">
-                    Trung bình: <span className="text-amber-500">{venue.average_rating} ★</span>
-                  </div>
-                )}
-              </div>
-
-              {reviewsList.length === 0 ? (
-                <EmptyState
-                  title="Chưa có đánh giá nào"
-                  description="Câu lạc bộ chưa có đánh giá nào từ khách hàng trên cơ sở dữ liệu."
-                />
-              ) : (
-                <div className="space-y-3">
-                  {reviewsList.map((r, i) => (
-                    <div key={i} className="p-4 rounded-xl bg-surface-subtle border border-border-subtle space-y-2 text-xs">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-brand-orange/20 text-brand-orange font-bold flex items-center justify-center">
-                            {(r.customer?.full_name || 'U').charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-bold text-gray-900">{r.customer?.full_name || 'Người chơi'}</p>
-                            <p className="text-[10px] text-text-muted">{r.court?.court_name || 'Sân con'} • {new Date(r.created_at || Date.now()).toLocaleDateString('vi-VN')}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex text-amber-500">
-                          {[1, 2, 3, 4, 5].map((s) => (
-                            <Star key={s} size={14} className={s <= r.rating ? 'fill-amber-500 text-amber-500' : 'text-gray-300'} />
-                          ))}
-                        </div>
-                      </div>
-
-                      <p className="text-gray-700 leading-relaxed italic">"{r.comment || 'Khách hàng không để lại bình luận.'}"</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </Card>
+            <VenueReviewsTab venueId={id} venueName={venue?.venue_name} />
           </Tabs.Panel>
         </Tabs>
       </section>
