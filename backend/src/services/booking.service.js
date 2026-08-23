@@ -374,6 +374,18 @@ class BookingService {
       error.statusCode = 404;
       throw error;
     }
+
+    // Auto complete if past slot
+    if (booking.booking_status === 'CONFIRMED') {
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      if (booking.booking_date < todayStr || (booking.booking_date === todayStr && booking.end_time <= currentTimeStr)) {
+        booking.booking_status = 'COMPLETED';
+        await booking.save().catch(() => {});
+      }
+    }
+
     return booking;
   }
 
@@ -389,6 +401,32 @@ class BookingService {
       const error = new Error('Invalid pagination parameters');
       error.statusCode = 400;
       throw error;
+    }
+
+    // Auto transition past confirmed bookings to COMPLETED
+    try {
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+
+      await Booking.update(
+        { booking_status: 'COMPLETED' },
+        {
+          where: {
+            booking_status: 'CONFIRMED',
+            customer_user_id: userId,
+            [Op.or]: [
+              { booking_date: { [Op.lt]: todayStr } },
+              {
+                booking_date: todayStr,
+                end_time: { [Op.lte]: currentTimeStr }
+              }
+            ]
+          }
+        }
+      );
+    } catch (autoCompErr) {
+      console.warn('Auto complete booking non-blocking warning:', autoCompErr.message);
     }
 
     const { rows, count } = await Booking.findAndCountAll({
@@ -510,6 +548,20 @@ class BookingService {
       // Valid statuses for user cancellation
       if (!['HOLDING', 'PAYMENT_PENDING', 'WAITING_OWNER_CONFIRMATION', 'CONFIRMED'].includes(booking.booking_status)) {
         const error = new Error(`Không thể hủy đơn hàng ở trạng thái: ${booking.booking_status}`);
+        error.statusCode = 400;
+        throw error;
+      }
+
+      // Prevent cancelling past or completed bookings
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+      const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      if (
+        booking.booking_status === 'COMPLETED' ||
+        booking.booking_date < todayStr ||
+        (booking.booking_date === todayStr && booking.start_time <= currentTimeStr)
+      ) {
+        const error = new Error('Không thể hủy đơn đặt sân khi thời gian đặt đã qua hoặc đơn đã hoàn thành.');
         error.statusCode = 400;
         throw error;
       }

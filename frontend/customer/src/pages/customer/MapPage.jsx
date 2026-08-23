@@ -1,4 +1,5 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import SportMapView from '../../components/map/SportMapView';
 import { useMapVenues } from '../../hooks/useMapVenues';
 
@@ -9,12 +10,27 @@ import { useMapVenues } from '../../hooks/useMapVenues';
 export default function MapPage() {
   const mapInstanceRef = useRef(null);
   const [selectedVenueId, setSelectedVenueId] = useState(null);
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+
+  const directVenueParam = location.state?.directToVenue || null;
+  const targetVenueIdFromQuery = searchParams.get('venueId') || location.state?.venueId || null;
+  const isDirectRouteRequested = searchParams.get('direct') === 'true' || location.state?.autoRoute || Boolean(location.state?.directToVenue);
 
   // Active filters tracker
   const activeFiltersRef = useRef({ sport: null, keyword: '' });
   const isUserSearchingRef = useRef(false);
 
   const { venues, loading, totalCount, fetchVenuesByBounds } = useMapVenues();
+
+  // If a specific venue was targeted for routing or viewing
+  const directTarget = useMemo(() => {
+    if (directVenueParam) return directVenueParam;
+    if (targetVenueIdFromQuery && venues.length > 0) {
+      return venues.find(v => v.venue_id === targetVenueIdFromQuery || v.id === targetVenueIdFromQuery || v.branch_id === targetVenueIdFromQuery) || null;
+    }
+    return null;
+  }, [directVenueParam, targetVenueIdFromQuery, venues]);
 
   // Derive currently selected venue object from single source of truth (venues array)
   const selectedVenue = venues.find((v) => {
@@ -127,6 +143,7 @@ export default function MapPage() {
           totalCount={totalCount}
           selectedVenue={selectedVenue}
           selectedVenueId={selectedVenueId}
+          directRouteVenue={isDirectRouteRequested ? directTarget : null}
           onSelectVenue={handleSelectVenue}
           onClosePreview={handleClosePreview}
           onBoundsChange={handleBoundsChange}

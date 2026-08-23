@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Star, MessageSquare, ShieldCheck, CheckCircle2, CornerDownRight, RefreshCw, Sparkles } from 'lucide-react';
 import Card from '../../ui/Card';
 import Button from '../../ui/Button';
@@ -9,7 +9,7 @@ import ReviewModal from './ReviewModal';
 import { getVenueReviews, getVenueReviewEligibility } from '../../../api/reviews';
 import { useAuth } from '../../../context/AuthContext';
 
-export default function VenueReviewsTab({ venueId, venueName }) {
+export default function VenueReviewsTab({ venueId, venueName, onSummaryChange }) {
   const { isAuthenticated } = useAuth();
 
   const [reviews, setReviews] = useState([]);
@@ -21,6 +21,12 @@ export default function VenueReviewsTab({ venueId, venueName }) {
   const [pagination, setPagination] = useState({ page: 1, limit: 10, totalPages: 1, totalItems: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Keep stable ref to onSummaryChange to break infinite re-render cycles
+  const onSummaryChangeRef = useRef(onSummaryChange);
+  useEffect(() => {
+    onSummaryChangeRef.current = onSummaryChange;
+  }, [onSummaryChange]);
 
   // Filters & Sorting
   const [selectedRatingFilter, setSelectedRatingFilter] = useState('');
@@ -45,7 +51,12 @@ export default function VenueReviewsTab({ venueId, venueName }) {
       });
 
       setReviews(res.data || []);
-      if (res.summary) setSummary(res.summary);
+      if (res.summary) {
+        setSummary(res.summary);
+        if (onSummaryChangeRef.current) {
+          onSummaryChangeRef.current(res.summary);
+        }
+      }
       if (res.pagination) setPagination(res.pagination);
     } catch (err) {
       console.error('Error fetching venue reviews:', err);

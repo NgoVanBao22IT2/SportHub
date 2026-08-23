@@ -248,6 +248,21 @@ class VenueSearchService {
         imagesByVenue[vId].push(img.toJSON());
       });
 
+      // Fetch active operating schedules for search cards
+      const allSchedules = await models.OperatingSchedule.findAll({
+        where: {
+          scope_target_type: 'VENUE',
+          scope_target_id: { [Op.in]: venueIds },
+          is_active: true
+        }
+      });
+      const schedulesByVenue = {};
+      allSchedules.forEach(s => {
+        const vId = s.scope_target_id;
+        if (!schedulesByVenue[vId]) schedulesByVenue[vId] = [];
+        schedulesByVenue[vId].push(s);
+      });
+
       rows.forEach(v => {
         v.setDataValue('images', imagesByVenue[v.venue_id] || []);
         const coverImg = (imagesByVenue[v.venue_id] || []).find(i => i.is_cover || i.image_type === 'COVER');
@@ -255,6 +270,19 @@ class VenueSearchService {
         const activeImg = coverImg || firstImg;
         if (activeImg) {
           v.setDataValue('image_url', activeImg.cover || activeImg.avatar || activeImg.thumbnail_url || activeImg.medium_url || activeImg.large_url || activeImg.original_url);
+        }
+
+        const vSchedules = schedulesByVenue[v.venue_id] || [];
+        if (vSchedules.length > 0) {
+          const openTimes = vSchedules.map(s => s.opening_time).filter(Boolean).sort();
+          const closeTimes = vSchedules.map(s => s.closing_time).filter(Boolean).sort();
+          const minOpen = openTimes.length > 0 ? openTimes[0].substring(0, 5) : '06:00';
+          const maxClose = closeTimes.length > 0 ? closeTimes[closeTimes.length - 1].substring(0, 5) : '22:00';
+          v.setDataValue('opening_hours_text', `${minOpen} - ${maxClose} hàng ngày`);
+          v.setDataValue('opening_time', minOpen);
+          v.setDataValue('closing_time', maxClose);
+        } else {
+          v.setDataValue('opening_hours_text', '06:00 - 22:00 hàng ngày');
         }
       });
     }
@@ -320,16 +348,21 @@ class VenueSearchService {
 
     // 2. Fetch Operating Schedules
     const schedules = await OperatingSchedule.findAll({
-      where: { scope_target_type: 'VENUE', scope_target_id: venueId }
+      where: { scope_target_type: 'VENUE', scope_target_id: venueId, is_active: true }
     });
     venueJson.operating_schedules = schedules.map(s => s.toJSON());
 
-    // Format primary opening hours string
+    // Format primary opening hours string from full active operating schedules/pricing table
     if (schedules.length > 0) {
-      const mainSchedule = schedules[0];
-      const openTime = mainSchedule.opening_time ? mainSchedule.opening_time.substring(0, 5) : '06:00';
-      const closeTime = mainSchedule.closing_time ? mainSchedule.closing_time.substring(0, 5) : '22:00';
-      venueJson.opening_hours_text = `${openTime} - ${closeTime} hàng ngày`;
+      const openTimes = schedules.map(s => s.opening_time).filter(Boolean).sort();
+      const closeTimes = schedules.map(s => s.closing_time).filter(Boolean).sort();
+
+      const minOpen = openTimes.length > 0 ? openTimes[0].substring(0, 5) : '06:00';
+      const maxClose = closeTimes.length > 0 ? closeTimes[closeTimes.length - 1].substring(0, 5) : '22:00';
+
+      venueJson.opening_hours_text = `${minOpen} - ${maxClose} hàng ngày`;
+      venueJson.opening_time = minOpen;
+      venueJson.closing_time = maxClose;
     } else {
       venueJson.opening_hours_text = 'Chưa cập nhật giờ hoạt động';
     }
@@ -349,8 +382,8 @@ class VenueSearchService {
         const reviewWhere = {
           status: 'PUBLISHED',
           ...(courtIds.length > 0
-            ? { [Op.or]: [{ venue_id: id }, { court_id: { [Op.in]: courtIds } }] }
-            : { venue_id: id })
+            ? { [Op.or]: [{ venue_id: venueId }, { court_id: { [Op.in]: courtIds } }] }
+            : { venue_id: venueId })
         };
 
         reviewCount = await Review.count({ where: reviewWhere });
@@ -366,7 +399,7 @@ class VenueSearchService {
             {
               model: User,
               as: 'customer',
-              attributes: ['user_id', 'full_name', 'avatar_url']
+              attributes: ['user_id', 'full_name', 'email']
             },
             {
               model: Court,
@@ -378,12 +411,13 @@ class VenueSearchService {
           limit: 10
         });
       } catch (err) {
-        console.warn('Notice: Review query skipped in getVenueById:', err.message);
+        console.warn('Notice: Review query skipped in getVenueDetails:', err.message);
       }
     }
 
     venueJson.average_rating = averageRating;
     venueJson.review_count = reviewCount;
+    venueJson.rating_count = reviewCount;
     venueJson.reviews = reviewsList.map(r => r.toJSON ? r.toJSON() : r);
 
     return venueJson;
@@ -480,7 +514,52 @@ class VenueSearchService {
       return [];
     }
 
-    // 3. Sort candidates by geographical proximity or same city
+    // 3. Aggregate real reviews for candidate venues from Review table
+    const candidateVenueIds = candidateVenues.map(v => v.venue_id);
+    const courtIdsByVenue = {};
+    const allCourtIds = [];
+    candidateVenues.forEach(v => {
+      courtIdsByVenue[v.venue_id] = [];
+      (v.branches || []).forEach(b => {
+        (b.courts || []).forEach(c => {
+          courtIdsByVenue[v.venue_id].push(c.court_id);
+          allCourtIds.push(c.court_id);
+        });
+      });
+    });
+
+    let reviewsByVenue = {};
+    if (Review && candidateVenueIds.length > 0) {
+      try {
+        const reviewConditions = [{ venue_id: { [Op.in]: candidateVenueIds } }];
+        if (allCourtIds.length > 0) {
+          reviewConditions.push({ court_id: { [Op.in]: allCourtIds } });
+        }
+        const reviews = await Review.findAll({
+          where: {
+            status: 'PUBLISHED',
+            [Op.or]: reviewConditions
+          },
+          attributes: ['venue_id', 'court_id', 'rating']
+        });
+
+        reviews.forEach(r => {
+          let targetVId = r.venue_id;
+          if (!targetVId && r.court_id) {
+            targetVId = Object.keys(courtIdsByVenue).find(vId => courtIdsByVenue[vId].includes(r.court_id));
+          }
+          if (targetVId) {
+            if (!reviewsByVenue[targetVId]) reviewsByVenue[targetVId] = { sum: 0, count: 0 };
+            reviewsByVenue[targetVId].sum += Number(r.rating) || 0;
+            reviewsByVenue[targetVId].count += 1;
+          }
+        });
+      } catch (err) {
+        console.warn('Notice: Review aggregation skipped in getSimilarVenues:', err.message);
+      }
+    }
+
+    // 4. Sort candidates by geographical proximity or same city
     const scoredVenues = candidateVenues.map(v => {
       const vJson = v.toJSON();
       let distance = 999999;
@@ -523,8 +602,17 @@ class VenueSearchService {
       vJson.cover_image = coverImg;
       vJson.image_url = coverImg;
       vJson.sport_category = currentSport || 'Thể thao';
-      vJson.average_rating = vJson.average_rating || 4.8;
-      vJson.review_count = vJson.review_count !== undefined ? vJson.review_count : 24;
+
+      const revStats = reviewsByVenue[vJson.venue_id];
+      if (revStats && revStats.count > 0) {
+        vJson.average_rating = parseFloat((revStats.sum / revStats.count).toFixed(1));
+        vJson.review_count = revStats.count;
+        vJson.rating_count = revStats.count;
+      } else {
+        vJson.average_rating = null;
+        vJson.review_count = 0;
+        vJson.rating_count = 0;
+      }
 
       return {
         venue: vJson,
@@ -731,6 +819,28 @@ class VenueSearchService {
       })
     ]);
 
+    // Query reviews for map venues
+    let reviewsByVenue = {};
+    if (models.Review && venueIds.length > 0) {
+      try {
+        const reviews = await models.Review.findAll({
+          where: {
+            status: 'PUBLISHED',
+            venue_id: { [Op.in]: venueIds }
+          },
+          attributes: ['venue_id', 'rating']
+        });
+
+        reviews.forEach(r => {
+          if (!reviewsByVenue[r.venue_id]) reviewsByVenue[r.venue_id] = { sum: 0, count: 0 };
+          reviewsByVenue[r.venue_id].sum += Number(r.rating) || 0;
+          reviewsByVenue[r.venue_id].count += 1;
+        });
+      } catch (err) {
+        console.warn('Notice: Review aggregation skipped in getVenuesForMap:', err.message);
+      }
+    }
+
     // Map images by venue
     const coverImageByVenue = {};
     allImages.forEach(img => {
@@ -779,6 +889,10 @@ class VenueSearchService {
 
       const resolvedMinPrice = minPriceByBranch[branch.branch_id] || minPriceByVenue[v.venue_id] || null;
 
+      const revStat = reviewsByVenue[v.venue_id];
+      const avgRating = revStat && revStat.count > 0 ? parseFloat((revStat.sum / revStat.count).toFixed(1)) : null;
+      const revCount = revStat ? revStat.count : 0;
+
       return {
         id: v.venue_id,
         venue_id: v.venue_id,
@@ -793,8 +907,9 @@ class VenueSearchService {
         latitude: geo.lat,
         longitude: geo.lng,
         cover_image: coverImageByVenue[v.venue_id] || null,
-        average_rating: 4.8,
-        review_count: 24,
+        average_rating: avgRating,
+        review_count: revCount,
+        rating_count: revCount,
         min_price: resolvedMinPrice
       };
     }).filter(Boolean);

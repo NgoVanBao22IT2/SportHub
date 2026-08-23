@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import { Loader2, RotateCcw } from 'lucide-react';
+import { Loader2, RotateCcw, Navigation, X, Route, Compass, ExternalLink } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import './mapStyles.css';
 import { MAP_CONFIG } from '../../config/mapConfig';
@@ -10,6 +10,7 @@ import MapSearchBar from './MapSearchBar';
 import SportFilterChips from './SportFilterChips';
 import GeolocationControl from './GeolocationControl';
 import VenuePreviewCard from './VenuePreviewCard';
+import Button from '../ui/Button';
 
 /**
  * Helper component to ensure Leaflet recalculates dimensions when container loads
@@ -93,6 +94,7 @@ export default function SportMapView({
   totalCount = 0,
   selectedVenue = null,
   selectedVenueId = null,
+  directRouteVenue = null,
   onSelectVenue,
   onClosePreview,
   onBoundsChange,
@@ -108,6 +110,12 @@ export default function SportMapView({
   const [activeSport, setActiveSport] = useState(null);
   const [userLocation, setUserLocation] = useState(null);
   const searchDebounceTimerRef = useRef(null);
+
+  // In-App Direction Routing States
+  const [routingTarget, setRoutingTarget] = useState(null);
+  const [routePath, setRoutePath] = useState([]);
+  const [routeInfo, setRouteInfo] = useState(null);
+  const [isRoutingLoading, setIsRoutingLoading] = useState(false);
 
   // User Red Location Pin Icon with Radar Ripple Effect
   const userLocationRedIcon = useMemo(() => {
@@ -136,6 +144,136 @@ export default function SportMapView({
       popupAnchor: [0, -42]
     });
   }, []);
+
+  // Direction Routing Handler: traces real path from User GPS -> Target Venue
+  const handleStartRouting = useCallback((targetVenue) => {
+    if (!targetVenue) return;
+
+    let destLat = typeof targetVenue.latitude === 'number' ? targetVenue.latitude : null;
+    let destLng = typeof targetVenue.longitude === 'number' ? targetVenue.longitude : null;
+
+    if (!destLat || !destLng) {
+      if (targetVenue.geo_coordinates) {
+        try {
+          const coords = typeof targetVenue.geo_coordinates === 'string'
+            ? JSON.parse(targetVenue.geo_coordinates)
+            : targetVenue.geo_coordinates;
+          if (coords && typeof coords.lat === 'number' && typeof coords.lng === 'number') {
+            destLat = coords.lat;
+            destLng = coords.lng;
+          }
+        } catch (e) {}
+      } else if (targetVenue.branches && targetVenue.branches[0]?.geo_coordinates) {
+        try {
+          const coords = typeof targetVenue.branches[0].geo_coordinates === 'string'
+            ? JSON.parse(targetVenue.branches[0].geo_coordinates)
+            : targetVenue.branches[0].geo_coordinates;
+          if (coords && typeof coords.lat === 'number' && typeof coords.lng === 'number') {
+            destLat = coords.lat;
+            destLng = coords.lng;
+          }
+        } catch (e) {}
+      }
+    }
+
+    if (!destLat || !destLng) {
+      return;
+    }
+
+    const destObj = {
+      ...targetVenue,
+      latitude: destLat,
+      longitude: destLng,
+      name: targetVenue.venue_name || targetVenue.name || 'Sân thể thao',
+      address: targetVenue.address || targetVenue.location || (targetVenue.branches && targetVenue.branches[0]?.street_address) || ''
+    };
+
+    setRoutingTarget(destObj);
+    setIsRoutingLoading(true);
+
+    const performRouting = async (userCoords) => {
+      setUserLocation(userCoords);
+      try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${userCoords.longitude},${userCoords.latitude};${destLng},${destLat}?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.routes && data.routes.length > 0) {
+          const r = data.routes[0];
+          const latLngs = r.geometry.coordinates.map(c => [c[1], c[0]]);
+          setRoutePath(latLngs);
+          setRouteInfo({
+            distanceKm: (r.distance / 1000).toFixed(1),
+            durationMin: Math.max(1, Math.ceil(r.duration / 60))
+          });
+        } else {
+          setRoutePath([[userCoords.latitude, userCoords.longitude], [destLat, destLng]]);
+          const dLat = destLat - userCoords.latitude;
+          const dLng = destLng - userCoords.longitude;
+          const dist = (Math.sqrt(dLat * dLat + dLng * dLng) * 111).toFixed(1);
+          setRouteInfo({
+            distanceKm: dist,
+            durationMin: Math.max(1, Math.ceil(Number(dist) * 2.5))
+          });
+        }
+      } catch (err) {
+        setRoutePath([[userCoords.latitude, userCoords.longitude], [destLat, destLng]]);
+        const dLat = destLat - userCoords.latitude;
+        const dLng = destLng - userCoords.longitude;
+        const dist = (Math.sqrt(dLat * dLat + dLng * dLng) * 111).toFixed(1);
+        setRouteInfo({
+          distanceKm: dist,
+          durationMin: Math.max(1, Math.ceil(Number(dist) * 2.5))
+        });
+      } finally {
+        setIsRoutingLoading(false);
+      }
+
+      if (mapInstance && typeof mapInstance.fitBounds === 'function') {
+        const bounds = L.latLngBounds([
+          [userCoords.latitude, userCoords.longitude],
+          [destLat, destLng]
+        ]);
+        mapInstance.fitBounds(bounds, { padding: [120, 120], maxZoom: 16 });
+      }
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          performRouting({
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude
+          });
+        },
+        () => {
+          performRouting({
+            latitude: 16.054407,
+            longitude: 108.202167
+          });
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    } else {
+      performRouting({
+        latitude: 16.054407,
+        longitude: 108.202167
+      });
+    }
+  }, [mapInstance]);
+
+  const handleStopRouting = () => {
+    setRoutingTarget(null);
+    setRoutePath([]);
+    setRouteInfo(null);
+    setIsRoutingLoading(false);
+  };
+
+  // Auto trigger routing if directRouteVenue is provided
+  useEffect(() => {
+    if (directRouteVenue) {
+      handleStartRouting(directRouteVenue);
+    }
+  }, [directRouteVenue, handleStartRouting]);
 
   // Handle search input typing with 350ms debounce
   const handleSearchChange = (val) => {
@@ -230,12 +368,81 @@ export default function SportMapView({
         </div>
       </div>
 
-      {/* Floating Selected Venue Preview Card on the LEFT SIDE */}
-      {selectedVenue && (
+      {/* Floating Direction Navigation Card */}
+      {routingTarget && (
+        <div className="absolute top-20 left-4 z-[450] w-[340px] sm:w-[380px] max-w-[calc(100vw-32px)] bg-white/95 backdrop-blur-md border border-emerald-300 rounded-2xl p-4 shadow-2xl pointer-events-auto animate-fade-in space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5">
+                <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-extrabold uppercase tracking-wider flex items-center gap-1">
+                  <Navigation size={10} className="fill-emerald-600 text-emerald-600" />
+                  Chỉ đường SportHub
+                </span>
+                {isRoutingLoading && (
+                  <span className="text-[10px] text-gray-500 flex items-center gap-1">
+                    <Loader2 size={10} className="animate-spin text-emerald-600" /> Đang tính toán...
+                  </span>
+                )}
+              </div>
+              <h4 className="font-bold text-sm text-gray-900 mt-1 truncate">
+                {routingTarget.name || routingTarget.venue_name}
+              </h4>
+              <p className="text-[11px] text-gray-500 truncate">{routingTarget.address || 'Đang cập nhật địa chỉ'}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleStopRouting}
+              aria-label="Đóng chỉ đường"
+              className="w-7 h-7 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full flex items-center justify-center transition-colors flex-shrink-0 cursor-pointer"
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          {routeInfo && (
+            <div className="grid grid-cols-2 gap-2 bg-emerald-50/80 p-2.5 rounded-xl border border-emerald-100 text-center">
+              <div>
+                <span className="text-[10px] text-gray-500 font-medium block">Khoảng cách</span>
+                <strong className="text-emerald-700 text-base font-black">{routeInfo.distanceKm} km</strong>
+              </div>
+              <div>
+                <span className="text-[10px] text-gray-500 font-medium block">Thời gian ước tính</span>
+                <strong className="text-emerald-700 text-base font-black">~{routeInfo.durationMin} phút</strong>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <Button
+              variant="primary"
+              size="sm"
+              fullWidth
+              onClick={() => {
+                const googleUrl = `https://www.google.com/maps/dir/?api=1&destination=${routingTarget.latitude},${routingTarget.longitude}`;
+                window.open(googleUrl, '_blank');
+              }}
+              leftIcon={<ExternalLink size={13} />}
+            >
+              Mở Google Maps
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleStopRouting}
+            >
+              Dừng
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Selected Venue Preview Card on the LEFT SIDE (hidden if actively routing) */}
+      {selectedVenue && !routingTarget && (
         <div className="absolute top-28 md:top-24 left-4 z-[450] pointer-events-auto">
           <VenuePreviewCard
             venue={selectedVenue}
             onClose={onClosePreview}
+            onDirectRoute={(v) => handleStartRouting(v)}
           />
         </div>
       )}
@@ -315,10 +522,39 @@ export default function SportMapView({
           </Marker>
         )}
 
+        {/* Active Route Polylines on Map */}
+        {routePath.length > 0 && (
+          <>
+            {/* Ambient Background Track */}
+            <Polyline
+              positions={routePath}
+              pathOptions={{
+                color: '#065F46',
+                weight: 8,
+                opacity: 0.35,
+                lineCap: 'round',
+                lineJoin: 'round'
+              }}
+            />
+            {/* Glowing Foreground Routing Polyline */}
+            <Polyline
+              positions={routePath}
+              pathOptions={{
+                color: '#10B981',
+                weight: 5,
+                opacity: 0.95,
+                dashArray: '8, 6',
+                lineCap: 'round',
+                lineJoin: 'round'
+              }}
+            />
+          </>
+        )}
+
         {/* Sport Venue Markers */}
         <SportMarkerCluster
           venues={venues}
-          selectedVenueId={selectedVenueId}
+          selectedVenueId={routingTarget?.venue_id || routingTarget?.id || selectedVenueId}
           onSelectVenue={onSelectVenue}
         />
       </MapContainer>

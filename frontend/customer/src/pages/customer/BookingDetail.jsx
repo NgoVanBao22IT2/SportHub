@@ -272,9 +272,25 @@ export default function BookingDetail() {
     );
   }
 
-  const bookingStatusRaw = booking?.booking_status || booking?.status;
+  const isBookingPast = (b) => {
+    if (!b?.booking_date) return false;
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+    const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const endTimeStr = String(b.end_time || '').substring(0, 5);
+    if (b.booking_date < todayStr) return true;
+    if (b.booking_date === todayStr && endTimeStr && endTimeStr <= currentTimeStr) return true;
+    return false;
+  };
+
+  let bookingStatusRaw = booking?.booking_status || booking?.status;
+  const isPast = isBookingPast(booking);
+  if (String(bookingStatusRaw).toUpperCase() === 'CONFIRMED' && isPast) {
+    bookingStatusRaw = 'COMPLETED';
+  }
+
   const paymentStatusRaw = booking?.payment_status || (booking?.payments && booking?.payments.length > 0 ? booking.payments[0].payment_status : null);
-  const canCancel = isBookingCancellable(bookingStatusRaw);
+  const canCancel = isBookingCancellable(bookingStatusRaw) && !isPast && bookingStatusRaw !== 'COMPLETED';
 
   const bookingBadge = getBookingStatusBadge(bookingStatusRaw);
   const paymentBadge = getPaymentStatusBadge(paymentStatusRaw, bookingStatusRaw);

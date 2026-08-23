@@ -47,8 +47,10 @@ export default function VenueCard({
     : getDeterministicFallback(venueId);
 
   // Normalize rating & review count from real API data
-  const ratingValue = venue.average_rating || venue.rating || null;
-  const reviewCountStr = venue.review_count ? `(${venue.review_count})` : '';
+  const numRating = Number(venue.average_rating || venue.rating || 0);
+  const ratingValue = numRating > 0 ? numRating.toFixed(1) : null;
+  const reviewCountNum = Number(venue.review_count || venue.rating_count || 0);
+  const reviewCountStr = reviewCountNum > 0 ? `(${reviewCountNum})` : '';
 
   const handleFavoriteClick = async (e) => {
     e.preventDefault();
@@ -93,20 +95,24 @@ export default function VenueCard({
         {/* Floating Rating Badge */}
         {showRating && (
           <div className="absolute top-3 left-3 z-10">
-            <Badge
-              variant="rating"
-              size="sm"
-              leftIcon={<Star size={12} className="fill-current text-brand-orange-hover" />}
-              ariaLabel={ratingValue ? `Đánh giá ${ratingValue}` : 'Chưa có đánh giá'}
-            >
-              {ratingValue ? (
-                <>
-                  {ratingValue} <span className="text-text-muted text-[11px] font-normal ml-0.5">{reviewCountStr}</span>
-                </>
-              ) : (
-                'HOT'
-              )}
-            </Badge>
+            {ratingValue ? (
+              <Badge
+                variant="rating"
+                size="sm"
+                leftIcon={<Star size={12} className="fill-current text-brand-orange-hover" />}
+                ariaLabel={`Đánh giá ${ratingValue} sao`}
+              >
+                {ratingValue} <span className="text-text-muted text-[11px] font-normal ml-0.5">{reviewCountStr}</span>
+              </Badge>
+            ) : (
+              <Badge
+                variant="rating"
+                size="sm"
+                className="opacity-90"
+              >
+                Chưa có đánh giá
+              </Badge>
+            )}
           </div>
         )}
 

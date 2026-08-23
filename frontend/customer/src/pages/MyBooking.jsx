@@ -20,6 +20,17 @@ const isBookingCancellable = (statusStr) => {
   return CANCELLABLE_BOOKING_STATUSES.includes(String(statusStr || '').toUpperCase());
 };
 
+const isBookingPast = (item) => {
+  if (!item?.booking_date) return false;
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0];
+  const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  const endTimeStr = String(item.end_time || '').substring(0, 5);
+  if (item.booking_date < todayStr) return true;
+  if (item.booking_date === todayStr && endTimeStr && endTimeStr <= currentTimeStr) return true;
+  return false;
+};
+
 export default function MyBooking() {
   const navigate = useNavigate();
 
@@ -92,7 +103,7 @@ export default function MyBooking() {
       let msg = err.response?.data?.message;
 
       if (status === 400) {
-        msg = msg || 'Đơn đặt sân này không thể hủy ở trạng thái hiện tại.';
+        msg = msg || 'Đơn đặt sân này không thể hủy ở trạng thái hiện tại hoặc thời gian đặt đã qua.';
       } else if (status === 403) {
         msg = msg || 'Bạn không có quyền thực hiện thao tác này.';
       } else if (status === 404) {
@@ -113,9 +124,17 @@ export default function MyBooking() {
     }
   };
 
-  // Filter Bookings Based on Active Tab
-  const filteredBookings = bookings.filter((item) => {
-    const status = String(item.booking_status || item.status || '').toUpperCase();
+  // Filter Bookings Based on Active Tab with past slot resolution
+  const enrichedBookings = bookings.map((item) => {
+    let effectiveStatus = String(item.booking_status || item.status || '').toUpperCase();
+    if (effectiveStatus === 'CONFIRMED' && isBookingPast(item)) {
+      effectiveStatus = 'COMPLETED';
+    }
+    return { ...item, effectiveStatus };
+  });
+
+  const filteredBookings = enrichedBookings.filter((item) => {
+    const status = item.effectiveStatus;
     if (activeTab === 'upcoming') {
       return ['HOLDING', 'PENDING', 'PAYMENT_PENDING', 'PAYMENT_SUCCESS', 'WAITING_OWNER_CONFIRMATION', 'CONFIRMED'].includes(status);
     }
@@ -299,18 +318,19 @@ export default function MyBooking() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filteredBookings.map((item) => {
               const bookingId = item.booking_id || item.id;
-              const venueName = item.Venue?.venue_name || item.venue_name || 'Câu lạc bộ thể thao';
-              const courtName = item.Court?.court_name || item.court_name || 'Sân tiêu chuẩn';
+              const venueName = item.court?.branch?.venue?.venue_name || item.Venue?.venue_name || item.venue_name || 'Câu lạc bộ thể thao';
+              const courtName = item.court?.court_name || item.Court?.court_name || item.court_name || 'Sân tiêu chuẩn';
               const dateStr = item.booking_date || 'Chưa xác định';
               const timeLabel = item.start_time && item.end_time
-                ? `${item.start_time.substring(0, 5)} - ${item.end_time.substring(0, 5)}`
+                ? `${String(item.start_time).substring(0, 5)} - ${String(item.end_time).substring(0, 5)}`
                 : 'Khung giờ tiêu chuẩn';
               const price = item.total_amount || item.price;
-              const statusStr = String(item.booking_status || item.status || '').toUpperCase();
+              const statusStr = item.effectiveStatus || String(item.booking_status || item.status || '').toUpperCase();
               const badgeInfo = getStatusBadge(statusStr);
               
-              // Cancellable Status Guard strictly derived from Backend Audit (HOLDING, CONFIRMED)
-              const canCancel = isBookingCancellable(statusStr);
+              // Cancellable Status Guard: only future bookings in cancellable status
+              const isPast = isBookingPast(item);
+              const canCancel = isBookingCancellable(statusStr) && !isPast && statusStr !== 'COMPLETED';
               const isCancelling = cancellingId === bookingId;
               const isGlobalPending = cancellingId !== null;
 
@@ -390,12 +410,12 @@ export default function MyBooking() {
                           leftIcon={<Star size={14} className="fill-current" />}
                           onClick={() => setReviewModalBooking(item)}
                         >
-                          Đánh giá
+                          Đánh giá sân
                         </Button>
                       )
                     )}
 
-                    {/* CTA "Hủy đơn" rendered ONLY for verified Backend Cancellable Statuses (HOLDING, CONFIRMED) */}
+                    {/* CTA "Hủy đơn" rendered ONLY for active non-past Cancellable Statuses */}
                     {canCancel && (
                       <Button
                         variant="destructive"

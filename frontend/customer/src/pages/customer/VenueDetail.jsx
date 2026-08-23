@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { MapPin, Clock, Phone, Heart, Calendar, Star, CheckCircle2, Navigation, Image as ImageIcon, LayoutGrid, RefreshCw, ArrowRight, User, X, ZoomIn } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import '../../components/map/mapStyles.css';
+import { getSportMarkerIcon } from '../../components/map/sportMarkerStyles';
+import { MAP_CONFIG } from '../../config/mapConfig';
 import { getVenueById, getSimilarVenues, getVenueImages } from '../../api/venues';
 import { getPublicVenuePosts } from '../../api/public';
 import { useFavorites } from '../../context/FavoritesContext';
@@ -18,6 +23,20 @@ import BookingModal from '../../components/domain/BookingModal';
 import VenueReviewsTab from '../../components/domain/review/VenueReviewsTab';
 import { getImageUrl, getVenueImageUrl, getDeterministicFallback } from '../../utils/imageUrl';
 
+function SingleVenueMapUpdater({ center }) {
+  const map = useMap();
+  useEffect(() => {
+    if (center && typeof center[0] === 'number' && typeof center[1] === 'number') {
+      map.setView(center, 15);
+      const timer = setTimeout(() => {
+        map.invalidateSize();
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [center, map]);
+  return null;
+}
+
 export default function VenueDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -34,6 +53,16 @@ export default function VenueDetail() {
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [noticeModal, setNoticeModal] = useState({ open: false, title: '', message: '', type: 'error' });
   const [lightboxImage, setLightboxImage] = useState(null);
+  const [reviewSummary, setReviewSummary] = useState(null);
+
+  const handleSummaryChange = useCallback((sum) => {
+    setReviewSummary((prev) => {
+      if (prev?.totalReviews === sum?.totalReviews && prev?.averageRating === sum?.averageRating) {
+        return prev;
+      }
+      return sum;
+    });
+  }, []);
 
   const fetchVenueDetails = useCallback(async () => {
     try {
@@ -182,6 +211,14 @@ export default function VenueDetail() {
 
   const reviewsList = venue.reviews || [];
 
+  const totalReviewsCount = reviewSummary?.totalReviews !== undefined
+    ? reviewSummary.totalReviews
+    : (venue?.review_count || venue?.rating_count || 0);
+
+  const effectiveAvgRating = reviewSummary?.averageRating !== undefined && reviewSummary?.averageRating !== null && Number(reviewSummary?.averageRating) > 0
+    ? Number(reviewSummary.averageRating)
+    : Number(venue?.average_rating || 0);
+
   return (
     <div className="w-full bg-surface-subtle pb-20">
       {/* 1. HERO BANNER */}
@@ -229,9 +266,9 @@ export default function VenueDetail() {
             {/* Venue Metadata */}
             <div className="flex-1 w-full space-y-2">
               <div className="flex items-center gap-2">
-                {venue.average_rating ? (
+                {effectiveAvgRating > 0 ? (
                   <Badge variant="rating" size="sm" leftIcon={<Star size={12} className="fill-current text-brand-orange-hover" />}>
-                    {venue.average_rating} <span className="font-normal opacity-75 ml-0.5">({venue.review_count || 0} đánh giá)</span>
+                    {effectiveAvgRating.toFixed(1)} <span className="font-normal opacity-75 ml-0.5">({totalReviewsCount} đánh giá)</span>
                   </Badge>
                 ) : (
                   <Badge variant="rating" size="sm">
@@ -312,7 +349,7 @@ export default function VenueDetail() {
             <Tabs.Tab value="Tin tức & Sự kiện">Tin tức & Sự kiện ({venuePosts.length})</Tabs.Tab>
             <Tabs.Tab value="Dịch vụ">Dịch vụ</Tabs.Tab>
             <Tabs.Tab value="Điều khoản & quy định">Điều khoản & quy định</Tabs.Tab>
-            <Tabs.Tab value="Đánh giá">Đánh giá ({venue.review_count || 0})</Tabs.Tab>
+            <Tabs.Tab value="Đánh giá">Đánh giá ({totalReviewsCount})</Tabs.Tab>
           </Tabs.List>
 
           {/* TAB 1: THÔNG TIN */}
@@ -344,7 +381,7 @@ export default function VenueDetail() {
                   </Card.Header>
                   <Card.Body>
                     {facilitiesList.length === 0 ? (
-                      <p className="text-xs text-text-muted italic">Chưa có thông tin dịch vụ & tiện ích từ cơ sở dữ liệu.</p>
+                      <p className="text-xs text-text-muted italic">Chưa có thông tin dịch vụ & tiện ích.</p>
                     ) : (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
                         {facilitiesList.map((facility, idx) => (
@@ -363,38 +400,84 @@ export default function VenueDetail() {
               <div className="lg:col-span-1">
                 <Card radius="xl" padding="md" className="border border-border-subtle-medium sticky top-24">
                   <Card.Header className="mb-3">
-                    <h3 className="font-bold text-gray-900 text-lg flex items-center">
-                      <span className="w-6 h-6 rounded-full bg-accent-primary-light text-accent-primary flex items-center justify-center mr-2 text-xs font-bold">📍</span>
-                      Vị trí địa lý
-                    </h3>
-                  </Card.Header>
-                  <Card.Body>
-                    <div className="w-full aspect-square bg-surface-subtle rounded-xl relative overflow-hidden flex flex-col items-center justify-center border border-border-subtle p-4 text-center">
-                      <MapPin size={36} className="text-brand-orange mb-2" />
-                      <p className="font-bold text-xs text-gray-900 line-clamp-2">{venue.venue_name}</p>
-                      <p className="text-[11px] text-text-muted mt-1 line-clamp-2">{locationStr}</p>
-
-                      {mapCoordinates && (
-                        <p className="text-[10px] font-mono text-gray-500 mt-2">
-                          Tọa độ: {mapCoordinates.lat}, {mapCoordinates.lng}
-                        </p>
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-bold text-gray-900 text-lg flex items-center">
+                        <span className="w-6 h-6 rounded-full bg-accent-primary-light text-accent-primary flex items-center justify-center mr-2 text-xs font-bold">📍</span>
+                        Vị trí địa lý
+                      </h3>
+                      {mapCoordinates && typeof mapCoordinates.lat === 'number' && typeof mapCoordinates.lng === 'number' && (
+                        <span className="text-[10px] font-mono text-text-muted bg-surface-subtle px-2 py-0.5 rounded-md border border-border-subtle">
+                          {mapCoordinates.lat.toFixed(4)}, {mapCoordinates.lng.toFixed(4)}
+                        </span>
                       )}
-
-                      <a
-                        href={mapDirectionsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-4 w-full"
-                      >
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          fullWidth
-                          leftIcon={<Navigation size={14} />}
+                    </div>
+                  </Card.Header>
+                  <Card.Body className="space-y-3">
+                    {mapCoordinates && typeof mapCoordinates.lat === 'number' && typeof mapCoordinates.lng === 'number' ? (
+                      <div className="w-full h-56 rounded-xl overflow-hidden relative border border-border-subtle shadow-inner z-0">
+                        <MapContainer
+                          center={[mapCoordinates.lat, mapCoordinates.lng]}
+                          zoom={15}
+                          scrollWheelZoom={false}
+                          className="w-full h-full"
+                          attributionControl={false}
                         >
-                          Chỉ đường trên Google Maps
-                        </Button>
-                      </a>
+                          <TileLayer {...MAP_CONFIG.tileLayer} />
+                          <SingleVenueMapUpdater center={[mapCoordinates.lat, mapCoordinates.lng]} />
+                          <Marker
+                            position={[mapCoordinates.lat, mapCoordinates.lng]}
+                            icon={getSportMarkerIcon(primarySportCategory, venue.venue_name, true)}
+                          >
+                            <Popup className="custom-map-popup">
+                              <div className="p-1">
+                                <p className="font-bold text-xs text-gray-900">{venue.venue_name}</p>
+                                <p className="text-[11px] text-gray-600 mt-0.5">{locationStr}</p>
+                              </div>
+                            </Popup>
+                          </Marker>
+                        </MapContainer>
+                      </div>
+                    ) : (
+                      <div className="w-full h-44 bg-surface-subtle rounded-xl flex flex-col items-center justify-center border border-border-subtle p-4 text-center">
+                        <MapPin size={32} className="text-brand-orange mb-2" />
+                        <p className="font-bold text-xs text-gray-900">{venue.venue_name}</p>
+                        <p className="text-[11px] text-text-muted mt-1">{locationStr}</p>
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5 pt-1 text-xs">
+                      <div className="flex items-start gap-1.5 text-gray-700">
+                        <MapPin size={14} className="text-accent-primary flex-shrink-0 mt-0.5" />
+                        <span className="line-clamp-2 leading-relaxed text-text-muted">{locationStr}</span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        fullWidth
+                        leftIcon={<Navigation size={14} />}
+                        onClick={() => {
+                          const targetVenueObj = {
+                            ...venue,
+                            venue_id: id,
+                            latitude: mapCoordinates?.lat,
+                            longitude: mapCoordinates?.lng,
+                            name: venue?.venue_name,
+                            address: locationStr
+                          };
+                          navigate(`/map?venueId=${id}&direct=true`, {
+                            state: {
+                              directToVenue: targetVenueObj,
+                              venueId: id,
+                              autoRoute: true
+                            }
+                          });
+                        }}
+                      >
+                        Chỉ đường trên bản đồ SportHub
+                      </Button>
                     </div>
                   </Card.Body>
                 </Card>
@@ -657,7 +740,11 @@ export default function VenueDetail() {
 
           {/* TAB 5: ĐÁNH GIÁ */}
           <Tabs.Panel value="Đánh giá">
-            <VenueReviewsTab venueId={id} venueName={venue?.venue_name} />
+            <VenueReviewsTab
+              venueId={id}
+              venueName={venue?.venue_name}
+              onSummaryChange={handleSummaryChange}
+            />
           </Tabs.Panel>
         </Tabs>
       </section>

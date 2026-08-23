@@ -33,8 +33,9 @@ function VenueListItem({
   const branchName = venue.branch_name || '';
   const sportCategory = venue.sport_category || 'Thể thao';
   const address = venue.address || `${venue.street_address || ''}, ${venue.ward_district_city || ''}`.replace(/^,\s*/, '').trim();
-  const rating = venue.average_rating || 4.8;
-  const reviewCount = venue.review_count !== undefined ? venue.review_count : 24;
+  const numRating = Number(venue.average_rating || venue.rating || 0);
+  const rating = numRating > 0 ? numRating.toFixed(1) : null;
+  const reviewCount = Number(venue.review_count || venue.rating_count || 0);
   const priceDisplay = formatPrice(venue.min_price);
 
   const isFav = checkIsFavorite(venueId);
@@ -62,29 +63,30 @@ function VenueListItem({
       }}
       aria-label={`Xem vị trí sân ${venueName}`}
       aria-selected={isSelected}
-      className={`w-full text-left p-3 rounded-2xl border transition-all duration-200 flex gap-3 cursor-pointer group relative ${
+      className={`group flex items-start gap-3 p-3 rounded-2xl border transition-all duration-200 cursor-pointer ${
         isSelected
-          ? 'bg-emerald-50/80 border-emerald-500 shadow-md ring-2 ring-emerald-500/20'
-          : 'bg-white hover:bg-gray-50/90 border-gray-200/80 hover:border-gray-300 shadow-xs'
+          ? 'bg-emerald-50/80 border-emerald-500 shadow-md ring-1 ring-emerald-500/20'
+          : 'bg-white border-gray-100 hover:border-gray-200 hover:shadow-md'
       }`}
     >
       {/* Thumbnail */}
-      <div className="relative w-20 h-20 flex-shrink-0 rounded-xl overflow-hidden bg-gray-100 border border-gray-100">
+      <div className="relative w-20 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
         <img
           src={displayImage}
           alt={venueName}
+          referrerPolicy="no-referrer"
           loading="lazy"
           onError={() => setImageError(true)}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />
-        <div className="absolute top-1 left-1 px-1.5 py-0.5 bg-black/60 backdrop-blur-xs text-white text-[10px] font-semibold rounded-md flex items-center gap-1">
-          <SportIcon sport={sportCategory} size={9} className="text-white" />
-          <span className="truncate max-w-[50px]">{sportCategory}</span>
+        <div className="absolute top-1 left-1 px-1.5 py-0.5 rounded-md bg-black/60 backdrop-blur-xs text-[9px] font-bold text-white uppercase tracking-wider flex items-center gap-1">
+          <SportIcon sport={sportCategory} size={10} className="text-white" />
+          <span>{sportCategory}</span>
         </div>
       </div>
 
-      {/* Details */}
-      <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+      {/* Info Body */}
+      <div className="flex-1 min-w-0 flex flex-col justify-between h-20">
         <div>
           <div className="flex items-start justify-between gap-1">
             <h4 className={`text-sm font-bold truncate transition-colors ${isSelected ? 'text-emerald-700' : 'text-gray-900 group-hover:text-emerald-600'}`}>
@@ -115,9 +117,15 @@ function VenueListItem({
         {/* Rating & Price */}
         <div className="flex items-center justify-between pt-1 text-xs">
           <div className="flex items-center gap-1 text-amber-500 font-semibold text-[11px]">
-            <Star size={12} className="fill-amber-400 text-amber-400" />
-            <span>{rating}</span>
-            <span className="text-gray-400 font-normal">({reviewCount})</span>
+            {rating ? (
+              <>
+                <Star size={12} className="fill-amber-400 text-amber-400" />
+                <span>{rating}</span>
+                <span className="text-gray-400 font-normal">({reviewCount})</span>
+              </>
+            ) : (
+              <span className="text-gray-400 font-normal text-[10px]">Chưa có đánh giá</span>
+            )}
           </div>
 
           <div className="font-bold text-emerald-600 text-xs">

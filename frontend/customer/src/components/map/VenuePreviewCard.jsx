@@ -22,6 +22,7 @@ const formatPrice = (price) => {
 function VenuePreviewCard({
   venue,
   onClose,
+  onDirectRoute,
   className = ''
 }) {
   const [imageLoaded, setImageLoaded] = useState(false);
@@ -46,8 +47,9 @@ function VenuePreviewCard({
   const branchName = venue.branch_name || '';
   const sportCategory = venue.sport_category || 'Thể thao';
   const address = venue.address || `${venue.street_address || ''}, ${venue.ward_district_city || ''}`.replace(/^,\s*/, '').trim();
-  const rating = venue.average_rating || 4.8;
-  const reviewCount = venue.review_count !== undefined ? venue.review_count : 24;
+  const numRating = Number(venue.average_rating || venue.rating || 0);
+  const rating = numRating > 0 ? numRating.toFixed(1) : null;
+  const reviewCount = Number(venue.review_count || venue.rating_count || 0);
   const priceDisplay = formatPrice(venue.min_price);
 
   const isFav = checkIsFavorite(venueId);
@@ -145,9 +147,15 @@ function VenuePreviewCard({
         {/* Rating & Price */}
         <div className="flex items-center justify-between pt-1 border-t border-gray-100 text-xs">
           <div className="flex items-center gap-1 text-amber-500 font-semibold">
-            <Star size={14} className="fill-amber-400 text-amber-400" />
-            <span>{rating}</span>
-            <span className="text-gray-400 font-normal">({reviewCount} đánh giá)</span>
+            {rating ? (
+              <>
+                <Star size={14} className="fill-amber-400 text-amber-400" />
+                <span>{rating}</span>
+                <span className="text-gray-400 font-normal">({reviewCount} đánh giá)</span>
+              </>
+            ) : (
+              <span className="text-gray-400 font-normal text-xs">Chưa có đánh giá</span>
+            )}
           </div>
 
           <div className="font-bold text-emerald-600 text-sm">
@@ -158,16 +166,28 @@ function VenuePreviewCard({
         {/* Quick Action Button Group */}
         <div className="grid grid-cols-2 gap-2 pt-1">
           {/* Directions Button */}
-          <a
-            href={directionsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label="Chỉ đường tới sân trên Google Maps"
-            className="py-2 px-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-          >
-            <Navigation size={13} className="text-emerald-600 -rotate-45" />
-            <span>Chỉ đường</span>
-          </a>
+          {onDirectRoute ? (
+            <button
+              type="button"
+              onClick={() => onDirectRoute(venue)}
+              aria-label="Chỉ đường trên bản đồ SportHub"
+              className="py-2 px-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-emerald-200"
+            >
+              <Navigation size={13} className="text-emerald-600 -rotate-45" />
+              <span>Chỉ đường</span>
+            </button>
+          ) : (
+            <a
+              href={directionsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Chỉ đường tới sân trên Google Maps"
+              className="py-2 px-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+            >
+              <Navigation size={13} className="text-emerald-600 -rotate-45" />
+              <span>Chỉ đường</span>
+            </a>
+          )}
 
           {/* Booking Button */}
           {venueId ? (
