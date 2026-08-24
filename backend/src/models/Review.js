@@ -50,6 +50,26 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.DATE,
       allowNull: true,
       defaultValue: null
+    },
+    hide_reason: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      defaultValue: null
+    },
+    hide_request_status: {
+      type: DataTypes.ENUM('NONE', 'PENDING', 'APPROVED', 'REJECTED'),
+      allowNull: false,
+      defaultValue: 'NONE'
+    },
+    hide_requested_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null
+    },
+    hide_resolved_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
+      defaultValue: null
     }
   }, {
     tableName: 'reviews',

@@ -88,6 +88,21 @@ class OwnerController {
     }
   }
 
+  static async requestHideReview(req, res, next) {
+    try {
+      const ownerId = req.user.userId;
+      const { reviewId } = req.params;
+      const { reason } = req.body;
+      const review = await OwnerService.requestHideReview(ownerId, reviewId, reason);
+      res.status(200).json({ status: 'success', data: review, message: 'Đã gửi yêu cầu ẩn đánh giá tới Quản trị viên (Admin)' });
+    } catch (error) {
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ error: { message: error.message } });
+      }
+      next(error);
+    }
+  }
+
   static async getNotifications(req, res, next) {
     try {
       const ownerId = req.user.userId;

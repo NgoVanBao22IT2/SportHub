@@ -38,6 +38,7 @@ router.post('/payments/:paymentId/reject', OwnerController.rejectPaymentTransact
 router.get('/reviews', OwnerController.getReviews);
 router.get('/reviews/:reviewId', OwnerController.getReviewById);
 router.post('/reviews/:reviewId/reply', OwnerController.replyReview);
+router.post('/reviews/:reviewId/request-hide', OwnerController.requestHideReview);
 
 // 12.13 Notifications Management
 router.get('/notifications', OwnerController.getNotifications);

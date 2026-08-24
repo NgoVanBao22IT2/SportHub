@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useNavigate, useLocation, Link } from 'react-router-dom';
-import { CheckCircle2, ArrowLeft, CreditCard, User, Lock, Check, AlertCircle, RefreshCw, AlertTriangle, Calendar, Clock, MapPin, Upload, FileImage } from 'lucide-react';
+import { CheckCircle2, ArrowLeft, CreditCard, Banknote, User, Lock, Check, AlertCircle, RefreshCw, AlertTriangle, Calendar, Clock, MapPin, Upload, FileImage } from 'lucide-react';
 import { getVenueById, getVenuePaymentAccounts } from '../api/venues';
 import { checkCourtAvailability } from '../api/availability';
 import { createBooking, getBookingById } from '../api/bookings';
@@ -45,7 +45,7 @@ export default function Checkout() {
   const [phoneNumber, setPhoneNumber] = useState(currentUser?.phone || currentUser?.phoneNumber || '');
   const [email, setEmail] = useState(currentUser?.email || '');
   const [note, setNote] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('momo');
+  const [paymentMethod, setPaymentMethod] = useState('banking');
 
   // Transaction States
   const [submitting, setSubmitting] = useState(false);
@@ -78,7 +78,7 @@ export default function Checkout() {
               price: b.total_amount,
               fullName: currentUser?.full_name || 'Khách hàng',
               phoneNumber: currentUser?.phone_number || '',
-              paymentMethod: p.payment_method === 'MOMO' ? 'Ví MoMo' : 'Chuyển khoản Ngân hàng',
+              paymentMethod: p.payment_method === 'CASH' || p.payment_method === 'ONSITE' ? 'Thanh toán trực tiếp tại sân' : 'Chuyển khoản Ngân hàng (VietQR)',
               bookingStatus: b.booking_status,
               paymentStatus: p.payment_status
             });
@@ -367,32 +367,26 @@ export default function Checkout() {
       }
 
       // 4. Execute Real Payment API (if online method)
-      let paymentLabel = 'Thanh toán tại sân (Khi nhận sân)';
+      let paymentLabel = 'Thanh toán trực tiếp tại sân';
       let isPaymentPending = false;
       let createdPaymentId = null;
 
-      if (paymentMethod === 'momo' || paymentMethod === 'banking') {
+      if (paymentMethod === 'banking') {
         try {
           const payRes = await createPayment({
             booking_id: reservationId,
-            payment_method: paymentMethod,
+            payment_method: 'banking',
             amount: verifiedAmount || 0,
             returnUrl: window.location.origin + '/checkout'
           });
 
           const payData = payRes?.data || payRes;
           createdPaymentId = payData?.payment_id;
-          paymentLabel = paymentMethod === 'momo' ? 'Ví MoMo Gateway' : 'Chuyển khoản Ngân hàng';
+          paymentLabel = 'Chuyển khoản Ngân hàng (VietQR)';
           isPaymentPending = true;
-
-          // If MoMo Gateway returned a valid redirect payUrl, redirect user to MoMo
-          if (paymentMethod === 'momo' && payData?.pay_url && payData.pay_url.startsWith('http') && !payData.pay_url.includes('/checkout?paymentId=')) {
-            window.location.href = payData.pay_url;
-            return;
-          }
         } catch (payErr) {
           console.warn("Payment API initiation warning", payErr);
-          paymentLabel = paymentMethod === 'momo' ? 'Ví MoMo' : 'Chuyển khoản Ngân hàng';
+          paymentLabel = 'Chuyển khoản Ngân hàng (VietQR)';
           isPaymentPending = true;
         }
       }
@@ -616,14 +610,13 @@ export default function Checkout() {
             {paymentMethod !== 'onsite' && (
               <div className="p-5 rounded-2xl bg-surface-subtle border-2 border-brand-orange/40 text-left space-y-4 shadow-sm">
                 {(() => {
-                  const isMomo = String(confirmedBooking.paymentMethod || paymentMethod).toLowerCase().includes('momo');
                   const selectedAcc = venuePaymentAccounts.find(a =>
-                    isMomo ? a.payment_method === 'MOMO' : a.payment_method === 'BANK_TRANSFER'
+                    a.payment_method === 'BANK_TRANSFER' || a.payment_method === 'BANKING' || a.payment_method === 'SEPAY_QR'
                   ) || venuePaymentAccounts[0];
 
                   const ownerName = selectedAcc?.account_name || venue?.venue_name || 'Chủ sân SportHub';
                   const accNum = selectedAcc?.account_number || '0905123456';
-                  const bankName = selectedAcc?.bank_name || (isMomo ? 'Ví MoMo' : 'MB Bank');
+                  const bankName = selectedAcc?.bank_name || 'MB Bank';
                   const qrUrl = selectedAcc?.qr_code_url;
                   const transferNote = `SPORT-${(confirmedBooking.id || venueId || 'BOOKING').substring(0, 8).toUpperCase()}`;
 
@@ -639,7 +632,7 @@ export default function Checkout() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
                         <div className="space-y-2 text-xs">
                           <div>
-                            <span className="text-text-muted block">Ngân hàng / Ví điện tử:</span>
+                            <span className="text-text-muted block">Ngân hàng:</span>
                             <span className="font-bold text-gray-900 text-sm">{bankName}</span>
                           </div>
 
@@ -649,9 +642,7 @@ export default function Checkout() {
                           </div>
 
                           <div>
-                            <span className="text-text-muted block">
-                              {isMomo ? 'Số điện thoại MoMo:' : 'Số tài khoản:'}
-                            </span>
+                            <span className="text-text-muted block">Số tài khoản:</span>
                             <span className="font-extrabold text-brand-orange text-base tracking-wider font-mono">
                               {accNum}
                             </span>
@@ -668,7 +659,7 @@ export default function Checkout() {
                         {qrUrl && (
                           <div className="flex flex-col items-center justify-center p-3 bg-surface rounded-xl border border-border-subtle-medium shadow-xs text-center">
                             <img src={qrUrl} alt="Mã QR Thanh toán" className="w-36 h-36 object-contain rounded-lg" />
-                            <span className="text-[11px] text-text-muted mt-2 font-medium">Quét mã QR để chuyển tiền</span>
+                            <span className="text-[11px] text-text-muted mt-2 font-medium">Quét mã VietQR để chuyển tiền</span>
                           </div>
                         )}
                       </div>
@@ -687,7 +678,7 @@ export default function Checkout() {
                     Minh chứng giao dịch thanh toán
                   </h3>
                   <p className="text-xs text-text-muted mt-0.5">
-                    Tải lên ảnh chụp chuyển khoản hoặc hóa đơn MoMo để Chủ sân xác nhận nhanh chóng.
+                    Tải lên ảnh chụp màn hình chuyển khoản ngân hàng thành công để Chủ sân xác nhận nhanh chóng.
                   </p>
                 </div>
                 {proofUploaded && (
@@ -899,28 +890,6 @@ export default function Checkout() {
               <Card.Body className="space-y-3">
                 <button
                   type="button"
-                  onClick={() => setPaymentMethod('momo')}
-                  className={[
-                    'w-full p-4 rounded-xl border text-left flex items-center justify-between transition-all min-h-[44px]',
-                    paymentMethod === 'momo'
-                      ? 'bg-accent-primary-light border-accent-primary shadow-sm'
-                      : 'bg-surface border-border-subtle-medium hover:border-accent-primary/50'
-                  ].join(' ')}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-pink-100 text-pink-600 font-bold flex items-center justify-center text-xs">
-                      MoMo
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm text-gray-900">Ví MoMo</p>
-                      <p className="text-xs text-text-muted">Thanh toán nhanh qua mã QR</p>
-                    </div>
-                  </div>
-                  {paymentMethod === 'momo' && <Check size={18} className="text-accent-primary" />}
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => setPaymentMethod('banking')}
                   className={[
                     'w-full p-4 rounded-xl border text-left flex items-center justify-between transition-all min-h-[44px]',
@@ -930,11 +899,11 @@ export default function Checkout() {
                   ].join(' ')}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 font-bold flex items-center justify-center text-xs">
-                      Bank
+                    <div className="w-10 h-10 rounded-lg bg-white border border-brand-orange text-blue-600 font-bold flex items-center justify-center text-xs">
+                      <CreditCard size={20} className="text-brand-orange" />
                     </div>
                     <div>
-                      <p className="font-bold text-sm text-gray-900">Chuyển khoản Ngân hàng (VietQR)</p>
+                      <p className="font-bold text-sm text-gray-900">Chuyển khoản Ngân hàng</p>
                       <p className="text-xs text-text-muted">Quét mã QR từ mọi ứng dụng ngân hàng</p>
                     </div>
                   </div>
@@ -952,14 +921,15 @@ export default function Checkout() {
                   ].join(' ')}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-gray-100 text-gray-700 font-bold flex items-center justify-center text-xs">
-                      Cash
+                    <div className="w-10 h-10 rounded-lg bg-white border border-accent-primary text-gray-700 font-bold flex items-center justify-center text-xs">
+                      <Banknote size={20} className="text-accent-primary" />
                     </div>
                     <div>
                       <p className="font-bold text-sm text-gray-900">Thanh toán trực tiếp tại sân</p>
                       <p className="text-xs text-text-muted">Thanh toán cho thu ngân khi đến nhận sân</p>
                     </div>
                   </div>
+                  {paymentMethod === 'onsite' && <Check size={18} className="text-accent-primary" />}
                 </button>
               </Card.Body>
             </Card>
@@ -992,22 +962,47 @@ export default function Checkout() {
 
                     <div className="flex justify-between text-text-muted">
                       <span>Số khung giờ:</span>
-                      <span className="font-semibold text-brand-orange">{selectedSlots.length} slot ({locationState.totalHours || selectedSlots.length}h)</span>
+                      <span className="font-semibold text-brand-orange">{selectedSlots.length} slot ({locationState.totalHours || (selectedSlots.length * 0.5)}h)</span>
                     </div>
 
-                    <div className="mt-3 pt-2 border-t border-border-subtle-medium space-y-2 max-h-52 overflow-y-auto pr-1">
-                      <span className="text-xs font-bold text-gray-700 block">Các sân & khung giờ đã chọn:</span>
-                      {selectedSlots.map((slot, idx) => (
-                        <div key={idx} className="flex justify-between items-center text-xs bg-surface-subtle p-2 rounded-xl border border-border-subtle-medium">
-                          <div>
-                            <span className="font-bold text-gray-900 block">{slot.court_name}</span>
-                            <span className="text-text-muted">{slot.label}</span>
-                          </div>
-                          <span className="font-bold text-brand-orange">
-                            {slot.price ? `${slot.price.toLocaleString('vi-VN')}đ` : 'Miễn phí'}
-                          </span>
-                        </div>
-                      ))}
+                    <div className="mt-3 pt-2 border-t border-border-subtle-medium space-y-2 max-h-56 overflow-y-auto pr-1">
+                      <span className="text-xs font-bold text-gray-700 block">Sân & khung giờ đã chọn:</span>
+                      {(() => {
+                        const groupedCourts = selectedSlots.reduce((acc, slot) => {
+                          const key = slot.court_id || slot.court_name || 'default';
+                          if (!acc[key]) {
+                            acc[key] = {
+                              court_name: slot.court_name || 'Sân tiêu chuẩn',
+                              sport_category: slot.sport_category,
+                              slots: []
+                            };
+                          }
+                          acc[key].slots.push(slot);
+                          return acc;
+                        }, {});
+
+                        return Object.values(groupedCourts).map((group, idx) => {
+                          const sortedSlots = [...group.slots].sort((a, b) => (a.start_time || '').localeCompare(b.start_time || ''));
+                          const earliestTime = (sortedSlots[0]?.start_time || '').substring(0, 5);
+                          const latestTime = (sortedSlots[sortedSlots.length - 1]?.end_time || '').substring(0, 5);
+                          const courtTotalHours = sortedSlots.length * 0.5;
+                          const courtTotalPrice = sortedSlots.reduce((sum, s) => sum + (Number(s.price) || 0), 0);
+
+                          return (
+                            <div key={idx} className="flex justify-between items-center text-xs bg-surface-subtle p-3 rounded-xl border border-border-subtle-medium shadow-2xs">
+                              <div>
+                                <span className="font-bold text-gray-900 block text-sm">{group.court_name}</span>
+                                <span className="text-text-muted text-[11px] block mt-0.5">
+                                  {earliestTime} - {latestTime}
+                                </span>
+                              </div>
+                              <span className="font-bold text-brand-orange text-sm">
+                                {courtTotalPrice ? `${courtTotalPrice.toLocaleString('vi-VN')}đ` : 'Miễn phí'}
+                              </span>
+                            </div>
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
                 ) : (

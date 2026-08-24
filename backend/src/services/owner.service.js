@@ -2360,6 +2360,59 @@ class OwnerService {
   }
 
   /**
+   * Owner requests to hide a customer review with specific reason
+   */
+  static async requestHideReview(ownerId, reviewId, reason) {
+    const { Review } = require('../models');
+
+    if (!reason || !reason.trim()) {
+      const err = new Error('Vui lòng chọn hoặc nhập lý do yêu cầu ẩn đánh giá.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const review = await Review.findOne({
+      where: { review_id: reviewId },
+      include: [
+        {
+          model: Court,
+          as: 'court',
+          required: true,
+          include: [
+            {
+              model: Branch,
+              as: 'branch',
+              required: true,
+              include: [
+                {
+                  model: Venue,
+                  as: 'venue',
+                  required: true,
+                  where: { owner_user_id: ownerId }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    });
+
+    if (!review) {
+      const err = new Error('Đánh giá không tồn tại hoặc bạn không có quyền yêu cầu ẩn.');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    await review.update({
+      hide_reason: reason.trim(),
+      hide_request_status: 'PENDING',
+      hide_requested_at: new Date()
+    });
+
+    return review;
+  }
+
+  /**
    * Internal helper to create persistent notifications
    */
   static async createNotification(data, options = {}) {

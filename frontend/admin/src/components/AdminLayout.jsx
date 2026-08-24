@@ -48,9 +48,6 @@ export default function AdminLayout() {
     { label: 'Quản lý Người dùng', path: '/admin/users', icon: Users },
     { label: 'Quản lý Chủ sân', path: '/admin/owners', icon: UserCheck },
     { label: 'Quản lý Cụm sân', path: '/admin/venues', icon: Building2 },
-    { label: 'Danh mục Sân con', path: '/admin/courts', icon: Trophy },
-    { label: 'Toàn bộ Đơn đặt sân', path: '/admin/bookings', icon: ClipboardList },
-    { label: 'Giao dịch Thanh toán', path: '/admin/payments', icon: CreditCard },
     { label: 'Đánh giá Khách hàng', path: '/admin/reviews', icon: Star },
     { label: 'Báo cáo & Thống kê', path: '/admin/reports', icon: BarChart3 },
   ];

@@ -17,6 +17,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { getOwnerRevenue, getOwnerVenues } from '../../api/owner';
+import * as XLSX from 'xlsx';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -121,34 +122,66 @@ export default function OwnerRevenue() {
 
   const [noticeModal, setNoticeModal] = useState({ open: false, title: '', message: '', type: 'info' });
 
-  // CSV Export Handler
-  const handleExportCSV = () => {
+  // Excel (.xlsx) Export Handler
+  const handleExportExcel = () => {
     if (!revenueData || !revenueData.transactions || revenueData.transactions.length === 0) {
       setNoticeModal({ open: true, title: 'Thông báo xuất báo cáo', message: 'Không có dữ liệu giao dịch để xuất báo cáo.', type: 'info' });
       return;
     }
 
-    const headers = ['Ma Payment', 'Ma Booking', 'Khach Hang', 'SDT', 'Cau Lac Bo', 'San Con', 'Phuong Thuc', 'So Tien', 'Ngay Thanh Toan'];
-    const rows = revenueData.transactions.map((t) => [
-      t.payment_id,
-      t.booking_id,
-      `"${t.booking?.customer?.full_name || ''}"`,
-      `"${t.booking?.customer?.phone_number || ''}"`,
-      `"${t.booking?.court?.branch?.venue?.venue_name || ''}"`,
-      `"${t.booking?.court?.court_name || ''}"`,
-      t.payment_method,
-      t.amount,
-      t.paid_at ? new Date(t.paid_at).toLocaleString('vi-VN') : ''
-    ]);
+    const summaryData = revenueData?.summary || { grossRevenue: 0, netRevenue: 0, totalTransactions: 0, averageTransactionValue: 0 };
 
-    const csvContent = 'data:text/csv;charset=utf-8,\uFEFF' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `sporthub-revenue-report-${fromDate}-to-${toDate}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Sheet 1: Danh sách giao dịch chi tiết
+    const transactionRows = revenueData.transactions.map((t, index) => ({
+      'STT': index + 1,
+      'Mã Giao Dịch': t.payment_id,
+      'Mã Đơn Đặt Sân': t.booking_id,
+      'Khách Hàng': t.booking?.customer?.full_name || 'Khách đặt sân',
+      'Số Điện Thoại': t.booking?.customer?.phone_number || 'N/A',
+      'Cụm Sân Thể Thao': t.booking?.court?.branch?.venue?.venue_name || 'Câu lạc bộ',
+      'Sân Con': t.booking?.court?.court_name || 'Sân tiêu chuẩn',
+      'Phương Thức': t.payment_method === 'SEPAY_QR' ? 'Chuyển khoản SePay' : t.payment_method === 'CASH' ? 'Tiền mặt' : (t.payment_method || 'Chuyển khoản'),
+      'Số Tiền (VNĐ)': Number(t.amount) || 0,
+      'Thời Gian Thanh Toán': t.paid_at ? new Date(t.paid_at).toLocaleString('vi-VN') : ''
+    }));
+
+    // Sheet 2: Tổng hợp Chỉ tiêu Doanh thu
+    const summaryRows = [
+      { 'Chỉ Tiêu Tài Chính': 'Kỳ báo cáo', 'Giá Trị': `Từ ${fromDate} đến ${toDate}` },
+      { 'Chỉ Tiêu Tài Chính': 'Tổng doanh thu thực nhận', 'Giá Trị': `${(Number(summaryData.grossRevenue) || 0).toLocaleString('vi-VN')} VNĐ` },
+      { 'Chỉ Tiêu Tài Chính': 'Doanh thu Net (sau khấu trừ hoàn tiền)', 'Giá Trị': `${(Number(summaryData.netRevenue) || 0).toLocaleString('vi-VN')} VNĐ` },
+      { 'Chỉ Tiêu Tài Chính': 'Tổng số giao dịch thành công', 'Giá Trị': `${summaryData.totalTransactions} giao dịch` },
+      { 'Chỉ Tiêu Tài Chính': 'Giá trị trung bình / đơn', 'Giá Trị': `${(Number(summaryData.averageTransactionValue) || 0).toLocaleString('vi-VN')} VNĐ` }
+    ];
+
+    const wb = XLSX.utils.book_new();
+
+    const wsTransactions = XLSX.utils.json_to_sheet(transactionRows);
+    const wsSummary = XLSX.utils.json_to_sheet(summaryRows);
+
+    // Set readable column widths
+    wsTransactions['!cols'] = [
+      { wch: 6 },
+      { wch: 38 },
+      { wch: 38 },
+      { wch: 22 },
+      { wch: 15 },
+      { wch: 26 },
+      { wch: 20 },
+      { wch: 22 },
+      { wch: 16 },
+      { wch: 22 }
+    ];
+
+    wsSummary['!cols'] = [
+      { wch: 38 },
+      { wch: 35 }
+    ];
+
+    XLSX.utils.book_append_sheet(wb, wsTransactions, 'Chi Tiết Giao Dịch');
+    XLSX.utils.book_append_sheet(wb, wsSummary, 'Tổng Quan Doanh Thu');
+
+    XLSX.writeFile(wb, `sporthub-bao-cao-doanh-thu-${fromDate}-den-${toDate}.xlsx`);
   };
 
   const summary = revenueData?.summary || { grossRevenue: 0, netRevenue: 0, totalTransactions: 0, averageTransactionValue: 0 };
@@ -191,9 +224,9 @@ export default function OwnerRevenue() {
             variant="primary"
             size="sm"
             leftIcon={<FileSpreadsheet size={16} />}
-            onClick={handleExportCSV}
+            onClick={handleExportExcel}
           >
-            Xuất báo cáo CSV
+            Xuất báo cáo Excel
           </Button>
         </div>
       </div>

@@ -65,10 +65,20 @@ export const getAdminPayments = async (params = {}) => {
 };
 
 /**
- * Fetch platform-wide review list (with pagination & rating filter).
+ * Fetch platform-wide review list (with pagination, rating, hide_request_status filters).
  */
 export const getAdminReviews = async (params = {}) => {
   const response = await apiClient.get('/admin/reviews', { params });
+  return response.data;
+};
+
+/**
+ * Admin approves or rejects review hide request, or unhides a review.
+ * @param {string} reviewId
+ * @param {'APPROVE'|'REJECT'|'UNHIDE'} action
+ */
+export const updateAdminReviewHideStatus = async (reviewId, action) => {
+  const response = await apiClient.put(`/admin/reviews/${reviewId}/hide-status`, { action });
   return response.data;
 };
 

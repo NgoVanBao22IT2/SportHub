@@ -149,8 +149,10 @@ export default function OwnerReviewDetail() {
           </Link>
           <div>
             <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-              Chi tiết đánh giá #{review.review_id?.substring(0, 8)}
+              Chi tiết đánh giá 
+              
             </h1>
+            <p className='text-sm font-medium text-brand-orange flex items-center gap-2'>#{review.review_id?.substring(0, 8)}</p>
             <p className="text-xs text-text-muted mt-0.5">
               Đánh giá lúc: {new Date(review.created_at || Date.now()).toLocaleString('vi-VN')}
             </p>

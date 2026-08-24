@@ -84,10 +84,24 @@ class AdminController {
 
   static async getReviews(req, res, next) {
     try {
-      const { page, limit, rating } = req.query;
-      const result = await AdminService.getReviews({ page, limit, rating });
+      const { page, limit, rating, hideRequestStatus, status } = req.query;
+      const result = await AdminService.getReviews({ page, limit, rating, hideRequestStatus, status });
       res.status(200).json({ status: 'success', data: result.data, meta: result.meta });
     } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateReviewHideStatus(req, res, next) {
+    try {
+      const { reviewId } = req.params;
+      const { action } = req.body;
+      const review = await AdminService.updateReviewHideStatus(reviewId, action);
+      res.status(200).json({ status: 'success', data: review, message: 'Cập nhật trạng thái ẩn đánh giá thành công' });
+    } catch (error) {
+      if (error.statusCode) {
+        return res.status(error.statusCode).json({ error: { message: error.message } });
+      }
       next(error);
     }
   }

@@ -5,9 +5,6 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminOwners from './pages/admin/AdminOwners';
 import AdminVenues from './pages/admin/AdminVenues';
-import AdminCourts from './pages/admin/AdminCourts';
-import AdminBookings from './pages/admin/AdminBookings';
-import AdminPayments from './pages/admin/AdminPayments';
 import AdminReviews from './pages/admin/AdminReviews';
 import AdminReports from './pages/admin/AdminReports';
 import AdminOwnerRegistrations from './pages/admin/AdminOwnerRegistrations';
@@ -33,9 +30,6 @@ function App() {
         <Route path="admin/users" element={<AdminUsers />} />
         <Route path="admin/owners" element={<AdminOwners />} />
         <Route path="admin/venues" element={<AdminVenues />} />
-        <Route path="admin/courts" element={<AdminCourts />} />
-        <Route path="admin/bookings" element={<AdminBookings />} />
-        <Route path="admin/payments" element={<AdminPayments />} />
         <Route path="admin/reviews" element={<AdminReviews />} />
         <Route path="admin/reports" element={<AdminReports />} />
       </Route>

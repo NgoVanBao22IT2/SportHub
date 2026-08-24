@@ -28,6 +28,7 @@ router.get('/payments', AdminController.getPayments);
 // Platform-wide Courts, Reviews & Reports
 router.get('/courts', AdminController.getCourts);
 router.get('/reviews', AdminController.getReviews);
+router.put('/reviews/:reviewId/hide-status', AdminController.updateReviewHideStatus);
 router.get('/reports', AdminController.getReports);
 
 module.exports = router;

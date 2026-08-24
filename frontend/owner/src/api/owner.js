@@ -341,6 +341,19 @@ export const replyOwnerReview = async (reviewId, replyContent) => {
 };
 
 /**
+ * Submit owner request to hide a customer review with specific reasons.
+ */
+export const requestHideReview = async (reviewId, reason) => {
+  try {
+    const response = await apiClient.post(`/owner/reviews/${reviewId}/request-hide`, { reason });
+    return response.data;
+  } catch (error) {
+    console.error(`Error requesting hide review ${reviewId}:`, error);
+    throw error;
+  }
+};
+
+/**
  * Fetch owner notifications list with filters & pagination.
  */
 export const getOwnerNotifications = async (params = {}) => {

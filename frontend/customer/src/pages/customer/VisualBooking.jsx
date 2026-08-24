@@ -12,11 +12,13 @@ import {
   RefreshCw,
   Info,
   Lock,
-  ArrowRight
+  ArrowRight,
+  AlertTriangle
 } from 'lucide-react';
 import { getVenueById } from '../../api/venues';
 import { getVenueDailyAvailability } from '../../api/availability';
-import { addFavorite } from '../../api/favorites';
+import { useFavorites } from '../../context/FavoritesContext';
+import { getVenueImageUrl, getDeterministicFallback } from '../../utils/imageUrl';
 
 // Design System Imports
 import Button from '../../components/ui/Button';
@@ -165,6 +167,8 @@ export default function VisualBooking() {
     return selectedSlotsList.reduce((sum, slot) => sum + (slot.price || 0), 0);
   }, [selectedSlotsList]);
 
+  const MIN_BOOKING_HOURS = 2.0;
+
   // Format Selected Time Interval for Footer
   const formattedTimeInterval = useMemo(() => {
     if (selectedSlotsList.length === 0) return '';
@@ -177,6 +181,16 @@ export default function VisualBooking() {
   // Navigate to Checkout
   const handleProceedToCheckout = () => {
     if (totalSelectedCount === 0) return;
+
+    if (totalHours < MIN_BOOKING_HOURS) {
+      setNoticeModal({
+        open: true,
+        title: 'Chưa đạt thời gian đặt tối thiểu',
+        message: `Quy định đặt sân yêu cầu thời gian đặt tối thiểu là 2 giờ (tương đương 4 khung giờ 30 phút). Bạn hiện đã chọn ${totalHours} giờ. Vui lòng chọn thêm ít nhất ${(MIN_BOOKING_HOURS - totalHours).toFixed(1)} giờ nữa để tiếp tục.`,
+        type: 'warning'
+      });
+      return;
+    }
 
     navigate('/checkout', {
       state: {
@@ -191,16 +205,31 @@ export default function VisualBooking() {
     });
   };
 
+  const { isFavorite, toggleFavorite } = useFavorites();
+
   // Extract Address
   const locationStr = venue?.branches && venue.branches.length > 0
     ? `${venue.branches[0].street_address || ''}, ${venue.branches[0].ward_district_city || ''}`
     : "Địa chỉ đang cập nhật";
 
   // Operating Hours display string
-  const operatingHoursStr = venue?.operating_hours
+  const operatingHoursStr = venue?.opening_hours_text
+    || venue?.operating_hours
     || (availabilityData?.time_slots && availabilityData.time_slots.length > 0
       ? `${availabilityData.time_slots[0].start_time.substring(0, 5)} - ${availabilityData.time_slots[availabilityData.time_slots.length - 1].end_time.substring(0, 5)}`
       : 'Theo lịch hoạt động sân');
+
+  // Real Database Rating & Review Count
+  const totalReviewsCount = venue?.review_count || venue?.rating_count || (Array.isArray(venue?.reviews) ? venue.reviews.length : 0);
+  const effectiveAvgRating = Number(venue?.average_rating || 0);
+
+  // Photos & Avatar sync
+  const rawPhotos = (venue?.images || []);
+  const coverObj = rawPhotos.find(img => typeof img === 'object' && (img.is_cover || img.image_type === 'COVER'));
+  const avatarObj = rawPhotos.find(img => typeof img === 'object' && (img.is_avatar || img.image_type === 'AVATAR'));
+
+  const heroImage = getVenueImageUrl(coverObj || rawPhotos[0] || venue, 'cover', venueId);
+  const avatarUrl = getVenueImageUrl(avatarObj || venue, 'avatar', venueId);
 
   // Render Loading State
   if (loadingVenue) {
@@ -241,11 +270,20 @@ export default function VisualBooking() {
     <div className="w-full bg-[#f8fafc] min-h-screen pb-16 font-sans">
 
       {/* 1. HERO BANNER */}
-      <section className="w-full h-[220px] md:h-[280px] relative bg-dark">
+      <section className="w-full h-[220px] md:h-[280px] relative bg-neutral-900 overflow-hidden">
+        {/* Ambient Blur Backdrop */}
         <img
-          src="/venue_hero.png"
+          src={heroImage}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover blur-2xl scale-125 opacity-40 pointer-events-none"
+        />
+        <img
+          src={heroImage}
           alt={`${venue.venue_name} Hero`}
-          className="w-full h-full object-cover opacity-85"
+          referrerPolicy="no-referrer"
+          className="relative w-full h-full object-cover opacity-90 transition-opacity duration-300"
+          onError={(e) => { e.currentTarget.src = getDeterministicFallback(venue, venueId); }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-dark/70 via-transparent to-transparent"></div>
       </section>
@@ -258,21 +296,37 @@ export default function VisualBooking() {
             {/* Left: Venue Logo & Info */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 w-full md:w-auto">
               {/* Venue Logo Thumbnail */}
-              <div className="w-28 h-28 md:w-32 md:h-32 rounded-2xl border-2 border-border-subtle-medium bg-white shadow-sm flex items-center justify-center p-3 flex-shrink-0 overflow-hidden">
-                <div className="w-full h-full border-2 border-primary/20 rounded-xl flex flex-col items-center justify-center bg-surface-subtle">
-                  <span className="font-extrabold text-2xl text-primary tracking-tight">
-                    {venue.venue_name ? venue.venue_name.substring(0, 3).toUpperCase() : 'ACE'}
-                  </span>
-                  <span className="text-[9px] font-bold text-brand-orange uppercase tracking-wider mt-0.5">BADMINTON</span>
-                </div>
+              <div className="w-28 h-28 md:w-32 md:h-32 rounded-2xl border-2 border-border-subtle-medium bg-white shadow-sm flex items-center justify-center p-2 flex-shrink-0 overflow-hidden">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={`${venue.venue_name} Avatar`}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover rounded-xl"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
+                ) : (
+                  <div className="w-full h-full border-2 border-primary/20 rounded-xl flex flex-col items-center justify-center bg-surface-subtle">
+                    <span className="font-extrabold text-2xl text-primary tracking-tight">
+                      {venue.venue_name ? venue.venue_name.substring(0, 3).toUpperCase() : 'ACE'}
+                    </span>
+                    <span className="text-[9px] font-bold text-brand-orange uppercase tracking-wider mt-0.5">BADMINTON</span>
+                  </div>
+                )}
               </div>
 
               {/* Details */}
               <div className="space-y-1.5 flex-1">
                 <div className="flex items-center gap-2">
-                  <Badge variant="rating" size="sm" leftIcon={<Star size={12} className="fill-current text-amber-500" />}>
-                    4.8
-                  </Badge>
+                  {effectiveAvgRating > 0 ? (
+                    <Badge variant="rating" size="sm" leftIcon={<Star size={12} className="fill-current text-amber-500" />}>
+                      {effectiveAvgRating.toFixed(1)} <span className="font-normal opacity-75 ml-0.5">({totalReviewsCount} đánh giá)</span>
+                    </Badge>
+                  ) : (
+                    <Badge variant="rating" size="sm">
+                      Chưa có đánh giá
+                    </Badge>
+                  )}
                 </div>
 
                 <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 tracking-tight leading-snug">
@@ -308,26 +362,30 @@ export default function VisualBooking() {
                 Đặt lịch
               </Button>
               <Button
-                variant="outline"
+                variant={isFavorite(venueId) ? "secondary" : "outline"}
                 size="md"
                 fullWidth
                 disabled={favPending}
-                leftIcon={<Heart size={18} className="text-accent-primary" />}
+                aria-busy={favPending}
+                leftIcon={
+                  <Heart
+                    size={18}
+                    className={isFavorite(venueId) ? "fill-red-500 text-red-500" : "text-gray-500"}
+                  />
+                }
+                aria-label={isFavorite(venueId) ? "Bỏ yêu thích sân này" : "Thêm sân vào danh sách yêu thích"}
                 onClick={async () => {
                   if (favPending) return;
                   try {
                     setFavPending(true);
-                    await addFavorite(venueId);
-                    setNoticeModal({ open: true, title: 'Danh sách yêu thích', message: 'Đã thêm sân vào danh sách yêu thích thành công.', type: 'success' });
-                  } catch (err) {
-                    setNoticeModal({ open: true, title: 'Đã tồn tại', message: 'Sân này đã có trong danh sách yêu thích của bạn.', type: 'info' });
+                    await toggleFavorite(venue || venueId);
                   } finally {
                     setFavPending(false);
                   }
                 }}
-                className="border-accent-primary text-accent-primary hover:bg-accent-primary-light font-semibold"
+                className={isFavorite(venueId) ? "bg-rose-50 text-rose-600 border-rose-200 hover:bg-rose-100 font-semibold" : "border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"}
               >
-                Yêu thích
+                {isFavorite(venueId) ? "Đã yêu thích" : "Yêu thích"}
               </Button>
             </div>
 
@@ -384,7 +442,7 @@ export default function VisualBooking() {
                 onClick={() => { setCustomerGroup('STUDENT'); setSelectedSlotsMap({}); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                   customerGroup === 'STUDENT'
-                    ? 'bg-blue-600 text-white shadow-xs'
+                    ? 'bg-accent-primary text-white shadow-xs'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -437,11 +495,11 @@ export default function VisualBooking() {
         </div> */}
 
         {/* Notice Banner */}
-        <div className="p-3 bg-amber-50 border border-amber-200/80 rounded-xl text-xs text-amber-800 flex items-center gap-2 shadow-xs">
-          <Info size={16} className="text-amber-600 shrink-0" />
-          <span>
-            <strong>Lưu ý:</strong> Mọi yêu cầu đặt lịch cố định vui lòng liên hệ hotline: <strong className="text-amber-900">{venue.contact_phone || 'Chưa cập nhật SĐT'}</strong> để được hỗ trợ tốt nhất.
-          </span>
+        <div className="p-3.5 bg-amber-50 border border-amber-200/90 rounded-xl text-xs text-amber-900 flex items-start sm:items-center gap-2.5 shadow-xs">
+          <Info size={16} className="text-amber-600 shrink-0 mt-0.5 sm:mt-0" />
+          <div className="leading-relaxed">
+            <strong>Lưu ý:</strong> Mọi yêu cầu đặt lịch cố định vui lòng liên hệ hotline: <strong className="text-amber-950">{venue.contact_phone || 'Chưa cập nhật SĐT'}</strong> để được hỗ trợ tốt nhất.
+          </div>
         </div>
 
       </section>
@@ -557,7 +615,7 @@ export default function VisualBooking() {
                               </div>
                             ) : slot.status === 'AVAILABLE' ? (
                               <div className="flex items-center justify-center h-full text-[9px] font-medium text-gray-400 group-hover:text-emerald-900">
-                                {slot.price ? `${Math.round(slot.price / 1000)}k` : ''}
+                                {/* {slot.price ? `${Math.round(slot.price / 1000)}k` : ''} */}
                               </div>
                             ) : slot.status === 'BOOKED' ? (
                               <div className="flex items-center justify-center h-full text-[9px] font-bold text-white">Đã đặt</div>
@@ -582,6 +640,28 @@ export default function VisualBooking() {
           )}
 
         </Card>
+
+        {/* WARNING ALERT IF CUSTOMER SELECTED SLOTS BUT LESS THAN 2 HOURS */}
+        {totalSelectedCount > 0 && totalHours < MIN_BOOKING_HOURS && (
+          <div className="p-3.5 bg-amber-50 border-2 border-amber-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 shadow-sm animate-fade-in">
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle size={18} className="text-amber-600 shrink-0" />
+              <div>
+                <p className="font-bold text-amber-950">
+                  Tối thiểu 2h
+                </p>
+                <p className="text-[11px] text-amber-800 mt-0.5">
+                  Bạn hiện đã chọn <strong className="text-amber-950">{totalHours}h</strong> (còn thiếu <strong className="text-amber-950">{(MIN_BOOKING_HOURS - totalHours).toFixed(1)}h</strong> nữa). Vui lòng chọn thêm ít nhất {(MIN_BOOKING_HOURS - totalHours).toFixed(1)}h để có thể tiếp tục đặt sân.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 self-end sm:self-center">
+              <span className="px-2.5 py-1 rounded-lg bg-amber-200/80 text-amber-900 font-extrabold text-[11px]">
+                Đã chọn: {totalHours}h / 2.0h
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* 5. BOOKING SUMMARY BAR (PLACED DIRECTLY BELOW THE MATRIX TABLE) */}
         <div className="bg-accent-primary text-white rounded-2xl p-4 md:p-5 shadow-lg border border-primary/20 flex flex-col md:flex-row items-center justify-between gap-4 mt-4">
@@ -615,15 +695,16 @@ export default function VisualBooking() {
             <Button
               variant="primary"
               size="lg"
-              disabled={totalSelectedCount === 0}
+              disabled={totalSelectedCount === 0 || totalHours < MIN_BOOKING_HOURS}
               onClick={handleProceedToCheckout}
               rightIcon={<ArrowRight size={18} />}
-              className={`w-full md:w-auto px-8 py-3.5 rounded-xl font-extrabold text-base shadow-md transition-all ${totalSelectedCount > 0
-                  ? 'bg-brand-orange hover:bg-brand-orange-hover text-white scale-105'
-                  : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-70'
-                }`}
+              className={`w-full md:w-auto px-8 py-3.5 rounded-xl font-extrabold text-base shadow-md transition-all ${
+                totalHours >= MIN_BOOKING_HOURS
+                  ? 'bg-brand-orange hover:bg-brand-orange-hover text-white scale-105 cursor-pointer'
+                  : 'bg-gray-400 text-gray-200 cursor-not-allowed opacity-75'
+              }`}
             >
-              TIẾP THEO
+              {totalSelectedCount === 0 ? 'TIẾP THEO' : totalHours < MIN_BOOKING_HOURS ? 'TIẾP THEO (Tối thiểu 2h)' : 'TIẾP THEO'}
             </Button>
           </div>
 

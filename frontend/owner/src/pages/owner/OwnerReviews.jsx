@@ -11,9 +11,12 @@ import {
   User,
   Building2,
   Calendar,
-  ThumbsUp
+  ThumbsUp,
+  EyeOff,
+  Clock,
+  AlertCircle
 } from 'lucide-react';
-import { getOwnerReviews, getOwnerVenues, replyOwnerReview } from '../../api/owner';
+import { getOwnerReviews, getOwnerVenues, replyOwnerReview, requestHideReview } from '../../api/owner';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
@@ -21,6 +24,7 @@ import Input from '../../components/ui/Input';
 import Skeleton from '../../components/ui/Skeleton';
 import ErrorState from '../../components/ui/ErrorState';
 import ReviewReplyModal from '../../components/domain/ReviewReplyModal';
+import ReviewHideModal from '../../components/domain/ReviewHideModal';
 
 export default function OwnerReviews() {
   const [reviews, setReviews] = useState([]);
@@ -44,6 +48,7 @@ export default function OwnerReviews() {
 
   // Reply Modal state
   const [replyModalReview, setReplyModalReview] = useState(null);
+  const [hideModalReview, setHideModalReview] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
@@ -112,6 +117,21 @@ export default function OwnerReviews() {
       fetchReviews();
     } catch (err) {
       showToast('⚠️ ' + (err.response?.data?.error?.message || err.message || 'Lỗi khi phản hồi đánh giá'));
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // Submit Hide Request Handler
+  const handleHideSubmit = async (reviewId, reason) => {
+    try {
+      setActionLoading(true);
+      await requestHideReview(reviewId, reason);
+      showToast('Đã gửi yêu cầu ẩn đánh giá tới Admin xét duyệt thành công!');
+      setHideModalReview(null);
+      fetchReviews();
+    } catch (err) {
+      showToast('⚠️ ' + (err.response?.data?.error?.message || err.message || 'Lỗi khi gửi yêu cầu ẩn đánh giá'));
     } finally {
       setActionLoading(false);
     }
@@ -339,12 +359,44 @@ export default function OwnerReviews() {
                   ) : null}
 
                   {/* Review Actions Footer */}
-                  <div className="flex items-center justify-between pt-2 border-t border-border-subtle text-xs">
-                    <span className="text-text-muted text-[11px]">
-                      Mã đánh giá: <span className="font-mono">#{r.review_id?.substring(0, 8)}</span>
-                    </span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-border-subtle text-xs">
+                    <div className="flex items-center flex-wrap gap-2">
+                      <span className="text-text-muted text-[11px]">
+                        Mã: <span className="font-mono">#{r.review_id?.substring(0, 8)}</span>
+                      </span>
+
+                      {r.status === 'HIDDEN' ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200">
+                          <EyeOff size={11} /> Đã ẩn (Admin đã duyệt)
+                        </span>
+                      ) : r.hide_request_status === 'PENDING' ? (
+                        <span
+                          className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 cursor-help"
+                          title={`Lý do yêu cầu: ${r.hide_reason}`}
+                        >
+                          <Clock size={11} /> Chờ Admin duyệt ẩn ({r.hide_reason})
+                        </span>
+                      ) : r.hide_request_status === 'REJECTED' ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-50 text-rose-600 border border-rose-200">
+                          Admin từ chối ẩn
+                        </span>
+                      ) : null}
+                    </div>
 
                     <div className="flex items-center gap-2">
+                      {/* Nút Ẩn đánh giá */}
+                      {r.status !== 'HIDDEN' && r.hide_request_status !== 'PENDING' && (
+                        <Button
+                          variant="outline"
+                          size="xs"
+                          className="text-rose-600 border-rose-200 hover:bg-rose-50 hover:border-rose-300"
+                          leftIcon={<EyeOff size={13} />}
+                          onClick={() => setHideModalReview(r)}
+                        >
+                          Ẩn đánh giá
+                        </Button>
+                      )}
+
                       {!r.owner_reply && (
                         <Button
                           variant="outline"
@@ -408,6 +460,15 @@ export default function OwnerReviews() {
         onClose={() => setReplyModalReview(null)}
         review={replyModalReview}
         onSubmitReply={handleReplySubmit}
+        loading={actionLoading}
+      />
+
+      {/* HIDE REQUEST MODAL */}
+      <ReviewHideModal
+        isOpen={Boolean(hideModalReview)}
+        onClose={() => setHideModalReview(null)}
+        review={hideModalReview}
+        onSubmit={handleHideSubmit}
         loading={actionLoading}
       />
 

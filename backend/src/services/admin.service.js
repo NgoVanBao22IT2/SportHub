@@ -207,25 +207,60 @@ class AdminService {
   }
 
   /**
-   * Platform-wide Review Management
-   */
+    * Platform-wide Review Management
+    */
   static async getReviews(options = {}) {
-    const { Review, User, Court } = require('../models');
-    const { page = 1, limit = 10, rating } = options;
+    const { Review, User, Court, Branch, Venue } = require('../models');
+    const { page = 1, limit = 10, rating, hideRequestStatus, status } = options;
     const offset = (page - 1) * limit;
 
     const where = {};
     if (rating) {
       where.rating = parseInt(rating);
     }
+    if (hideRequestStatus) {
+      where.hide_request_status = hideRequestStatus;
+    }
+    if (status) {
+      where.status = status;
+    }
 
     const { rows, count } = await Review.findAndCountAll({
       where,
       include: [
-        { model: User, as: 'customer', attributes: ['user_id', 'full_name', 'email'] },
-        { model: Court, as: 'court', attributes: ['court_id', 'court_name', 'sport_category'] }
+        { model: User, as: 'customer', attributes: ['user_id', 'full_name', 'email', 'phone_number'] },
+        {
+          model: Court,
+          as: 'court',
+          attributes: ['court_id', 'court_name', 'sport_category'],
+          include: [
+            {
+              model: Branch,
+              as: 'branch',
+              attributes: ['branch_id', 'branch_name'],
+              include: [
+                {
+                  model: Venue,
+                  as: 'venue',
+                  attributes: ['venue_id', 'venue_name', 'owner_user_id'],
+                  include: [
+                    {
+                      model: User,
+                      as: 'owner',
+                      attributes: ['user_id', 'full_name', 'email', 'phone_number']
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
       ],
-      order: [['created_at', 'DESC']],
+      order: [
+        // Prioritize pending hide requests at the top if any
+        ['hide_request_status', 'DESC'],
+        ['created_at', 'DESC']
+      ],
       limit: parseInt(limit),
       offset: parseInt(offset)
     });
@@ -234,6 +269,46 @@ class AdminService {
       data: rows,
       meta: { total: count, page: parseInt(page), limit: parseInt(limit) }
     };
+  }
+
+  /**
+   * Admin approves or rejects review hide request, or unhides a review
+   */
+  static async updateReviewHideStatus(reviewId, action) {
+    const { Review } = require('../models');
+
+    const review = await Review.findByPk(reviewId);
+    if (!review) {
+      const err = new Error('Đánh giá không tồn tại.');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    if (action === 'APPROVE') {
+      await review.update({
+        status: 'HIDDEN',
+        hide_request_status: 'APPROVED',
+        hide_resolved_at: new Date()
+      });
+    } else if (action === 'REJECT') {
+      await review.update({
+        status: 'PUBLISHED',
+        hide_request_status: 'REJECTED',
+        hide_resolved_at: new Date()
+      });
+    } else if (action === 'UNHIDE') {
+      await review.update({
+        status: 'PUBLISHED',
+        hide_request_status: 'NONE',
+        hide_resolved_at: new Date()
+      });
+    } else {
+      const err = new Error('Hành động không hợp lệ.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    return review;
   }
 
   /**
