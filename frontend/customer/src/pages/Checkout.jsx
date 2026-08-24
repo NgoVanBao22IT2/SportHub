@@ -941,7 +941,7 @@ export default function Checkout() {
             <Card padding="md" radius="xl" className="border border-border-subtle-medium shadow-md">
               <Card.Header className="pb-3 border-b border-border-subtle-medium mb-4">
                 <h3 className="font-bold text-gray-900 text-lg">
-                  Chi tiết đơn hàng
+                  Chi tiết đơn 
                 </h3>
               </Card.Header>
 
@@ -1090,10 +1090,10 @@ export default function Checkout() {
                   Xác nhận đặt lịch
                 </Button>
 
-                <div className="flex items-center justify-center text-xs text-text-muted gap-1">
+                {/* <div className="flex items-center justify-center text-xs text-text-muted gap-1">
                   <Lock size={12} />
                   <span>Xác nhận thành công</span>
-                </div>
+                </div> */}
               </Card.Footer>
             </Card>
           </div>

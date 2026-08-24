@@ -263,6 +263,51 @@ class VenueSearchService {
         schedulesByVenue[vId].push(s);
       });
 
+      // Aggregate real reviews for searched venues to populate rating and review count
+      const courtIdsByVenue = {};
+      const allCourtIds = [];
+      rows.forEach(v => {
+        courtIdsByVenue[v.venue_id] = [];
+        (v.branches || []).forEach(b => {
+          (b.courts || []).forEach(c => {
+            courtIdsByVenue[v.venue_id].push(c.court_id);
+            allCourtIds.push(c.court_id);
+          });
+        });
+      });
+
+      const reviewsByVenue = {};
+      if (models.Review && venueIds.length > 0) {
+        try {
+          const reviewConditions = [{ venue_id: { [Op.in]: venueIds } }];
+          if (allCourtIds.length > 0) {
+            reviewConditions.push({ court_id: { [Op.in]: allCourtIds } });
+          }
+
+          const reviews = await models.Review.findAll({
+            where: {
+              status: 'PUBLISHED',
+              [Op.or]: reviewConditions
+            },
+            attributes: ['venue_id', 'court_id', 'rating']
+          });
+
+          reviews.forEach(r => {
+            let targetVId = r.venue_id;
+            if (!targetVId && r.court_id) {
+              targetVId = Object.keys(courtIdsByVenue).find(vId => courtIdsByVenue[vId].includes(r.court_id));
+            }
+            if (targetVId) {
+              if (!reviewsByVenue[targetVId]) reviewsByVenue[targetVId] = { sum: 0, count: 0 };
+              reviewsByVenue[targetVId].sum += Number(r.rating) || 0;
+              reviewsByVenue[targetVId].count += 1;
+            }
+          });
+        } catch (err) {
+          console.warn('Notice: Review aggregation skipped in searchVenues:', err.message);
+        }
+      }
+
       rows.forEach(v => {
         v.setDataValue('images', imagesByVenue[v.venue_id] || []);
         const coverImg = (imagesByVenue[v.venue_id] || []).find(i => i.is_cover || i.image_type === 'COVER');
@@ -284,6 +329,14 @@ class VenueSearchService {
         } else {
           v.setDataValue('opening_hours_text', '06:00 - 22:00 hàng ngày');
         }
+
+        const revStat = reviewsByVenue[v.venue_id];
+        const avgRating = revStat && revStat.count > 0 ? parseFloat((revStat.sum / revStat.count).toFixed(1)) : null;
+        const revCount = revStat ? revStat.count : 0;
+        v.setDataValue('average_rating', avgRating);
+        v.setDataValue('rating', avgRating);
+        v.setDataValue('review_count', revCount);
+        v.setDataValue('rating_count', revCount);
       });
     }
 
