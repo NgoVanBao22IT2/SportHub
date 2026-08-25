@@ -35,7 +35,12 @@ export const getImageUrl = (url, seedKey) => {
     return trimmed;
   }
 
-  const backendHost = 'http://localhost:3000';
+  const backendHost =
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_URL) ||
+    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL
+      ? import.meta.env.VITE_API_URL.replace(/\/api\/v1\/?$/, '')
+      : '') ||
+    'http://localhost:3000';
   const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
   return `${backendHost}${cleanPath}`;
 };

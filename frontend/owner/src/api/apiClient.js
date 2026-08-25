@@ -1,10 +1,13 @@
 import axios from 'axios';
 import { getAccessToken, getRefreshToken, setSession, clearSession } from '../utils/tokenStorage';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+
 const apiClient = axios.create({
-  baseURL: 'http://localhost:3000/api/v1',
+  baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
+    'ngrok-skip-browser-warning': 'true', // Bypass ngrok interstitial warning page
   },
 });
 
@@ -73,9 +76,9 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const res = await axios.post('http://localhost:3000/api/v1/auth/refresh-token', {
+        const res = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
           refreshToken: storedRefreshToken,
-        });
+        }, { headers: { 'ngrok-skip-browser-warning': 'true' } });
 
         const newAccessToken = res.data?.data?.accessToken;
         if (!newAccessToken) throw new Error('No access token in refresh response');

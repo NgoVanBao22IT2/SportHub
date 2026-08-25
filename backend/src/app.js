@@ -18,20 +18,39 @@ app.use((req, res, next) => {
   next();
 });
 
+// LAN IP — configurable via LOCAL_NETWORK_IP in backend .env (default: auto-detected 192.168.1.99)
+const LAN_IP = process.env.LOCAL_NETWORK_IP || '192.168.1.99';
+
 const allowedOrigins = [
-  'http://localhost:5173', // Admin Frontend
-  'http://localhost:5174', // Owner Frontend
-  'http://localhost:5175', // Customer Frontend
-  'http://localhost:3000'
+  'http://localhost:5173', // Admin Frontend (local)
+  'http://localhost:5174', // Owner Frontend (local)
+  'http://localhost:5175', // Customer Frontend (local)
+  'http://localhost:8080', // Gateway Server (local)
+  'http://localhost:3000', // Backend (local)
+  // LAN IP origins — allows devices on the same Wi-Fi/LAN to access the app
+  `http://${LAN_IP}:5173`, // Admin Frontend (LAN)
+  `http://${LAN_IP}:5174`, // Owner Frontend (LAN)
+  `http://${LAN_IP}:5175`, // Customer Frontend (LAN)
+  `http://${LAN_IP}:8080`, // Gateway Server (LAN)
+  `http://${LAN_IP}:3000`, // Backend (LAN)
 ];
+
+// Checks if origin is a valid ngrok domain (any subdomain of ngrok-free.app or ngrok.io)
+const isNgrokOrigin = (origin) => {
+  if (!origin) return false;
+  return /^https?:\/\/[a-zA-Z0-9-]+\.(ngrok-free\.app|ngrok\.io|ngrok\.dev)(:\d+)?$/.test(origin);
+};
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(null, true); // Dev fallback
-    }
+    // Allow requests with no origin (e.g. curl, mobile apps, server-to-server)
+    if (!origin) return callback(null, true);
+    // Allow localhost origins
+    if (allowedOrigins.indexOf(origin) !== -1) return callback(null, true);
+    // Allow any ngrok tunnel domain (handles rotating URLs automatically)
+    if (isNgrokOrigin(origin)) return callback(null, true);
+    // Dev fallback: allow all (remove in production)
+    callback(null, true);
   },
   credentials: true
 }));

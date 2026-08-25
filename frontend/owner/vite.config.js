@@ -4,6 +4,9 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5174
+    host: '0.0.0.0', // Bind on all interfaces — enables LAN and ngrok access
+    port: 5174,
+    // Allow ngrok and any external host to reach the Vite dev server
+    allowedHosts: 'all',
   }
 });
