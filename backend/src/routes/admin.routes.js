@@ -25,10 +25,15 @@ router.get('/bookings', AdminController.getBookings);
 // 13.06 Payment Management
 router.get('/payments', AdminController.getPayments);
 
-// Platform-wide Courts, Reviews & Reports
+// Platform-wide Courts, Reviews, Reports & Community Discovery Management
 router.get('/courts', AdminController.getCourts);
 router.get('/reviews', AdminController.getReviews);
 router.put('/reviews/:reviewId/hide-status', AdminController.updateReviewHideStatus);
 router.get('/reports', AdminController.getReports);
+
+// Admin Community Management
+router.get('/community/posts', AdminController.getCommunityPosts);
+router.put('/community/posts/:id/status', AdminController.updateCommunityPostStatus);
+router.delete('/community/posts/:id', AdminController.deleteCommunityPost);
 
 module.exports = router;

@@ -11,6 +11,7 @@ import {
   Star,
   BarChart3,
   Bell,
+  Compass,
   ShieldCheck,
   LogOut,
   Menu,
@@ -45,6 +46,7 @@ export default function AdminLayout() {
   const navItems = [
     { label: 'Dashboard Overview', path: '/admin/dashboard', icon: LayoutDashboard },
     { label: 'Xét duyệt Đăng ký Chủ sân', path: '/admin/owner-registrations', icon: UserCheck },
+    { label: 'Bài đăng Khám phá', path: '/admin/community', icon: Compass },
     { label: 'Quản lý Người dùng', path: '/admin/users', icon: Users },
     { label: 'Quản lý Chủ sân', path: '/admin/owners', icon: UserCheck },
     { label: 'Quản lý Cụm sân', path: '/admin/venues', icon: Building2 },

@@ -9,6 +9,30 @@ export const getAdminDashboard = async () => {
 };
 
 /**
+ * Fetch community discovery posts for Admin management
+ */
+export const getAdminCommunityPosts = async (params = {}) => {
+  const response = await apiClient.get('/admin/community/posts', { params });
+  return response.data;
+};
+
+/**
+ * Update community post status (OPEN, CLOSED, CANCELLED)
+ */
+export const updateAdminCommunityPostStatus = async (postId, status) => {
+  const response = await apiClient.put(`/admin/community/posts/${postId}/status`, { status });
+  return response.data;
+};
+
+/**
+ * Delete community post
+ */
+export const deleteAdminCommunityPost = async (postId) => {
+  const response = await apiClient.delete(`/admin/community/posts/${postId}`);
+  return response.data;
+};
+
+/**
  * Fetch platform-wide user list (with pagination, role & status filters).
  */
 export const getAdminUsers = async (params = {}) => {

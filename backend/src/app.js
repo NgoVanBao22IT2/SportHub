@@ -87,6 +87,10 @@ app.use('/api/v1/owner', ownerAggregateRoutes);
 const favoriteRoutes = require('./routes/favorite.routes');
 app.use('/api/v1/favorites', favoriteRoutes);
 
+// Mount Community Discovery Operations
+const communityRoutes = require('./routes/community.routes');
+app.use('/api/v1/community', communityRoutes);
+
 // Mount Public Media & Content Routes
 const publicRoutes = require('./routes/public.routes');
 app.use('/api/v1/public', publicRoutes);

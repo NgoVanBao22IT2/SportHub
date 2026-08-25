@@ -1,4 +1,4 @@
-const { User, Venue, Booking, Payment, sequelize } = require('../models');
+const { User, Venue, Booking, Payment, CommunityPost, PostApplication, sequelize } = require('../models');
 
 class AdminService {
   /**
@@ -363,6 +363,74 @@ class AdminService {
       venues_by_status: venuesByStatus,
       courts_by_sport: courtsBySport
     };
+  }
+
+  /**
+   * Admin Community Posts Management
+   */
+  static async getCommunityPosts(options = {}) {
+    const { page = 1, limit = 20, post_type, status, search } = options;
+    const offset = (page - 1) * limit;
+
+    const where = {};
+    if (post_type && post_type !== 'ALL') where.post_type = post_type;
+    if (status && status !== 'ALL') where.status = status;
+
+    if (search) {
+      const { Op } = require('sequelize');
+      where[Op.or] = [
+        { title: { [Op.like]: `%${search}%` } },
+        { location_name: { [Op.like]: `%${search}%` } },
+        { sport_type: { [Op.like]: `%${search}%` } },
+      ];
+    }
+
+    const { rows, count } = await CommunityPost.findAndCountAll({
+      where,
+      include: [
+        {
+          model: User,
+          as: 'author',
+          attributes: ['user_id', 'full_name', 'email', 'phone_number'],
+        },
+        {
+          model: Venue,
+          as: 'venue',
+          attributes: ['venue_id', 'venue_name', 'contact_phone'],
+        },
+      ],
+      order: [['created_at', 'DESC']],
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+    });
+
+    return {
+      data: rows,
+      meta: { total: count, page: parseInt(page), limit: parseInt(limit) }
+    };
+  }
+
+  static async updateCommunityPostStatus(postId, status) {
+    const post = await CommunityPost.findByPk(postId);
+    if (!post) {
+      const error = new Error('Bài viết không tồn tại');
+      error.statusCode = 404;
+      throw error;
+    }
+    post.status = status;
+    await post.save();
+    return post;
+  }
+
+  static async deleteCommunityPost(postId) {
+    const post = await CommunityPost.findByPk(postId);
+    if (!post) {
+      const error = new Error('Bài viết không tồn tại');
+      error.statusCode = 404;
+      throw error;
+    }
+    await post.destroy();
+    return true;
   }
 }
 

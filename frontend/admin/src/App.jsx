@@ -8,6 +8,7 @@ import AdminVenues from './pages/admin/AdminVenues';
 import AdminReviews from './pages/admin/AdminReviews';
 import AdminReports from './pages/admin/AdminReports';
 import AdminOwnerRegistrations from './pages/admin/AdminOwnerRegistrations';
+import AdminCommunity from './pages/admin/AdminCommunity';
 import Login from './pages/Login';
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
         <Route path="admin" element={<Navigate to="/admin/dashboard" replace />} />
         <Route path="admin/dashboard" element={<AdminDashboard />} />
         <Route path="admin/owner-registrations" element={<AdminOwnerRegistrations />} />
+        <Route path="admin/community" element={<AdminCommunity />} />
         <Route path="admin/users" element={<AdminUsers />} />
         <Route path="admin/owners" element={<AdminOwners />} />
         <Route path="admin/venues" element={<AdminVenues />} />

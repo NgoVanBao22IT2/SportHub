@@ -48,6 +48,7 @@ export default function Navbar() {
             <Link to="/" className={getNavItemClass('/', 'ml-10')}>Trang chủ</Link>
             <Link to="/search" className={getNavItemClass('/search')}>Đặt sân</Link>
             <Link to="/map" className={getNavItemClass('/map')}>Bản đồ sân</Link>
+            <Link to="/explore" className={getNavItemClass('/explore')}>Khám phá</Link>
             {isAuthenticated && (
               <>
                 <Link to="/my-bookings" className={getNavItemClass('/my-bookings')}>Lịch sử đặt sân</Link>

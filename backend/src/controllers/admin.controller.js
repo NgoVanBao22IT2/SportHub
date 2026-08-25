@@ -114,6 +114,36 @@ class AdminController {
       next(error);
     }
   }
+
+  static async getCommunityPosts(req, res, next) {
+    try {
+      const result = await AdminService.getCommunityPosts(req.query);
+      res.status(200).json({ status: 'success', data: result.data, meta: result.meta });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateCommunityPostStatus(req, res, next) {
+    try {
+      const { id } = req.params;
+      const { status } = req.body;
+      const post = await AdminService.updateCommunityPostStatus(id, status);
+      res.status(200).json({ status: 'success', data: post, message: 'Cập nhật trạng thái bài đăng thành công' });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deleteCommunityPost(req, res, next) {
+    try {
+      const { id } = req.params;
+      await AdminService.deleteCommunityPost(id);
+      res.status(200).json({ status: 'success', message: 'Xóa bài đăng thành công' });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 module.exports = AdminController;

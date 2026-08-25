@@ -21,6 +21,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import ProtectedRoute from './components/ProtectedRoute';
 import OwnerRegistrationPage from './pages/customer/OwnerRegistrationPage';
 import PublicPostDetail from './pages/customer/PublicPostDetail';
+import ExplorePage from './pages/customer/ExplorePage';
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
           <Route index element={<HomePage />} />
           <Route path="search" element={<Search />} />
           <Route path="map" element={<MapPage />} />
+          <Route path="explore" element={<ExplorePage />} />
           <Route path="venues/:id" element={<VenueDetail />} />
           <Route path="posts/:slug" element={<PublicPostDetail />} />
           <Route
