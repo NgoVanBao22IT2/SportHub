@@ -33,6 +33,38 @@ export const deleteAdminCommunityPost = async (postId) => {
 };
 
 /**
+ * Fetch Admin Banners for a page
+ */
+export const getAdminBanners = async (pageKey = 'EXPLORE_PAGE') => {
+  const response = await apiClient.get('/admin/banners', { params: { page_key: pageKey } });
+  return response.data;
+};
+
+/**
+ * Create new Admin Banner
+ */
+export const createAdminBanner = async (data) => {
+  const response = await apiClient.post('/admin/banners', data);
+  return response.data;
+};
+
+/**
+ * Update Admin Banner
+ */
+export const updateAdminBanner = async (bannerId, data) => {
+  const response = await apiClient.put(`/admin/banners/${bannerId}`, data);
+  return response.data;
+};
+
+/**
+ * Delete Admin Banner
+ */
+export const deleteAdminBanner = async (bannerId) => {
+  const response = await apiClient.delete(`/admin/banners/${bannerId}`);
+  return response.data;
+};
+
+/**
  * Fetch platform-wide user list (with pagination, role & status filters).
  */
 export const getAdminUsers = async (params = {}) => {

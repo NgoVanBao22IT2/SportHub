@@ -13,11 +13,13 @@ import ErrorState from '../../components/ui/ErrorState';
 import VenueCard from '../../components/domain/VenueCard';
 import SportIcon from '../../components/common/SportIcon';
 import GooglePlacesAutocomplete from '../../components/common/GooglePlacesAutocomplete';
+import communityApi from '../../api/communityApi';
 
 export default function HomePage() {
   const navigate = useNavigate();
 
   // State Management
+  const [banner, setBanner] = useState(null);
   const [venues, setVenues] = useState([]);
   const [sportsList, setSportsList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,17 +29,19 @@ export default function HomePage() {
   const [searchSport, setSearchSport] = useState('');
   const [searchLocation, setSearchLocation] = useState('');
 
-  // Fetch Featured Venues & Sports Categories
+  // Fetch Featured Venues, Sports Categories & Home Banner
   const fetchVenues = useCallback(async () => {
     try {
       setLoading(true);
       setError(false);
-      const [data, sports] = await Promise.all([
+      const [data, sports, bannerRes] = await Promise.all([
         getFeaturedVenues(4),
-        getSportsCategories()
+        getSportsCategories(),
+        communityApi.getBanner('HOME_PAGE').catch(() => null)
       ]);
       setVenues(Array.isArray(data) ? data : []);
       setSportsList(Array.isArray(sports) && sports.length > 0 ? sports : ['Pickleball', 'Cầu lông', 'Bóng đá', 'Quần vợt', 'Bóng chuyền', 'Bóng rổ']);
+      if (bannerRes?.data) setBanner(bannerRes.data);
     } catch (err) {
       console.error("Failed to load featured venues or sports categories", err);
       setError(true);
@@ -60,25 +64,30 @@ export default function HomePage() {
     navigate(`/search?${params.toString()}`);
   };
 
+  const heroTitle = banner?.title || 'Đặt sân thể thao nhanh chóng, tiện lợi';
+  const heroSubtitle = banner?.subtitle || 'Nền tảng đặt sân trực tuyến hàng đầu';
+  const heroDesc = banner?.description || 'Nền tảng ứng dụng AI hiện đại nhất giúp bạn dễ dàng tìm kiếm sân trống, đặt lịch giữ chỗ và thanh toán nhanh chóng.';
+  const heroBg = banner?.image_url || '/hero_bg.png';
+
   return (
     <div className="w-full bg-surface">
       {/* 1. HERO SECTION */}
-      <section className="relative w-full h-[520px] bg-dark">
+      <section className="relative w-full h-[520px] bg-dark overflow-hidden">
         <div className="absolute inset-0">
-          <img src="/hero_bg.png" alt="SportHubAI Hero Background" className="w-full h-full object-cover opacity-60" />
-          <div className="absolute inset-0 bg-gradient-to-t from-dark via-dark/40 to-transparent"></div>
+          <img src={heroBg} alt="SportHubAI Hero Background" className="w-full h-full object-cover opacity-90 transition-all duration-500" />
+          <div className="absolute inset-0 bg-gradient-to-t from-dark/90 via-dark/40 to-transparent"></div>
         </div>
 
         <div className="relative h-full flex flex-col justify-center items-center container mx-auto px-4 max-w-7xl z-10">
           <div className="text-center md:text-left w-full max-w-4xl">
             <Badge variant="warning" size="sm" className="mb-4" leftIcon={<Zap size={14} />}>
-              Nền tảng đặt sân trực tuyến hàng đầu
+              {heroSubtitle}
             </Badge>
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight drop-shadow-md">
-              Đặt sân thể thao nhanh<br />chóng, tiện lợi
+              {heroTitle}
             </h1>
             <p className="text-base md:text-lg text-white/90 mb-10 max-w-2xl leading-relaxed">
-              Nền tảng ứng dụng AI hiện đại nhất giúp bạn dễ dàng tìm kiếm sân trống, đặt lịch giữ chỗ và thanh toán nhanh chóng.
+              {heroDesc}
             </p>
           </div>
 

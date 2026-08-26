@@ -3,7 +3,11 @@
 const express = require('express');
 const router = express.Router();
 const CommunityService = require('../services/community.service');
+const BannerController = require('../controllers/banner.controller');
 const { authenticateJWT } = require('../middleware/auth.middleware');
+
+// Public Active Banner: GET /api/v1/community/banner
+router.get('/banner', BannerController.getPublicBanner);
 
 // Public Feed: GET /api/v1/community/posts
 router.get('/posts', async (req, res, next) => {

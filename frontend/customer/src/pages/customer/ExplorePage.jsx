@@ -38,6 +38,7 @@ export default function ExplorePage() {
   const navigate = useNavigate();
 
   // State
+  const [banner, setBanner] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('ALL');
@@ -50,8 +51,21 @@ export default function ExplorePage() {
   const [selectedPostToApply, setSelectedPostToApply] = useState(null);
 
   useEffect(() => {
+    fetchBanner();
+  }, []);
+
+  useEffect(() => {
     fetchPosts();
   }, [activeTab, selectedSport]);
+
+  const fetchBanner = async () => {
+    try {
+      const res = await communityApi.getBanner('EXPLORE_PAGE');
+      if (res.data) setBanner(res.data);
+    } catch (err) {
+      console.error('Error loading banner:', err);
+    }
+  };
 
   const fetchPosts = async () => {
     setLoading(true);
@@ -92,22 +106,31 @@ export default function ExplorePage() {
     setSelectedPostToApply(post);
   };
 
+  const bannerTitle = banner?.title || 'Khám Phá & Kết Nối Thể Thao';
+  const bannerSubtitle = banner?.subtitle || 'SportHub Community Discovery Hub';
+  const bannerDesc = banner?.description || 'Tìm chân vãng lai ghép đội, nhượng lại vé pass sân nhanh chóng hoặc cáp kèo giao lưu đỉnh cao cùng hàng ngàn thể thao thủ tại địa phương.';
+  const bannerBtnText = banner?.button_text || 'Đăng bài mới ngay';
+  const bannerBgImage = banner?.image_url;
+
   return (
-    <div className="min-h-screen bg-slate-50/60 pb-16">
+    <div className="min-h-screen bg-slate-60/60 pb-16">
       {/* Hero Banner Header */}
-      <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 text-white py-12 px-4 shadow-inner relative overflow-hidden">
+      <div 
+        className="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 text-white py-16 px-32 shadow-inner relative overflow-hidden bg-cover bg-center transition-all duration-500"
+        style={bannerBgImage ? { backgroundImage: `linear-gradient(to right, rgba(21, 54, 47, 0.75) 0%, rgba(31, 110, 105, 0.35) 60%, rgba(6, 78, 59, 0.2) 100%), url(${bannerBgImage})` } : {}}
+      >
         <div className="absolute -right-10 -bottom-10 w-80 h-80 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
           <div className="text-center md:text-left space-y-2">
             <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white/10 text-emerald-200 text-xs font-semibold backdrop-blur-md border border-white/10 mb-2">
               <Sparkles className="w-4 h-4 text-emerald-300" />
-              <span>SportHub Community Discovery Hub</span>
+              <span>{bannerSubtitle}</span>
             </div>
             <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
-              Khám Phá & Kết Nối Thể Thao
+              {bannerTitle}
             </h1>
             <p className="text-emerald-100 text-sm max-w-2xl leading-relaxed">
-              Tìm chân vãng lai ghép đội, nhượng lại vé pass sân nhanh chóng hoặc cáp kèo giao lưu đỉnh cao cùng hàng ngàn thể thao thủ tại địa phương.
+              {bannerDesc}
             </p>
           </div>
 
@@ -116,7 +139,7 @@ export default function ExplorePage() {
             className="px-6 py-3.5 bg-brand-orange hover:bg-orange-400 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center space-x-2 shrink-0"
           >
             <Plus className="w-5 h-5 stroke-[2.5]" />
-            <span>Đăng bài mới ngay</span>
+            <span>{bannerBtnText}</span>
           </button>
         </div>
       </div>
@@ -148,7 +171,7 @@ export default function ExplorePage() {
                 onClick={() => setSelectedSport(sport)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
                   selectedSport === sport
-                    ? 'bg-emerald-600 text-white shadow-sm'
+                    ? 'bg-brand-orange text-white shadow-sm'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
@@ -252,7 +275,7 @@ export default function ExplorePage() {
 
               <div className="grid grid-cols-2 gap-3 text-center">
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/10">
-                  <span className="text-2xl font-black text-amber-300">{totalCount || 42}</span>
+                  <span className="text-2xl font-black text-brand-orange">{totalCount || 42}</span>
                   <span className="text-[11px] text-emerald-100 block mt-0.5">Kèo đang mở</span>
                 </div>
                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/10">

@@ -1,6 +1,12 @@
 import apiClient from './apiClient';
 
 export const communityApi = {
+  // Fetch active page banner
+  getBanner: async (pageKey = 'EXPLORE_PAGE') => {
+    const response = await apiClient.get('/community/banner', { params: { page_key: pageKey } });
+    return response.data;
+  },
+
   // Fetch community posts with filters
   getPosts: async (params = {}) => {
     const response = await apiClient.get('/community/posts', { params });

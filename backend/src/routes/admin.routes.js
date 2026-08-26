@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const AdminController = require('../controllers/admin.controller');
+const BannerController = require('../controllers/banner.controller');
 const authMiddleware = require('../middleware/auth.middleware');
 const rbacMiddleware = require('../middleware/rbac.middleware');
 
@@ -35,5 +36,11 @@ router.get('/reports', AdminController.getReports);
 router.get('/community/posts', AdminController.getCommunityPosts);
 router.put('/community/posts/:id/status', AdminController.updateCommunityPostStatus);
 router.delete('/community/posts/:id', AdminController.deleteCommunityPost);
+
+// Admin Banner Management
+router.get('/banners', BannerController.getAdminBanners);
+router.post('/banners', BannerController.createBanner);
+router.put('/banners/:id', BannerController.updateBanner);
+router.delete('/banners/:id', BannerController.deleteBanner);
 
 module.exports = router;
