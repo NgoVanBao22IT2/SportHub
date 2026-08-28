@@ -271,7 +271,7 @@ export default function AdminCommunity() {
             <Compass className="w-4 h-4" />
             <span>ADMIN COMMUNITY CONTROL PANEL</span>
           </div>
-          <h1 className="text-2xl font-bold">Quản lý Bài đăng Khám phá</h1>
+          <h1 className="text-2xl font-bold">Quản Lý Bài Đăng Khám phá</h1>
           <p className="text-emerald-200 text-sm mt-1">
             Quản lý, duyệt nội dung và kiểm duyệt bài viết cộng đồng (Tuyển vãng lai, Pass sân, Khóa học thể thao)
           </p>
@@ -305,7 +305,7 @@ export default function AdminCommunity() {
             className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all ${
               selectedType === 'ALL'
                 ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                : 'bg-slate-800 text-amber-400 hover:bg-slate-800 hover:text-amber-300'
             }`}
           >
             Tất cả loại bài
@@ -318,7 +318,7 @@ export default function AdminCommunity() {
                 onClick={() => { setSelectedType(type); setPage(1); }}
                 className={`px-3.5 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition-all flex items-center space-x-1.5 ${
                   selectedType === type
-                    ? 'bg-amber-600 text-white shadow-sm'
+                    ? 'bg-indigo-600 text-white shadow-sm'
                     : 'bg-slate-800/60 text-amber-400 hover:bg-slate-800 hover:text-amber-300'
                 }`}
               >
@@ -402,13 +402,13 @@ export default function AdminCommunity() {
                           <img
                             src={coverImg}
                             alt={post.title}
-                            className="w-14 h-14 rounded-xl object-cover border border-gray-100 shrink-0 shadow-xs"
+                            className="w-14 h-14 rounded-xl object-cover border border-slate-700 shrink-0 shadow-xs"
                           />
                           <div>
-                            <p className="font-bold text-gray-900 line-clamp-1 hover:text-emerald-600 transition-colors">
+                            <p className="font-bold text-white line-clamp-1 hover:text-emerald-600 transition-colors">
                               {post.title}
                             </p>
-                            <p className="text-xs text-gray-400 line-clamp-1 mt-0.5">
+                            <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
                               {post.content || 'Không có mô tả chi tiết'}
                             </p>
                           </div>
@@ -422,15 +422,15 @@ export default function AdminCommunity() {
                             <TypeIcon className="w-3 h-3 mr-1" />
                             {cfg.label}
                           </span>
-                          <p className="text-xs text-gray-500 font-medium">Môn: <strong>{post.sport_type}</strong></p>
+                          <p className="text-xs text-slate-500 font-medium">Môn: <strong>{post.sport_type}</strong></p>
                         </div>
                       </td>
 
                       {/* Author */}
                       <td className="py-4 px-6 whitespace-nowrap">
                         <div>
-                          <p className="font-semibold text-gray-900">{post.author?.full_name || 'Khách vãng lai'}</p>
-                          <p className="text-xs text-gray-400">{post.author?.phone_number || post.contact_phone || 'N/A'}</p>
+                          <p className="font-semibold text-white">{post.author?.full_name || 'Khách vãng lai'}</p>
+                          <p className="text-xs text-slate-500">{post.author?.phone_number || post.contact_phone || 'N/A'}</p>
                         </div>
                       </td>
 
@@ -438,19 +438,19 @@ export default function AdminCommunity() {
                       <td className="py-4 px-6 whitespace-nowrap">
                         <div className="space-y-1 text-xs text-gray-600">
                           <div className="flex items-center">
-                            <Calendar className="w-3.5 h-3.5 mr-1 text-emerald-600 shrink-0" />
-                            <span>{post.play_date} ({post.start_time?.substring(0, 5) || 'N/A'})</span>
+                            <Calendar className="w-3.5 h-3.5 mr-1 text-emerald-400 shrink-0" />
+                            <span className='text-slate-400'>{post.play_date} ({post.start_time?.substring(0, 5) || 'N/A'})</span>
                           </div>
                           <div className="flex items-center max-w-[200px]">
-                            <MapPin className="w-3.5 h-3.5 mr-1 text-emerald-600 shrink-0" />
-                            <span className="truncate">{post.venue?.venue_name || post.location_name || 'N/A'}</span>
+                            <MapPin className="w-3.5 h-3.5 mr-1 text-emerald-400 shrink-0" />
+                            <span className="truncate text-slate-400">{post.venue?.venue_name || post.location_name || 'N/A'}</span>
                           </div>
                         </div>
                       </td>
 
                       {/* Price */}
                       <td className="py-4 px-6 whitespace-nowrap">
-                        <span className="font-bold text-emerald-700">
+                        <span className="font-bold text-emerald-400">
                           {formatPrice(post)}
                         </span>
                       </td>

@@ -80,7 +80,8 @@ export default function AdminLayout() {
           </button>
 
           <Link to="/admin/dashboard" className="flex items-center gap-2 font-bold text-lg text-white tracking-tight">
-            <span className="bg-indigo-600 px-2.5 py-1 rounded-lg text-white font-extrabold text-sm shadow-xs">
+            <img src="/logo-badminton.png" alt="logo" className=" w-9 h-10 " />
+            <span className=" px-2 py-1 rounded-lg text-white font-extrabold text-2xl shadow-xs">
               SportHub
             </span>
             <span className="hidden sm:inline-flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-indigo-400 border-l border-slate-800 pl-2">
@@ -169,7 +170,7 @@ export default function AdminLayout() {
           </nav>
 
           <div className="p-4 border-t border-slate-900 text-center">
-            <p className="text-[11px] text-slate-500 font-mono">SportHubAI Admin v1.0</p>
+            <p className="text-[11px] text-slate-500 font-mono">SportHub Admin v1.0</p>
           </div>
         </aside>
 

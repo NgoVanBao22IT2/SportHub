@@ -177,7 +177,8 @@ export default function OwnerSchedules() {
             >
               {venues.map((v) => (
                 <option key={v.venue_id} value={v.venue_id}>
-                  {v.venue_name} ({v.sport_type || 'Thể thao tổng hợp'})
+                  {v.venue_name} 
+                  {/* ({v.sport_type || 'Thể thao tổng hợp'}) */}
                 </option>
               ))}
             </select>
@@ -185,7 +186,7 @@ export default function OwnerSchedules() {
 
           {/* Date Picker */}
           <div className="space-y-1">
-            <label className="text-[11px] font-bold text-text-muted uppercase">Chọn ngày xem lịch:</label>
+            <label className="text-[11px] font-bold text-text-muted uppercase">Chọn ngày:</label>
             <input
               type="date"
               value={selectedDate}
@@ -200,7 +201,7 @@ export default function OwnerSchedules() {
         <div className="flex flex-wrap items-center gap-4 bg-surface-subtle p-3 rounded-xl border border-border-subtle text-xs">
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-emerald-500"></span>
-            <span className="font-semibold text-gray-800">Có thể đặt (Khả dụng)</span>
+            <span className="font-semibold text-gray-800">Có thể đặt</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-amber-500"></span>
@@ -208,11 +209,11 @@ export default function OwnerSchedules() {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-red-500"></span>
-            <span className="font-semibold text-gray-800">Đã bị Chủ sân khóa (Blocked)</span>
+            <span className="font-semibold text-gray-800">Đã bị khóa </span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-gray-400"></span>
-            <span className="font-semibold text-gray-800">Bảo trì / Ngoại giờ</span>
+            <span className="font-semibold text-gray-800">Bảo trì / Ngoài giờ</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-purple-500"></span>
@@ -237,7 +238,7 @@ export default function OwnerSchedules() {
             <table className="w-full text-left text-xs border-collapse">
               <thead className="bg-surface-subtle border-b border-border-subtle text-text-muted font-bold">
                 <tr>
-                  <th className="py-3 px-4 min-w-[140px] sticky left-0 bg-surface-subtle z-10 border-r border-border-subtle">
+                  <th className="py-3 px-4 font-bold text-sm min-w-[120px] text-brand-orange sticky left-0 bg-surface-subtle z-10 border-r border-border-subtle">
                     Khung giờ
                   </th>
                   {matrixData.courts.map((court) => (

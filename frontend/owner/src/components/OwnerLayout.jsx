@@ -98,10 +98,12 @@ export default function OwnerLayout() {
 
           {/* Logo & Portal Badge */}
           <Link to="/owner/dashboard" className="flex items-center gap-2 font-bold text-lg text-white tracking-tight">
-            <span className="bg-brand-orange px-2.5 py-1 rounded-lg text-white font-extrabold text-sm shadow-xs">
+          
+            <img src="/logo-badminton.png" alt="logo" className=" w-9 h-10 " />
+            <span className=" px-2 py-1 rounded-lg text-white font-extrabold text-2xl shadow-xs">
               SportHub
             </span>
-            <span className="hidden sm:inline-block text-xs font-semibold uppercase tracking-wider text-gray-300 border-l border-gray-700 pl-2">
+            <span className="hidden sm:inline-block text-xs font-semibold uppercase tracking-wider text-brand-orange border-l border-gray-700 pl-2">
               Owner Portal
             </span>
           </Link>

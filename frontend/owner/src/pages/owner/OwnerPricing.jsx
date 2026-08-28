@@ -421,7 +421,7 @@ export default function OwnerPricing() {
             <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
               {title}
               <Badge variant={groupKey === 'STUDENT' ? 'info' : 'warning'} size="xs">
-                {items.length} quy tắc
+                {items.length} Khung giờ
               </Badge>
             </h2>
             <p className="text-xs text-text-muted mt-0.5">
@@ -505,11 +505,11 @@ export default function OwnerPricing() {
                         title={isActive ? 'Bấm để Tắt khung giá' : 'Bấm để Bật khung giá'}
                       >
                         {isActive ? (
-                          <Badge variant="success" size="xs" leftIcon={<ToggleRight size={14} />}>
+                          <Badge variant="success" size="xs" >
                             Hoạt động
                           </Badge>
                         ) : (
-                          <Badge variant="danger" size="xs" leftIcon={<ToggleLeft size={14} />}>
+                          <Badge variant="danger" size="xs" >
                             Vô hiệu
                           </Badge>
                         )}
@@ -599,9 +599,9 @@ export default function OwnerPricing() {
               onChange={(e) => setScopeTargetType(e.target.value)}
               className="w-full px-4 py-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:outline-none focus:border-brand-orange"
             >
-              <option value="VENUE">🏬 Toàn bộ Cụm sân</option>
-              <option value="BRANCH">📍 Theo Chi nhánh</option>
-              <option value="COURT">🏆 Theo Sân con</option>
+              <option value="VENUE">Toàn bộ Cụm sân</option>
+              <option value="BRANCH">Theo Chi nhánh</option>
+              <option value="COURT">Theo Sân con</option>
             </select>
           </div>
 
@@ -786,7 +786,7 @@ export default function OwnerPricing() {
                   />
                 </div>
                 <div>
-                  <label className="font-bold text-gray-900 block mb-1">Đến giờ *</label>
+                  <label className="font-bold text-gray-900 block mb-1" >Đến giờ *</label>
                   <input
                     type="time"
                     value={form.closing_time}
@@ -803,7 +803,7 @@ export default function OwnerPricing() {
                   id="fixed_price"
                   name="fixed_price"
                   type="number"
-                  label="GIÁ CỐ ĐỊNH / GIỜ (VNĐ) *"
+                  label="GIÁ CỐ ĐỊNH / GIỜ (VNĐ) "
                   placeholder="VD: 40000"
                   value={form.fixed_price}
                   onChange={(e) => setForm({ ...form, fixed_price: parseFloat(e.target.value) || 0 })}
@@ -814,7 +814,7 @@ export default function OwnerPricing() {
                   id="walk_in_price"
                   name="walk_in_price"
                   type="number"
-                  label="GIÁ VÃNG LAI / GIỜ (VNĐ) *"
+                  label="GIÁ VÃNG LAI / GIỜ (VNĐ) "
                   placeholder="VD: 50000"
                   value={form.walk_in_price}
                   onChange={(e) => setForm({ ...form, walk_in_price: parseFloat(e.target.value) || 0 })}
@@ -825,7 +825,7 @@ export default function OwnerPricing() {
 
               {/* 5. ACTIVE STATUS SWITCH */}
               <div className="flex items-center justify-between p-3 bg-surface-subtle rounded-xl border border-border-subtle">
-                <span className="font-bold text-gray-900">Kích hoạt quy tắc bảng giá này:</span>
+                <span className="font-bold text-gray-900">Kích hoạt bảng giá này:</span>
                 <input
                   type="checkbox"
                   checked={form.is_active}

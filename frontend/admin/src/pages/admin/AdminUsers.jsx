@@ -26,6 +26,30 @@ export default function AdminUsers() {
     }
   };
 
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    fetchUsers(1);
+  };
+
+  const getPageNumbers = () => {
+    const totalPages = Math.ceil(meta.total / meta.limit) || 1;
+    const current = meta.page;
+    const pages = [];
+
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (current <= 2) {
+        pages.push(1, 2, 3, '...', totalPages);
+      } else if (current >= totalPages - 1) {
+        pages.push(1, '...',totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', current - 1, current, current + 1, '...', totalPages);
+      }
+    }
+    return pages;
+  };
+
   useEffect(() => {
     fetchUsers(1);
   }, [roleFilter]);
@@ -78,7 +102,7 @@ export default function AdminUsers() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Quản lý Tài Khoản Người Dùng</h1>
-          <p className="text-xs text-slate-400 mt-1">Danh sách tài khoản hệ thống SportHubAI ({meta.total} tài khoản trong DB).</p>
+          {/* <p className="text-xs text-slate-400 mt-1">Danh sách tài khoản hệ thống SportHubAI ({meta.total} tài khoản trong DB).</p> */}
         </div>
         <button
           onClick={() => fetchUsers(meta.page)}
@@ -108,10 +132,10 @@ export default function AdminUsers() {
             onChange={(e) => setRoleFilter(e.target.value)}
             className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
           >
-            <option value="">Tất cả Vai trò (Role)</option>
-            <option value="CUSTOMER">Khách hàng (CUSTOMER)</option>
-            <option value="OWNER">Chủ sân (OWNER)</option>
-            <option value="ADMIN">Quản trị viên (ADMIN)</option>
+            <option value="">Tất cả </option>
+            <option value="CUSTOMER">Khách hàng </option>
+            <option value="OWNER">Chủ sân </option>
+            <option value="ADMIN">Quản trị viên </option>
           </select>
         </div>
       </div>
@@ -186,7 +210,7 @@ export default function AdminUsers() {
                       </span>
                     </td>
                     <td className="py-3.5 px-4 text-slate-400 text-[11px]">
-                      {user.created_at ? new Date(user.created_at).toLocaleDateString('vi-VN') : 'N/A'}
+                      {(user.created_at || user.createdAt) ? new Date(user.created_at || user.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <button
@@ -203,23 +227,51 @@ export default function AdminUsers() {
           </table>
         </div>
 
-        {/* PAGINATION */}
-        <div className="p-4 border-t border-slate-700/80 bg-slate-900/40 flex items-center justify-between">
+        {/* NUMERIC PAGINATION */}
+        <div className="p-4 border-t border-slate-700/80 bg-slate-900/40 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-slate-400">
-            Hiển thị trang <span className="font-bold text-white">{meta.page}</span> / {Math.ceil(meta.total / meta.limit) || 1}
+            Hiển thị trang <span className="font-bold text-white">{meta.page}</span> / <span className="font-bold text-white">{Math.ceil(meta.total / meta.limit) || 1}</span> (Tổng <span className="font-bold text-indigo-400">{meta.total}</span> tài khoản)
           </p>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-1.5 flex-wrap justify-center">
+            {/* Previous Page Button */}
             <button
               disabled={meta.page <= 1}
               onClick={() => fetchUsers(meta.page - 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40"
+              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors"
             >
               Trang trước
             </button>
+
+            {/* Numeric Page Buttons */}
+            {getPageNumbers().map((p, idx) => {
+              if (p === '...') {
+                return (
+                  <span key={`ellipsis-${idx}`} className="px-2 py-1 text-xs text-slate-500 font-bold select-none">
+                    ...
+                  </span>
+                );
+              }
+              return (
+                <button
+                  key={`page-${p}`}
+                  onClick={() => fetchUsers(p)}
+                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${
+                    meta.page === p
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  {p}
+                </button>
+              );
+            })}
+
+            {/* Next Page Button */}
             <button
               disabled={meta.page >= Math.ceil(meta.total / meta.limit)}
               onClick={() => fetchUsers(meta.page + 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40"
+              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors"
             >
               Trang sau
             </button>
@@ -243,20 +295,20 @@ export default function AdminUsers() {
                     onClick={() => handleUpdateStatus(editingUser.user_id, 'ACTIVE')}
                     className="flex-1 py-2 rounded-xl bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 font-bold text-xs border border-emerald-500/40"
                   >
-                    Kích hoạt (ACTIVE)
+                    Kích hoạt
                   </button>
                   <button
                     disabled={actionLoading}
                     onClick={() => handleUpdateStatus(editingUser.user_id, 'SUSPENDED')}
                     className="flex-1 py-2 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 font-bold text-xs border border-rose-500/40"
                   >
-                    Tạm khóa (SUSPENDED)
+                    Tạm khóa
                   </button>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-300 mb-1">Cập nhật Vai trò (Role)</label>
+                <label className="block text-xs font-bold text-slate-300 mb-1">Cập nhật Vai trò</label>
                 <div className="grid grid-cols-3 gap-2">
                   {['CUSTOMER', 'OWNER', 'ADMIN'].map((r) => (
                     <button

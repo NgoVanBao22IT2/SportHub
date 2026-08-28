@@ -197,7 +197,8 @@ export default function OwnerBranches() {
             >
               {venues.map((v) => (
                 <option key={v.venue_id} value={v.venue_id}>
-                  🏬 {v.venue_name} ({v.operating_status})
+                  {v.venue_name} 
+                  {/* ({v.operating_status}) */}
                 </option>
               ))}
             </select>
@@ -221,9 +222,9 @@ export default function OwnerBranches() {
             <thead>
               <tr className="bg-surface-subtle text-[11px] font-bold text-text-muted uppercase tracking-wider border-b border-border-subtle-medium">
                 <th className="py-3.5 px-4">Tên Chi Nhánh</th>
-                <th className="py-3.5 px-4">Địa Chỉ Số Nhà</th>
+                <th className="py-3.5 px-4">Địa Chỉ </th>
                 <th className="py-3.5 px-4">Khu Vực</th>
-                <th className="py-3.5 px-4">Số Điện Thoại</th>
+                <th className="py-3.5 px-4">SĐT</th>
                 <th className="py-3.5 px-4">Trạng Thái</th>
                 <th className="py-3.5 px-4 text-right">Thao Tác</th>
               </tr>
@@ -232,7 +233,7 @@ export default function OwnerBranches() {
               {loading ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-text-muted">
-                    Đang nạp danh sách chi nhánh từ MySQL...
+                    Đang nạp danh sách chi nhánh...
                   </td>
                 </tr>
               ) : branches.length === 0 ? (
@@ -255,9 +256,9 @@ export default function OwnerBranches() {
                     <td className="py-3.5 px-4 font-mono font-semibold">{b.branch_phone}</td>
                     <td className="py-3.5 px-4">
                       {b.branch_status === 'ACTIVE' ? (
-                        <Badge variant="success" size="sm">ACTIVE</Badge>
+                        <Badge variant="success" size="sm">Hoạt động</Badge>
                       ) : (
-                        <Badge variant="neutral" size="sm">INACTIVE</Badge>
+                        <Badge variant="neutral" size="sm">Đóng cửa</Badge>
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-right">
@@ -298,7 +299,7 @@ export default function OwnerBranches() {
               <Input
                 id="branch_name"
                 name="branch_name"
-                label="Tên chi nhánh *"
+                label="Tên chi nhánh "
                 placeholder="VD: Chi Nhánh 1 - Lý Thường Kiệt"
                 value={form.branch_name}
                 onChange={(e) => setForm({ ...form, branch_name: e.target.value })}
@@ -309,7 +310,7 @@ export default function OwnerBranches() {
               <Input
                 id="street_address"
                 name="street_address"
-                label="Địa chỉ số nhà, tên đường *"
+                label="Địa chỉ số nhà, tên đường "
                 placeholder="VD: 120/45 Lý Thường Kiệt"
                 value={form.street_address}
                 onChange={(e) => setForm({ ...form, street_address: e.target.value })}
@@ -320,7 +321,7 @@ export default function OwnerBranches() {
               <Input
                 id="ward_district_city"
                 name="ward_district_city"
-                label="Phường / Quận / TP *"
+                label="Phường / Quận / TP "
                 placeholder="VD: Phường 15, Quận Tân Bình, TP. Hồ Chí Minh"
                 value={form.ward_district_city}
                 onChange={(e) => setForm({ ...form, ward_district_city: e.target.value })}
@@ -331,7 +332,7 @@ export default function OwnerBranches() {
               <Input
                 id="branch_phone"
                 name="branch_phone"
-                label="Số điện thoại liên hệ *"
+                label="Số điện thoại liên hệ "
                 placeholder="VD: 0901234567"
                 value={form.branch_phone}
                 onChange={(e) => setForm({ ...form, branch_phone: e.target.value })}
@@ -346,8 +347,8 @@ export default function OwnerBranches() {
                   onChange={(e) => setForm({ ...form, branch_status: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-sm font-medium focus:outline-none focus:border-brand-orange"
                 >
-                  <option value="ACTIVE">ACTIVE (Đang hoạt động)</option>
-                  <option value="INACTIVE">INACTIVE (Tạm ngưng hoạt động)</option>
+                  <option value="ACTIVE">Hoạt động</option>
+                  <option value="INACTIVE">Đóng cửa</option>
                 </select>
               </div>
             </div>

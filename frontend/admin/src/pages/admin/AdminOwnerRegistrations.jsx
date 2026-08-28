@@ -6,7 +6,7 @@ export default function AdminOwnerRegistrations() {
   const [registrations, setRegistrations] = useState([]);
   const [meta, setMeta] = useState({ total: 0, page: 1, limit: 10 });
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('PENDING');
+  const [statusFilter, setStatusFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedReg, setSelectedReg] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
@@ -222,6 +222,25 @@ export default function AdminOwnerRegistrations() {
     }
   };
 
+  const getPageNumbers = () => {
+    const totalPages = Math.ceil(meta.total / meta.limit) || 1;
+    const current = meta.page;
+    const pages = [];
+
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (current <= 2) {
+        pages.push(1, 2, 3, '...', totalPages);
+      } else if (current >= totalPages - 1) {
+        pages.push(1, '...', totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', current - 1, current, current + 1, '...', totalPages);
+      }
+    }
+    return pages;
+  };
+
   const filtered = registrations.filter((r) => {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
@@ -239,7 +258,7 @@ export default function AdminOwnerRegistrations() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Quản lý Hồ Sơ Đăng Ký Chủ Sân</h1>
-          <p className="text-xs text-slate-400 mt-1">Xét duyệt & quản lý chỉnh sửa hồ sơ đăng ký kinh doanh ({meta.total} hồ sơ trong DB).</p>
+          <p className="text-xs text-slate-400 mt-1">Xét duyệt & quản lý chỉnh sửa hồ sơ đăng ký kinh doanh.</p>
         </div>
         <button
           onClick={() => fetchRegistrations(meta.page)}
@@ -269,11 +288,11 @@ export default function AdminOwnerRegistrations() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
           >
-            <option value="PENDING">🟡 Chờ xét duyệt (PENDING)</option>
-            <option value="APPROVED">🟢 Đã phê duyệt (APPROVED)</option>
-            <option value="REJECTED">🔴 Đã từ chối (REJECTED)</option>
-            <option value="CANCELLED">⚪ Đã hủy (CANCELLED)</option>
-            <option value="">Tất cả Trạng thái</option>
+            <option value="PENDING">🟡 Chờ xét duyệt</option>
+            <option value="APPROVED">🟢 Đã phê duyệt</option>
+            <option value="REJECTED">🔴 Đã từ chối</option>
+            <option value="CANCELLED">⚪ Đã hủy</option>
+            <option value="">Tất cả </option>
           </select>
         </div>
       </div>
@@ -315,7 +334,7 @@ export default function AdminOwnerRegistrations() {
                     <tr key={reg.registration_id} className="hover:bg-slate-700/30 transition-colors">
                       <td className="py-3.5 px-4 font-bold text-white max-w-xs truncate">
                         <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-orange-600/30 text-orange-400 font-bold flex items-center justify-center text-xs shrink-0">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-700/30 text-emerald-400 font-bold flex items-center justify-center text-xs shrink-0">
                             <Building2 size={16} />
                           </div>
                           <div className="min-w-0">
@@ -355,7 +374,7 @@ export default function AdminOwnerRegistrations() {
                             className="px-2 py-1 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 text-[11px] font-bold border border-indigo-500/40 transition-colors flex items-center gap-1"
                             title="Xem chi tiết"
                           >
-                            <Eye size={12} /> Chi tiết
+                            <Eye size={12} /> 
                           </button>
                           <button
                             onClick={() => handleOpenEditModal(reg)}
@@ -381,23 +400,51 @@ export default function AdminOwnerRegistrations() {
           </table>
         </div>
 
-        {/* PAGINATION */}
-        <div className="p-4 border-t border-slate-700/80 bg-slate-900/40 flex items-center justify-between">
+        {/* NUMERIC PAGINATION */}
+        <div className="p-4 border-t border-slate-700/80 bg-slate-900/40 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-slate-400">
-            Hiển thị trang <span className="font-bold text-white">{meta.page}</span> / {Math.ceil(meta.total / meta.limit) || 1}
+            Hiển thị trang <span className="font-bold text-white">{meta.page}</span> / <span className="font-bold text-white">{Math.ceil(meta.total / meta.limit) || 1}</span> (Tổng <span className="font-bold text-indigo-400">{meta.total}</span> hồ sơ)
           </p>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-1.5 flex-wrap justify-center">
+            {/* Previous Page Button */}
             <button
               disabled={meta.page <= 1}
               onClick={() => fetchRegistrations(meta.page - 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40"
+              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               Trang trước
             </button>
+
+            {/* Numeric Page Buttons */}
+            {getPageNumbers().map((p, idx) => {
+              if (p === '...') {
+                return (
+                  <span key={`ellipsis-${idx}`} className="px-2 py-1 text-xs text-slate-500 font-bold select-none">
+                    ...
+                  </span>
+                );
+              }
+              return (
+                <button
+                  key={`page-${p}`}
+                  onClick={() => fetchRegistrations(p)}
+                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
+                    meta.page === p
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  {p}
+                </button>
+              );
+            })}
+
+            {/* Next Page Button */}
             <button
               disabled={meta.page >= Math.ceil(meta.total / meta.limit)}
               onClick={() => fetchRegistrations(meta.page + 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40"
+              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               Trang sau
             </button>
@@ -500,7 +547,7 @@ export default function AdminOwnerRegistrations() {
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <Edit2 size={18} className="text-amber-400" />
-                Chỉnh sửa Hồ Sơ Đăng Ký Chủ Sân
+                Chỉnh Sửa Hồ Sơ Đăng Ký 
               </h3>
               <span className="text-xs text-slate-400 font-mono">ID: {selectedReg?.registration_id}</span>
             </div>
@@ -541,7 +588,7 @@ export default function AdminOwnerRegistrations() {
                   />
                 </div>
                 <div>
-                  <label className="text-slate-400 block mb-1 font-semibold">Số Điện Thoại *</label>
+                  <label className="text-slate-400 block mb-1 font-semibold">SĐT *</label>
                   <input
                     type="text"
                     required
@@ -551,7 +598,7 @@ export default function AdminOwnerRegistrations() {
                   />
                 </div>
                 <div>
-                  <label className="text-slate-400 block mb-1 font-semibold">Email Liên Hệ *</label>
+                  <label className="text-slate-400 block mb-1 font-semibold">Email *</label>
                   <input
                     type="email"
                     required
@@ -677,7 +724,7 @@ export default function AdminOwnerRegistrations() {
                 disabled={actionLoading}
                 className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors"
               >
-                {actionLoading ? 'Đang lưu...' : '💾 Lưu thay đổi'}
+                {actionLoading ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
             </div>
           </form>

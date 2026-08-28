@@ -53,6 +53,25 @@ export default function AdminReviews() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  const getPageNumbers = () => {
+    const totalPages = Math.ceil(meta.total / meta.limit) || 1;
+    const current = meta.page;
+    const pages = [];
+
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (current <= 2) {
+        pages.push(1, 2, 3, '...', totalPages);
+      } else if (current >= totalPages - 1) {
+        pages.push(1, '...', totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', current - 1, current, current + 1, '...', totalPages);
+      }
+    }
+    return pages;
+  };
+
   const handleUpdateHideStatus = async (reviewId, action, reviewCustName) => {
     try {
       setActionLoadingId(reviewId);
@@ -103,7 +122,7 @@ export default function AdminReviews() {
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Quản lý Đánh Giá Của Khách Hàng</h1>
           <p className="text-xs text-slate-400 mt-1">
-            Kiểm duyệt và xử lý các yêu cầu ẩn đánh giá từ Chủ sân (Owner) theo quy định ({meta.total} đánh giá).
+            Kiểm duyệt và xử lý các yêu cầu ẩn đánh giá từ Chủ sân.
           </p>
         </div>
         <button
@@ -123,7 +142,7 @@ export default function AdminReviews() {
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               tabFilter === 'ALL'
                 ? 'bg-indigo-600 text-white shadow-md'
-                : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                : 'bg-slate-800/60 text-amber-400 hover:bg-slate-800 hover:text-slate-200'
             }`}
           >
             Tất cả đánh giá
@@ -133,7 +152,7 @@ export default function AdminReviews() {
             onClick={() => setTabFilter('PENDING_HIDE')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               tabFilter === 'PENDING_HIDE'
-                ? 'bg-amber-600 text-white shadow-md'
+                ? 'bg-indigo-600 text-white shadow-md'
                 : 'bg-slate-800/60 text-amber-400 hover:bg-slate-800 hover:text-amber-300'
             }`}
           >
@@ -150,8 +169,8 @@ export default function AdminReviews() {
             onClick={() => setTabFilter('HIDDEN')}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               tabFilter === 'HIDDEN'
-                ? 'bg-rose-700 text-white shadow-md'
-                : 'bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-slate-800/60 text-amber-400 hover:bg-slate-800 hover:text-slate-200'
             }`}
           >
             <EyeOff size={13} />
@@ -179,7 +198,7 @@ export default function AdminReviews() {
               onChange={(e) => setRatingFilter(e.target.value)}
               className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500 cursor-pointer"
             >
-              <option value="">Tất cả Số Sao</option>
+              <option value="">Tất cả </option>
               <option value="5">5 Sao ⭐⭐⭐⭐⭐</option>
               <option value="4">4 Sao ⭐⭐⭐⭐</option>
               <option value="3">3 Sao ⭐⭐⭐</option>
@@ -198,10 +217,10 @@ export default function AdminReviews() {
               <tr className="bg-slate-900/80 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700/80">
                 <th className="py-3.5 px-4">Khách Hàng</th>
                 <th className="py-3.5 px-4">Cụm Sân / Chủ Sân</th>
-                <th className="py-3.5 px-4">Điểm Đánh Giá</th>
+                <th className="py-3.5 px-4">Đánh Giá</th>
                 <th className="py-3.5 px-4">Nhận Xét & Lý Do Ẩn</th>
                 <th className="py-3.5 px-4">Trạng Thái</th>
-                <th className="py-3.5 px-4 text-right">Thao Tác Duyệt Ẩn</th>
+                <th className="py-3.5 px-4 text-right">Thao Tác</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-700/60 text-xs text-slate-200">
@@ -347,23 +366,51 @@ export default function AdminReviews() {
           </table>
         </div>
 
-        {/* PAGINATION */}
-        <div className="p-4 border-t border-slate-700/80 bg-slate-900/40 flex items-center justify-between">
+        {/* NUMERIC PAGINATION */}
+        <div className="p-4 border-t border-slate-700/80 bg-slate-900/40 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-slate-400">
-            Hiển thị trang <span className="font-bold text-white">{meta.page}</span> / {Math.ceil(meta.total / meta.limit) || 1}
+            Hiển thị trang <span className="font-bold text-white">{meta.page}</span> / <span className="font-bold text-white">{Math.ceil(meta.total / meta.limit) || 1}</span> (Tổng <span className="font-bold text-indigo-400">{meta.total}</span> đánh giá)
           </p>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-1.5 flex-wrap justify-center">
+            {/* Previous Page Button */}
             <button
               disabled={meta.page <= 1}
               onClick={() => fetchReviews(meta.page - 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               Trang trước
             </button>
+
+            {/* Numeric Page Buttons */}
+            {getPageNumbers().map((p, idx) => {
+              if (p === '...') {
+                return (
+                  <span key={`ellipsis-${idx}`} className="px-2 py-1 text-xs text-slate-500 font-bold select-none">
+                    ...
+                  </span>
+                );
+              }
+              return (
+                <button
+                  key={`page-${p}`}
+                  onClick={() => fetchReviews(p)}
+                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
+                    meta.page === p
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  {p}
+                </button>
+              );
+            })}
+
+            {/* Next Page Button */}
             <button
               disabled={meta.page >= Math.ceil(meta.total / meta.limit)}
               onClick={() => fetchReviews(meta.page + 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 cursor-pointer"
+              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors cursor-pointer"
             >
               Trang sau
             </button>

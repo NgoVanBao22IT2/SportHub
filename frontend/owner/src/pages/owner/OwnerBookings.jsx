@@ -224,7 +224,7 @@ export default function OwnerBookings() {
                     <th className="py-3.5 px-4 text-right">Tổng tiền</th>
                     <th className="py-3.5 px-4 text-center">Thanh toán</th>
                     <th className="py-3.5 px-4 text-center">Trạng thái</th>
-                    <th className="py-3.5 px-4 text-right">Hành động</th>
+                    <th className="py-3.5 px-4 text-right">Thao Tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border-subtle bg-surface">

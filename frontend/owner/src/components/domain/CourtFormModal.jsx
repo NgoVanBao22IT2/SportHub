@@ -84,7 +84,7 @@ export default function CourtFormModal({
 
           <div>
             <Input
-              label="Tên sân con *"
+              label="Tên sân con "
               name="court_name"
               placeholder="VD: Sân 1, Sân VIP..."
               value={form.court_name}

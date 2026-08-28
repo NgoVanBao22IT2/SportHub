@@ -46,7 +46,7 @@ export default function AdminReports() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Báo Cáo Phân Tích Dữ Liệu Hệ Thống</h1>
-          <p className="text-xs text-slate-400 mt-1">Tổng hợp phân bổ người dùng, cụm sân, đơn đặt và môn thể thao từ MySQL DB.</p>
+          <p className="text-xs text-slate-400 mt-1">Tổng hợp phân bổ người dùng, cụm sân, đơn đặt và môn thể thao.</p>
         </div>
         <button
           onClick={fetchReports}
@@ -86,7 +86,7 @@ export default function AdminReports() {
         <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-5 shadow-md">
           <div className="flex items-center gap-2 pb-4 border-b border-slate-700/80 mb-4">
             <Users size={18} className="text-blue-400" />
-            <h3 className="font-bold text-white text-sm">Phân Bổ Người Dùng Theo Vai Trò (Role)</h3>
+            <h3 className="font-bold text-white text-sm">Phân Bổ Người Dùng Theo Vai Trò</h3>
           </div>
           <div className="space-y-3">
             {usersByRole.map((item, idx) => (

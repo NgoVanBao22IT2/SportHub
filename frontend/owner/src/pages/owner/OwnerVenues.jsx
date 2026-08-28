@@ -106,7 +106,7 @@ export default function OwnerVenues() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:border-brand-orange focus:outline-none"
           >
-            <option value="ALL">Tất cả trạng thái</option>
+            <option value="ALL">Tất cả </option>
             <option value="APPROVED">Đang hoạt động</option>
             <option value="PENDING">Chờ duyệt</option>
           </select>

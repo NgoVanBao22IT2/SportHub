@@ -295,11 +295,11 @@ export default function OwnerVenueDetail() {
 
                               <td className="py-3 text-center">
                                 {isCourtActive ? (
-                                  <Badge variant="success" size="xs">HOẠT ĐỘNG</Badge>
+                                  <Badge variant="success" size="xs">Hoạt động</Badge>
                                 ) : isMaintenance ? (
-                                  <Badge variant="warning" size="xs">BẢO TRÌ</Badge>
+                                  <Badge variant="warning" size="xs">Bảo trì</Badge>
                                 ) : (
-                                  <Badge variant="danger" size="xs">TẠM NGƯNG</Badge>
+                                  <Badge variant="danger" size="xs">Tạm ngưng</Badge>
                                 )}
                               </td>
 

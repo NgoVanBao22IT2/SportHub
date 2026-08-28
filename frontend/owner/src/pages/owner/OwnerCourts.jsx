@@ -196,7 +196,7 @@ export default function OwnerCourts() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
             <Trophy className="text-brand-orange" size={26} />
-            Quản lý Danh Mục Sân Con (Courts)
+            Quản lý Danh Mục Sân Con
           </h1>
           <p className="text-xs text-text-muted mt-1">
             Quản lý chi tiết từng sân con thuộc chi nhánh, thiết lập trạng thái Hoạt động / Bảo trì.
@@ -228,7 +228,8 @@ export default function OwnerCourts() {
             >
               {venues.map((v) => (
                 <option key={v.venue_id} value={v.venue_id}>
-                  🏬 {v.venue_name} ({v.operating_status})
+                  {v.venue_name} 
+                  {/* ({v.operating_status}) */}
                 </option>
               ))}
             </select>
@@ -247,7 +248,7 @@ export default function OwnerCourts() {
               ) : (
                 branches.map((b) => (
                   <option key={b.branch_id} value={b.branch_id}>
-                    📍 {b.branch_name} - {b.street_address}
+                    {b.branch_name} - {b.street_address}
                   </option>
                 ))
               )}
@@ -263,9 +264,9 @@ export default function OwnerCourts() {
             <thead>
               <tr className="bg-surface-subtle text-[11px] font-bold text-text-muted uppercase tracking-wider border-b border-border-subtle-medium">
                 <th className="py-3.5 px-4">Tên Sân Con</th>
-                <th className="py-3.5 px-4">Bộ Môn Thể Thao</th>
-                <th className="py-3.5 px-4">Đặc Điểm Mặt Sân</th>
-                <th className="py-3.5 px-4">Trạng Thái Sân</th>
+                <th className="py-3.5 px-4">Môn Thể Thao</th>
+                <th className="py-3.5 px-4">Đặc Điểm</th>
+                <th className="py-3.5 px-4">Trạng Thái</th>
                 <th className="py-3.5 px-4 text-right">Thao Tác</th>
               </tr>
             </thead>
@@ -273,7 +274,7 @@ export default function OwnerCourts() {
               {loading ? (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-text-muted">
-                    Đang nạp danh sách sân con từ MySQL...
+                    Đang nạp danh sách sân con...
                   </td>
                 </tr>
               ) : courts.length === 0 ? (
@@ -297,11 +298,11 @@ export default function OwnerCourts() {
                     <td className="py-3.5 px-4 text-text-muted">{court.surface_features || 'Thảm tiêu chuẩn'}</td>
                     <td className="py-3.5 px-4">
                       {court.court_status === 'ACTIVE' ? (
-                        <Badge variant="success" size="sm">ACTIVE (Hoạt động)</Badge>
+                        <Badge variant="success" size="sm">Hoạt động</Badge>
                       ) : court.court_status === 'MAINTENANCE' ? (
-                        <Badge variant="warning" size="sm">MAINTENANCE (Bảo trì)</Badge>
+                        <Badge variant="warning" size="sm">Bảo trì</Badge>
                       ) : (
-                        <Badge variant="neutral" size="sm">INACTIVE (Đóng cửa)</Badge>
+                        <Badge variant="neutral" size="sm">Đóng cửa</Badge>
                       )}
                     </td>
                     <td className="py-3.5 px-4 text-right">
@@ -342,7 +343,7 @@ export default function OwnerCourts() {
               <Input
                 id="court_name"
                 name="court_name"
-                label="Tên sân con *"
+                label="Tên sân con "
                 placeholder="VD: Sân 01, Sân Vip 1..."
                 value={form.court_name}
                 onChange={(e) => setForm({ ...form, court_name: e.target.value })}
@@ -357,11 +358,11 @@ export default function OwnerCourts() {
                   onChange={(e) => setForm({ ...form, sport_category: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-sm font-medium focus:outline-none focus:border-brand-orange"
                 >
-                  <option value="Cầu lông">🏸 Cầu lông</option>
-                  <option value="Pickleball">🏓 Pickleball</option>
-                  <option value="Bóng đá">⚽ Bóng đá</option>
-                  <option value="Tennis">🎾 Tennis</option>
-                  <option value="Bóng rổ">🏀 Bóng rổ</option>
+                  <option value="Cầu lông">Cầu lông</option>
+                  <option value="Pickleball">Pickleball</option>
+                  <option value="Bóng đá">Bóng đá</option>
+                  <option value="Tennis">Tennis</option>
+                  <option value="Bóng rổ">Bóng rổ</option>
                 </select>
               </div>
 
@@ -383,9 +384,9 @@ export default function OwnerCourts() {
                   onChange={(e) => setForm({ ...form, court_status: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-sm font-medium focus:outline-none focus:border-brand-orange"
                 >
-                  <option value="ACTIVE">🟢 ACTIVE (Đang cho đặt)</option>
-                  <option value="MAINTENANCE">🟡 MAINTENANCE (Bảo trì tạm thời)</option>
-                  <option value="INACTIVE">🔴 INACTIVE (Tạm dừng vận hành)</option>
+                  <option value="ACTIVE">Hoạt động</option>
+                  <option value="MAINTENANCE">Bảo trì </option>
+                  <option value="INACTIVE">Đóng cửa</option>
                 </select>
               </div>
             </div>

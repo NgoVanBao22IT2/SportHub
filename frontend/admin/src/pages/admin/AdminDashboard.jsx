@@ -102,7 +102,7 @@ export default function AdminDashboard() {
       color: 'from-blue-600 to-indigo-600'
     },
     {
-      title: 'Tổng Chủ sân (Owner)',
+      title: 'Tổng Chủ sân',
       value: stats?.total_owners || 0,
       sub: 'Tài khoản Quản lý sân',
       icon: UserCheck,
@@ -152,7 +152,7 @@ export default function AdminDashboard() {
           onClick={fetchDashboardData}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition-colors border border-slate-700"
         >
-          <RefreshCw size={14} /> Cập nhật dữ liệu
+          <RefreshCw size={14} /> Cập nhật
         </button>
       </div>
 

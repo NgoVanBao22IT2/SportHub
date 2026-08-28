@@ -54,8 +54,14 @@ class AdminService {
       offset: parseInt(offset)
     });
 
+    const data = rows.map(user => {
+      const u = user.toJSON();
+      u.created_at = u.created_at || u.createdAt;
+      return u;
+    });
+
     return {
-      data: rows,
+      data,
       meta: { total: count, page: parseInt(page), limit: parseInt(limit) }
     };
   }

@@ -25,6 +25,25 @@ export default function AdminOwners() {
     fetchOwners(1);
   }, []);
 
+  const getPageNumbers = () => {
+    const totalPages = Math.ceil(meta.total / meta.limit) || 1;
+    const current = meta.page;
+    const pages = [];
+
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      if (current <= 2) {
+        pages.push(1, 2, 3, '...', totalPages);
+      } else if (current >= totalPages - 1) {
+        pages.push(1, '...', totalPages - 2, totalPages - 1, totalPages);
+      } else {
+        pages.push(1, '...', current - 1, current, current + 1, '...', totalPages);
+      }
+    }
+    return pages;
+  };
+
   const [noticeModal, setNoticeModal] = useState({ open: false, title: '', message: '', type: 'error' });
 
   const handleToggleStatus = async (userId, currentStatus) => {
@@ -54,8 +73,8 @@ export default function AdminOwners() {
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Quản lý Tài Khoản Chủ Sân (Owners)</h1>
-          <p className="text-xs text-slate-400 mt-1">Danh sách đối tác quản lý cụm sân thể thao ({meta.total} tài khoản Owner trong DB).</p>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Quản lý Tài Khoản Chủ Sân</h1>
+          {/* <p className="text-xs text-slate-400 mt-1">Danh sách đối tác quản lý cụm sân thể thao ({meta.total} tài khoản Owner trong DB).</p> */}
         </div>
         <button
           onClick={() => fetchOwners(meta.page)}
@@ -86,9 +105,9 @@ export default function AdminOwners() {
             <thead>
               <tr className="bg-slate-900/80 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700/80">
                 <th className="py-3.5 px-4">Tên Chủ Sân</th>
-                <th className="py-3.5 px-4">Email Liên Hệ</th>
-                <th className="py-3.5 px-4">Số Điện Thoại</th>
-                <th className="py-3.5 px-4">Trạng Thái Account</th>
+                <th className="py-3.5 px-4">Email </th>
+                <th className="py-3.5 px-4">SĐT</th>
+                <th className="py-3.5 px-4">Trạng Thái</th>
                 <th className="py-3.5 px-4">Ngày Đăng Ký</th>
                 <th className="py-3.5 px-4 text-right">Thao Tác</th>
               </tr>
@@ -133,8 +152,8 @@ export default function AdminOwners() {
                         {owner.account_status || 'ACTIVE'}
                       </span>
                     </td>
-                    <td className="py-3.5 px-4 text-slate-400 text-[11px]">
-                      {owner.created_at ? new Date(owner.created_at).toLocaleDateString('vi-VN') : 'N/A'}
+                    <td className="py-3.5 px-4 font-md text-slate-400 text-[11px]">
+                      {(owner.created_at || owner.createdAt) ? new Date(owner.created_at || owner.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
                     </td>
                     <td className="py-3.5 px-4 text-right">
                       <button
@@ -145,7 +164,7 @@ export default function AdminOwners() {
                             : 'bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60'
                         }`}
                       >
-                        {owner.account_status === 'SUSPENDED' ? 'Mở khóa' : 'Khóa tài khoản'}
+                        {owner.account_status === 'SUSPENDED' ? 'Mở khóa' : 'Khóa'}
                       </button>
                     </td>
                   </tr>
@@ -155,23 +174,51 @@ export default function AdminOwners() {
           </table>
         </div>
 
-        {/* PAGINATION */}
-        <div className="p-4 border-t border-slate-700/80 bg-slate-900/40 flex items-center justify-between">
+        {/* NUMERIC PAGINATION */}
+        <div className="p-4 border-t border-slate-700/80 bg-slate-900/40 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-slate-400">
-            Hiển thị trang <span className="font-bold text-white">{meta.page}</span> / {Math.ceil(meta.total / meta.limit) || 1}
+            Hiển thị trang <span className="font-bold text-white">{meta.page}</span> / <span className="font-bold text-white">{Math.ceil(meta.total / meta.limit) || 1}</span> (Tổng <span className="font-bold text-indigo-400">{meta.total}</span> tài khoản)
           </p>
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-1.5 flex-wrap justify-center">
+            {/* Previous Page Button */}
             <button
               disabled={meta.page <= 1}
               onClick={() => fetchOwners(meta.page - 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40"
+              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors"
             >
               Trang trước
             </button>
+
+            {/* Numeric Page Buttons */}
+            {getPageNumbers().map((p, idx) => {
+              if (p === '...') {
+                return (
+                  <span key={`ellipsis-${idx}`} className="px-2 py-1 text-xs text-slate-500 font-bold select-none">
+                    ...
+                  </span>
+                );
+              }
+              return (
+                <button
+                  key={`page-${p}`}
+                  onClick={() => fetchOwners(p)}
+                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${
+                    meta.page === p
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
+                  }`}
+                >
+                  {p}
+                </button>
+              );
+            })}
+
+            {/* Next Page Button */}
             <button
               disabled={meta.page >= Math.ceil(meta.total / meta.limit)}
               onClick={() => fetchOwners(meta.page + 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40"
+              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors"
             >
               Trang sau
             </button>
