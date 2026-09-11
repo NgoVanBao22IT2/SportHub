@@ -254,6 +254,21 @@ class ReviewService {
         );
       }
 
+      // 4. Create Notification for Customer confirming their review submission
+      await Notification.create(
+        {
+          notification_id: crypto.randomUUID(),
+          recipient_user_id: userId,
+          notification_type: 'REVIEW_SUCCESS',
+          title: 'Đánh giá sân thành công ⭐',
+          message: `Cảm ơn bạn đã đánh giá ${rating}★ cho ${venue?.venue_name || 'sân thể thao'}. Đánh giá của bạn đã được đăng thành công!`,
+          entity_type: 'VENUE',
+          entity_id: venueId,
+          is_read: false
+        },
+        { transaction }
+      );
+
       await transaction.commit();
 
       // Return review with customer info

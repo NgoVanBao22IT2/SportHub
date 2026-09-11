@@ -1,12 +1,12 @@
 import { Routes, Route } from 'react-router-dom';
 import CustomerLayout from './components/CustomerLayout';
 import ErrorBoundary from './components/common/ErrorBoundary';
-import HomePage from './pages/customer/HomePage';
-import VenueDetail from './pages/customer/VenueDetail';
-import VisualBooking from './pages/customer/VisualBooking';
-import BookingDetail from './pages/customer/BookingDetail';
+import HomePage from './pages/HomePage';
+import VenueDetail from './pages/VenueDetail';
+import VisualBooking from './pages/VisualBooking';
+import BookingDetail from './pages/BookingDetail';
 import Search from './pages/Search';
-import MapPage from './pages/customer/MapPage';
+import MapPage from './pages/MapPage';
 import Booking from './pages/Booking';
 import Checkout from './pages/Checkout';
 import MyBooking from './pages/MyBooking';
@@ -19,9 +19,9 @@ import Register from './pages/Register';
 import VerifyOTP from './pages/VerifyOTP';
 import ForgotPassword from './pages/ForgotPassword';
 import ProtectedRoute from './components/ProtectedRoute';
-import OwnerRegistrationPage from './pages/customer/OwnerRegistrationPage';
-import PublicPostDetail from './pages/customer/PublicPostDetail';
-import ExplorePage from './pages/customer/ExplorePage';
+import OwnerRegistrationPage from './pages/OwnerRegistrationPage';
+import PublicPostDetail from './pages/PublicPostDetail';
+import ExplorePage from './pages/ExplorePage';
 
 function App() {
   return (

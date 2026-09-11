@@ -777,13 +777,13 @@ export default function Checkout() {
       {/* BREADCRUMB & HEADER */}
       <section className="bg-surface border-b border-border-subtle-medium py-6 px-4">
         <div className="container mx-auto max-w-5xl">
-          <div className="flex items-center text-xs text-text-muted gap-2 mb-3">
+          {/* <div className="flex items-center text-xs text-text-muted gap-2 mb-3">
             <Link to="/" className="hover:text-accent-primary">Trang chủ</Link>
             <span>/</span>
             <Link to="/search" className="hover:text-accent-primary">Tìm sân</Link>
             <span>/</span>
             <span className="text-gray-900 font-medium">Thanh toán</span>
-          </div>
+          </div> */}
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -824,7 +824,7 @@ export default function Checkout() {
               <Card.Body className="space-y-4">
                 <div>
                   <label htmlFor="customer-fullname" className="text-xs font-bold text-gray-900 block mb-1">
-                    Họ và tên người đặt *
+                    Họ và tên *
                   </label>
                   <Input
                     id="customer-fullname"
@@ -839,7 +839,7 @@ export default function Checkout() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label htmlFor="customer-phone" className="text-xs font-bold text-gray-900 block mb-1">
-                      Số điện thoại nhận SMS *
+                      Số điện thoại *
                     </label>
                     <Input
                       id="customer-phone"
@@ -852,7 +852,7 @@ export default function Checkout() {
                   </div>
                   <div>
                     <label htmlFor="customer-email" className="text-xs font-bold text-gray-900 block mb-1">
-                      Địa chỉ Email (Không bắt buộc)
+                      Địa chỉ Email *
                     </label>
                     <Input
                       id="customer-email"
@@ -866,7 +866,7 @@ export default function Checkout() {
 
                 <div>
                   <label htmlFor="customer-note" className="text-xs font-bold text-gray-900 block mb-1">
-                    Ghi chú thêm cho chủ sân
+                    Ghi chú 
                   </label>
                   <Input
                     id="customer-note"
@@ -884,7 +884,7 @@ export default function Checkout() {
               <Card.Header>
                 <h2 className="font-bold text-gray-900 text-lg flex items-center gap-2">
                   <CreditCard size={20} className="text-accent-primary" />
-                  2. Chọn phương thức thanh toán
+                  2. Phương thức thanh toán
                 </h2>
               </Card.Header>
               <Card.Body className="space-y-3">
@@ -910,7 +910,7 @@ export default function Checkout() {
                   {paymentMethod === 'banking' && <Check size={18} className="text-accent-primary" />}
                 </button>
 
-                <button
+                {/* <button
                   type="button"
                   onClick={() => setPaymentMethod('onsite')}
                   className={[
@@ -930,7 +930,7 @@ export default function Checkout() {
                     </div>
                   </div>
                   {paymentMethod === 'onsite' && <Check size={18} className="text-accent-primary" />}
-                </button>
+                </button> */}
               </Card.Body>
             </Card>
 
@@ -941,7 +941,7 @@ export default function Checkout() {
             <Card padding="md" radius="xl" className="border border-border-subtle-medium shadow-md">
               <Card.Header className="pb-3 border-b border-border-subtle-medium mb-4">
                 <h3 className="font-bold text-gray-900 text-lg">
-                  Chi tiết đơn 
+                  Chi tiết đơn
                 </h3>
               </Card.Header>
 

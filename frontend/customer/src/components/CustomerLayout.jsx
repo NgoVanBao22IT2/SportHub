@@ -1,15 +1,18 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import Navbar from './Navbar';
 import Footer from './Footer';
 
 export default function CustomerLayout() {
+  const location = useLocation();
+  const isMapPage = location.pathname === '/map';
+
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className={`flex flex-col bg-white ${isMapPage ? 'h-screen overflow-hidden' : 'min-h-screen'}`}>
       <Navbar />
-      <main className="flex-1 w-full">
+      <main className="flex-1 w-full overflow-hidden">
         <Outlet />
       </main>
-      <Footer />
+      {!isMapPage && <Footer />}
     </div>
   );
 }

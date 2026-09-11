@@ -28,7 +28,7 @@ export default function Navbar() {
             <Link to="/search" className="hover:text-green-200 pb-1">Đặt sân</Link>
             {isAuthenticated && (
               <>
-                <Link to="/my-bookings" className="hover:text-green-200 pb-1">Lịch sử đặt sân</Link>
+                <Link to="/my-bookings" className="hover:text-green-200 pb-1">Lịch sử </Link>
                 <Link to="/favorites" className="hover:text-green-200 pb-1">Yêu thích</Link>
               </>
             )}

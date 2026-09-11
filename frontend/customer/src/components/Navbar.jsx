@@ -37,7 +37,7 @@ export default function Navbar() {
   };
 
   return (
-    <header className="bg-primary text-white w-full h-16 flex items-center justify-center sticky top-0 z-50">
+    <header className="bg-primary text-white w-full h-16 flex items-center justify-center sticky top-0 z-[1000]">
       <div className="container mx-auto px-4 max-w-7xl flex items-center justify-between">
         {/* Logo & Main Nav */}
         <div className="flex items-center space-x-4 ">
@@ -46,12 +46,12 @@ export default function Navbar() {
 
           <nav className="hidden md:flex space-x-6 text-dm font-medium items-center">
             <Link to="/" className={getNavItemClass('/', 'ml-10')}>Trang chủ</Link>
-            <Link to="/search" className={getNavItemClass('/search')}>Đặt sân</Link>
+            <Link to="/search" className={getNavItemClass('/search')}>Tìm sân</Link>
             <Link to="/map" className={getNavItemClass('/map')}>Bản đồ sân</Link>
             <Link to="/explore" className={getNavItemClass('/explore')}>Khám phá</Link>
             {isAuthenticated && (
               <>
-                <Link to="/my-bookings" className={getNavItemClass('/my-bookings')}>Lịch sử đặt sân</Link>
+                <Link to="/my-bookings" className={getNavItemClass('/my-bookings')}>Lịch sử</Link>
                 <Link to="/favorites" className={getNavItemClass('/favorites')}>Yêu thích</Link>
               </>
             )}

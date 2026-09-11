@@ -30,9 +30,20 @@ export const getImageUrl = (url, seedKey) => {
     return getDeterministicFallback(seedKey);
   }
 
-  const trimmed = url.trim();
+  let trimmed = url.trim();
 
-  // If already absolute URL (e.g. https://m-files.alobo.vn/..., blob:, data:)
+  const currentHost = (typeof window !== 'undefined' && window.location?.hostname) ? window.location.hostname : 'localhost';
+  const currentProto = (typeof window !== 'undefined' && window.location?.protocol) ? window.location.protocol : 'http:';
+  const defaultBackend = `${currentProto}//${currentHost}:3000`;
+
+  const backendHost = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_URL) 
+    || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api\/v1\/?$/, '') : '') 
+    || defaultBackend;
+
+  if (trimmed.includes('localhost:3000') || trimmed.includes('127.0.0.1:3000')) {
+    trimmed = trimmed.replace(/localhost:3000/g, `${currentHost}:3000`).replace(/127.0.0.1:3000/g, `${currentHost}:3000`);
+  }
+
   if (
     trimmed.startsWith('http://') ||
     trimmed.startsWith('https://') ||
@@ -41,11 +52,6 @@ export const getImageUrl = (url, seedKey) => {
   ) {
     return trimmed;
   }
-
-  // Resolve local uploaded files (e.g. /uploads/large/...) to Backend server host
-  const backendHost = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_BACKEND_URL) 
-    || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL ? import.meta.env.VITE_API_URL.replace(/\/api\/v1\/?$/, '') : '') 
-    || 'http://localhost:3000';
 
   const cleanPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
   return `${backendHost}${cleanPath}`;

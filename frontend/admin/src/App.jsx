@@ -1,14 +1,14 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './components/AdminLayout';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminUsers from './pages/admin/AdminUsers';
-import AdminOwners from './pages/admin/AdminOwners';
-import AdminVenues from './pages/admin/AdminVenues';
-import AdminReviews from './pages/admin/AdminReviews';
-import AdminReports from './pages/admin/AdminReports';
-import AdminOwnerRegistrations from './pages/admin/AdminOwnerRegistrations';
-import AdminCommunity from './pages/admin/AdminCommunity';
+import AdminDashboard from './pages/AdminDashboard';
+import AdminUsers from './pages/AdminUsers';
+import AdminOwners from './pages/AdminOwners';
+import AdminVenues from './pages/AdminVenues';
+import AdminReviews from './pages/AdminReviews';
+import AdminReports from './pages/AdminReports';
+import AdminOwnerRegistrations from './pages/AdminOwnerRegistrations';
+import AdminCommunity from './pages/AdminCommunity';
 import Login from './pages/Login';
 
 function App() {

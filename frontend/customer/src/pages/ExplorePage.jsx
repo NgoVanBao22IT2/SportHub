@@ -1,0 +1,522 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Sparkles, 
+  Plus, 
+  Search, 
+  Filter, 
+  Users, 
+  Ticket, 
+  UserCheck, 
+  Swords, 
+  GraduationCap,
+  ShieldCheck, 
+  TrendingUp, 
+  Info,
+  RefreshCw,
+  Flame,
+  Megaphone,
+  Calendar,
+  MapPin,
+  Phone,
+  Tag,
+  X
+} from 'lucide-react';
+import communityApi from '../api/communityApi';
+import { getPublicFeaturedEvents } from '../api/public';
+import PostCard from '../components/domain/community/PostCard';
+import CreatePostModal from '../components/domain/community/CreatePostModal';
+import ApplyPostModal from '../components/domain/community/ApplyPostModal';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+
+const FILTER_TABS = [
+  { key: 'ALL', label: '🔥 Tất cả bài đăng', icon: Flame },
+  { key: 'EVENTS', label: '📢 Sự kiện & Ưu đãi sân', icon: Megaphone },
+  { key: 'RECRUIT', label: '👥 Tuyển vãng lai', icon: Users },
+  { key: 'PASS_BOOKING', label: '🎟️ Pass sân / Vé nhượng', icon: Ticket },
+  { key: 'FIND_SLOT', label: '🙋‍♂️ Tìm slot chơi', icon: UserCheck },
+  { key: 'CHALLENGE', label: '🏆 Cáp kèo giao lưu', icon: Swords },
+  { key: 'COURSE', label: '🎓 Khóa học thể thao', icon: GraduationCap },
+];
+
+const SPORT_OPTIONS = ['ALL', 'Cầu lông', 'Pickleball', 'Bóng đá', 'Tennis', 'Bóng rổ'];
+
+export default function ExplorePage() {
+  const { currentUser, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  // State
+  const [banner, setBanner] = useState(null);
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('ALL');
+  const [selectedSport, setSelectedSport] = useState('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [totalCount, setTotalCount] = useState(0);
+
+  // Modals
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedPostToApply, setSelectedPostToApply] = useState(null);
+  const [selectedVenueEventModal, setSelectedVenueEventModal] = useState(null);
+
+  useEffect(() => {
+    fetchBanner();
+  }, []);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [activeTab, selectedSport]);
+
+  const fetchBanner = async () => {
+    try {
+      const res = await communityApi.getBanner('EXPLORE_PAGE');
+      if (res.data) setBanner(res.data);
+    } catch (err) {
+      console.error('Error loading banner:', err);
+    }
+  };
+
+  const transformVenuePost = (vp) => ({
+    post_id: vp.post_id,
+    post_type: 'EVENTS',
+    title: vp.title,
+    content: vp.content || vp.excerpt || '',
+    excerpt: vp.excerpt,
+    sport_type: vp.venue?.sport_type || 'Cầu lông',
+    skill_level: 'ALL',
+    status: 'OPEN',
+    image_url: vp.cover_image_url || vp.cover_image?.medium_url || vp.cover_image?.image_url,
+    created_at: vp.publish_at || vp.created_at,
+    play_date: vp.start_at ? new Date(vp.start_at).toLocaleDateString('vi-VN') : 'Sự kiện đang diễn ra',
+    start_time: vp.start_at ? new Date(vp.start_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : null,
+    end_time: vp.end_at ? new Date(vp.end_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : null,
+    location_name: vp.location || vp.venue?.venue_name || 'Sân thể thao',
+    venue: vp.venue ? { venue_id: vp.venue.venue_id, venue_name: vp.venue.venue_name } : null,
+    author: {
+      full_name: vp.venue?.venue_name || 'Ban Quản Lý Sân',
+      avatar_url: vp.venue?.avatar || null,
+    },
+    price_per_slot: vp.fee_amount || 0,
+    contact_phone: vp.contact_hotline || vp.venue?.contact_phone,
+    is_venue_event: true,
+    promo_code: vp.promo_code,
+    discount_info: vp.discount_info,
+    registration_url: vp.registration_url
+  });
+
+  const fetchPosts = async () => {
+    setLoading(true);
+    try {
+      let combinedPosts = [];
+
+      // 1. Fetch Venue Owner Events / Posts if activeTab is EVENTS or ALL
+      let venueEventsList = [];
+      if (activeTab === 'EVENTS' || activeTab === 'ALL') {
+        try {
+          const resVenueEvents = await getPublicFeaturedEvents({ limit: 50 });
+          const rawVenueEvents = Array.isArray(resVenueEvents) ? resVenueEvents : (resVenueEvents?.data || []);
+          venueEventsList = rawVenueEvents.map(transformVenuePost);
+        } catch (errEvents) {
+          console.error('Error loading venue events:', errEvents);
+        }
+      }
+
+      // 2. Fetch Community Posts if activeTab is not strictly EVENTS
+      if (activeTab !== 'EVENTS') {
+        const params = {
+          post_type: activeTab,
+          sport_type: selectedSport,
+          search: searchTerm,
+        };
+        const resComm = await communityApi.getPosts(params);
+        const commPosts = resComm.data?.posts || [];
+
+        if (activeTab === 'ALL') {
+          // Merge venue events at top of ALL feed
+          combinedPosts = [...venueEventsList, ...commPosts];
+        } else {
+          combinedPosts = commPosts;
+        }
+      } else {
+        // Tab is strictly EVENTS
+        combinedPosts = venueEventsList;
+      }
+
+      // Filter by selectedSport if specified and not ALL
+      if (selectedSport && selectedSport !== 'ALL') {
+        combinedPosts = combinedPosts.filter(p => p.sport_type === selectedSport || p.sport_type === 'ALL' || !p.sport_type);
+      }
+
+      // Filter by searchTerm if specified
+      if (searchTerm && searchTerm.trim()) {
+        const kw = searchTerm.toLowerCase().trim();
+        combinedPosts = combinedPosts.filter(p => 
+          (p.title && p.title.toLowerCase().includes(kw)) ||
+          (p.content && p.content.toLowerCase().includes(kw)) ||
+          (p.location_name && p.location_name.toLowerCase().includes(kw)) ||
+          (p.author?.full_name && p.author.full_name.toLowerCase().includes(kw))
+        );
+      }
+
+      setPosts(combinedPosts);
+      setTotalCount(combinedPosts.length);
+    } catch (err) {
+      console.error('Error loading posts:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    fetchPosts();
+  };
+
+  const handleOpenCreateModal = () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    setIsCreateOpen(true);
+  };
+
+  const handleApplyClick = (post) => {
+    if (post.is_venue_event) {
+      setSelectedVenueEventModal(post);
+      return;
+    }
+
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    setSelectedPostToApply(post);
+  };
+
+  const bannerTitle = banner?.title || 'Khám Phá & Kết Nối Thể Thao';
+  const bannerSubtitle = banner?.subtitle || 'SportHub Community Discovery Hub';
+  const bannerDesc = banner?.description || 'Tìm chân vãng lai ghép đội, nhượng lại vé pass sân nhanh chóng hoặc cáp kèo giao lưu đỉnh cao cùng hàng ngàn thể thao thủ tại địa phương.';
+  const bannerBtnText = banner?.button_text || 'Đăng bài mới ngay';
+  const bannerBgImage = banner?.image_url;
+
+  return (
+    <div className="min-h-screen bg-slate-60/60 pb-16">
+      {/* Hero Banner Header */}
+      <div 
+        className="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 text-white py-16 px-32 shadow-inner relative overflow-hidden bg-cover bg-center transition-all duration-500"
+        style={bannerBgImage ? { backgroundImage: `linear-gradient(to right, rgba(21, 54, 47, 0.75) 0%, rgba(31, 110, 105, 0.35) 60%, rgba(6, 78, 59, 0.2) 100%), url(${bannerBgImage})` } : {}}
+      >
+        <div className="absolute -right-10 -bottom-10 w-80 h-80 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
+          <div className="text-center md:text-left space-y-2">
+            <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white/10 text-emerald-200 text-xs font-semibold backdrop-blur-md border border-white/10 mb-2">
+              <Sparkles className="w-4 h-4 text-emerald-300" />
+              <span>{bannerSubtitle}</span>
+            </div>
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
+              {bannerTitle}
+            </h1>
+            <p className="text-emerald-100 text-sm max-w-2xl leading-relaxed">
+              {bannerDesc}
+            </p>
+          </div>
+
+          <button
+            onClick={handleOpenCreateModal}
+            className="px-6 py-3.5 bg-brand-orange hover:bg-orange-400 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center space-x-2 shrink-0"
+          >
+            <Plus className="w-5 h-5 stroke-[2.5]" />
+            <span>{bannerBtnText}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Container */}
+      <div className="max-w-7xl mx-auto px-4 mt-6">
+        {/* Search & Sport Filters Bar */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-6 flex flex-col lg:flex-row items-center justify-between gap-4">
+          {/* Search Form */}
+          <form onSubmit={handleSearchSubmit} className="w-full lg:w-96 relative">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Tìm theo tiêu đề, tên sân, khu vực..."
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all"
+            />
+            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3" />
+          </form>
+
+          {/* Sport Selector Pills */}
+          <div className="flex items-center space-x-2 overflow-x-auto w-full lg:w-auto pb-2 lg:pb-0 scrollbar-none">
+            <span className="text-xs font-semibold text-gray-500 flex items-center mr-1 shrink-0">
+              <Filter className="w-3.5 h-3.5 mr-1" /> Môn:
+            </span>
+            {SPORT_OPTIONS.map((sport) => (
+              <button
+                key={sport}
+                onClick={() => setSelectedSport(sport)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+                  selectedSport === sport
+                    ? 'bg-brand-orange text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {sport === 'ALL' ? 'Tất cả môn' : sport}
+              </button>
+            ))}
+
+            <button
+              onClick={fetchPosts}
+              className="p-2 rounded-xl bg-gray-100 text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 transition-colors shrink-0 ml-2"
+              title="Làm mới"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+          </div>
+        </div>
+
+        {/* Category Tabs */}
+        <div className="flex items-center space-x-2 overflow-x-auto pb-3 mb-6 scrollbar-none border-b border-gray-200/80">
+          {FILTER_TABS.map((tab) => {
+            const isActive = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all shrink-0 flex items-center space-x-2 ${
+                  isActive
+                    ? 'bg-white text-emerald-700 shadow-sm border border-emerald-200 ring-2 ring-emerald-500/10'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-white/60'
+                }`}
+              >
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Content Layout: 70% Feed + 30% Sidebar */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Main Feed Column (70%) */}
+          <div className="lg:col-span-2 space-y-4">
+            {loading ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 animate-pulse space-y-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gray-200 rounded-full"></div>
+                      <div className="space-y-2 flex-1">
+                        <div className="h-4 bg-gray-200 rounded w-1/3"></div>
+                        <div className="h-3 bg-gray-200 rounded w-1/4"></div>
+                      </div>
+                    </div>
+                    <div className="h-5 bg-gray-200 rounded w-3/4"></div>
+                    <div className="h-16 bg-gray-100 rounded-xl"></div>
+                  </div>
+                ))}
+              </div>
+            ) : posts.length === 0 ? (
+              <div className="bg-white rounded-3xl p-12 text-center shadow-sm border border-gray-100 space-y-4">
+                <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+                  <Sparkles className="w-8 h-8" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">Chưa có bài đăng phù hợp</h3>
+                <p className="text-xs text-gray-500 max-w-md mx-auto">
+                  Hiện chưa có bài đăng nào trong phân mục này. Hãy trở thành người đầu tiên đăng bài để tìm đối thủ hoặc nhượng vé nhé!
+                </p>
+                <button
+                  onClick={handleOpenCreateModal}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow transition-all"
+                >
+                  Tạo bài đăng ngay
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center px-1 text-xs text-gray-500">
+                  <span>Hiển thị <strong>{posts.length}</strong> bài đăng</span>
+                  <span>Sắp xếp: Mới nhất</span>
+                </div>
+                {posts.map((post) => (
+                  <PostCard
+                    key={post.post_id}
+                    post={post}
+                    onApply={handleApplyClick}
+                    currentUserId={currentUser?.user_id}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Sidebar Right Column (30%) */}
+          <div className="space-y-6">
+            {/* Quick Stats Widget */}
+            <div className="bg-gradient-to-br from-emerald-800 to-teal-900 text-white rounded-3xl p-6 shadow-md relative overflow-hidden">
+              <div className="flex items-center space-x-2 text-emerald-300 text-xs font-semibold mb-3">
+                <TrendingUp className="w-4 h-4" />
+                <span>Thống kê cộng đồng</span>
+              </div>
+              <h4 className="text-xl font-extrabold mb-4">Sôi động hôm nay</h4>
+
+              <div className="grid grid-cols-2 gap-3 text-center">
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/10">
+                  <span className="text-2xl font-black text-brand-orange">{totalCount || 42}</span>
+                  <span className="text-[11px] text-emerald-100 block mt-0.5">Kèo đang mở</span>
+                </div>
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-3 border border-white/10">
+                  <span className="text-2xl font-black text-emerald-300">100%</span>
+                  <span className="text-[11px] text-emerald-100 block mt-0.5">Vé Pass xác thực</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Safe Transaction Guideline Widget */}
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 space-y-3">
+              <div className="flex items-center space-x-2 text-amber-600 font-bold text-sm">
+                <ShieldCheck className="w-5 h-5" />
+                <span>Mẹo giao dịch & An toàn</span>
+              </div>
+              <ul className="text-xs text-gray-600 space-y-2 leading-relaxed">
+                <li className="flex items-start space-x-2">
+                  <span className="text-amber-500 font-bold">•</span>
+                  <span>Ưu tiên mua vé Pass sân có nhãn <strong>"Vé đặt xác thực"</strong> được kiểm duyệt bởi SportHub.</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="text-amber-500 font-bold">•</span>
+                  <span>Liên hệ trực tiếp với chủ sân hoặc trao đổi rõ ràng qua SĐT/Zalo trước khi chuyển cọc.</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="text-amber-500 font-bold">•</span>
+                  <span>Không chuyển khoản 100% số tiền cho các bài viết không rõ nguồn gốc.</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Community Guidelines Widget */}
+            <div className="bg-slate-100/70 rounded-3xl p-5 border border-slate-200 text-xs text-gray-500 space-y-2">
+              <div className="flex items-center space-x-1.5 font-bold text-gray-700">
+                <Info className="w-4 h-4 text-emerald-600" />
+                <span>Nội quy Khám phá</span>
+              </div>
+              <p>Vui lòng cư xử văn minh, tôn trọng đối thủ và tuân thủ đúng giờ chơi sau khi đã đăng ký tham gia slot.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Create Post Modal */}
+      <CreatePostModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        onSuccess={() => {
+          fetchPosts();
+        }}
+      />
+
+      {/* Apply / Join Modal */}
+      <ApplyPostModal
+        isOpen={!!selectedPostToApply}
+        onClose={() => setSelectedPostToApply(null)}
+        post={selectedPostToApply}
+        onSuccess={() => {
+          fetchPosts();
+        }}
+      />
+
+      {/* Venue Event Detail Lightbox Modal */}
+      {selectedVenueEventModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 space-y-4 shadow-2xl relative border border-gray-100 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setSelectedVenueEventModal(null)}
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-900 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold bg-brand-orange/15 text-brand-orange px-3 py-1 rounded-full border border-brand-orange/30">
+                📢 SỰ KIỆN TỪ CHỦ SÂN
+              </span>
+              <span className="text-xs font-semibold text-gray-500">
+                {selectedVenueEventModal.author?.full_name}
+              </span>
+            </div>
+
+            <h2 className="text-xl font-extrabold text-gray-900 leading-tight">
+              {selectedVenueEventModal.title}
+            </h2>
+
+            {selectedVenueEventModal.image_url && (
+              <img
+                src={selectedVenueEventModal.image_url}
+                alt={selectedVenueEventModal.title}
+                className="w-full h-56 object-cover rounded-2xl border border-gray-100"
+              />
+            )}
+
+            {(selectedVenueEventModal.promo_code || selectedVenueEventModal.discount_info) && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 font-semibold flex items-center justify-between">
+                <span>🎁 {selectedVenueEventModal.discount_info || 'Ưu đãi khuyến mãi sân'}</span>
+                {selectedVenueEventModal.promo_code && (
+                  <span className="bg-amber-200 px-2.5 py-1 rounded-lg font-mono font-extrabold text-amber-950">
+                    MÃ: {selectedVenueEventModal.promo_code}
+                  </span>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-2 text-xs text-gray-700 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="font-semibold">{selectedVenueEventModal.location_name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-brand-orange shrink-0" />
+                <span>{selectedVenueEventModal.play_date}</span>
+              </div>
+              {selectedVenueEventModal.contact_phone && (
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>Hotline đặt sân/tư vấn: <strong className="text-blue-700 font-mono text-sm">{selectedVenueEventModal.contact_phone}</strong></span>
+                </div>
+              )}
+            </div>
+
+            {/* Rich Content HTML */}
+            <div
+              className="text-xs text-gray-800 leading-relaxed prose max-w-none border-t pt-3"
+              dangerouslySetInnerHTML={{ __html: selectedVenueEventModal.content || selectedVenueEventModal.excerpt || 'Chưa có nội dung mô tả chi tiết.' }}
+            />
+
+            <div className="pt-3 border-t flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setSelectedVenueEventModal(null)}
+                className="px-4 py-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                Đóng
+              </button>
+
+              {selectedVenueEventModal.venue?.venue_id && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const vId = selectedVenueEventModal.venue.venue_id;
+                    setSelectedVenueEventModal(null);
+                    navigate(`/venues/${vId}`);
+                  }}
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-1.5"
+                >
+                  <span>Đặt sân tại {selectedVenueEventModal.venue.venue_name} ngay</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

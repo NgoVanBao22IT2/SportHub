@@ -49,12 +49,12 @@ module.exports = (sequelize, DataTypes) => {
     received_at: {
       type: DataTypes.DATE,
       allowNull: false,
-      defaultValue: sequelize.literal('CURRENT_TIMESTAMP')
+      defaultValue: DataTypes.NOW
     }
   }, {
     tableName: 'payment_ipn_logs',
     underscored: true,
-    timestamps: false // only received_at is used
+    timestamps: false
   });
 
   PaymentIpnLog.associate = function(models) {

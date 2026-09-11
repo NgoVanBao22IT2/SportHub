@@ -21,7 +21,7 @@ class VenueService {
   }
 
   async getVenuesByOwner(ownerUserId, models) {
-    return models.Venue.findAll({
+    const venues = await models.Venue.findAll({
       where: { owner_user_id: ownerUserId },
       include: [
         {
@@ -41,13 +41,35 @@ class VenueService {
       ],
       order: [['created_at', 'DESC']]
     });
+
+    venues.forEach(v => {
+      if (v.branches) {
+        v.branches.forEach(b => {
+          if (b.courts && Array.isArray(b.courts)) {
+            b.courts.sort((a, b) => (a.court_name || '').localeCompare(b.court_name || '', undefined, { numeric: true, sensitivity: 'base' }));
+          }
+        });
+      }
+    });
+
+    return venues;
   }
 
   async getVenueByIdForOwner(ownerUserId, venueId, models) {
     const venue = await models.Venue.findOne({
       where: { venue_id: venueId, owner_user_id: ownerUserId },
       include: [
-        { model: models.Facility, as: 'facilities' }
+        { model: models.Facility, as: 'facilities' },
+        {
+          model: models.Branch,
+          as: 'branches',
+          include: [
+            {
+              model: models.Court,
+              as: 'courts'
+            }
+          ]
+        }
       ]
     });
 
@@ -57,6 +79,15 @@ class VenueService {
       error.code = 'NOT_FOUND';
       throw error;
     }
+
+    if (venue.branches) {
+      venue.branches.forEach(b => {
+        if (b.courts && Array.isArray(b.courts)) {
+          b.courts.sort((a, b) => (a.court_name || '').localeCompare(b.court_name || '', undefined, { numeric: true, sensitivity: 'base' }));
+        }
+      });
+    }
+
     return venue;
   }
 

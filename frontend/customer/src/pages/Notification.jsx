@@ -222,10 +222,10 @@ export default function Notification() {
               {[
                 { id: 'ALL', label: 'Tất cả' },
                 { id: 'UNREAD', label: `Chưa đọc ${unreadCount > 0 ? `(${unreadCount})` : ''}` },
-                { id: 'BOOKING', label: 'Đặt sân' },
-                { id: 'REVIEW', label: 'Đánh giá' },
-                { id: 'PAYMENT', label: 'Thanh toán' },
-                { id: 'SYSTEM', label: 'Sự kiện & Hệ thống' }
+                // { id: 'BOOKING', label: 'Đặt sân' },
+                // { id: 'REVIEW', label: 'Đánh giá' },
+                // { id: 'PAYMENT', label: 'Thanh toán' },
+                // { id: 'SYSTEM', label: 'Sự kiện & Hệ thống' }
               ].map((tab) => (
                 <button
                   key={tab.id}

@@ -7,7 +7,6 @@ const {
   RefundTransaction,
   BookingStatusHistory
 } = require('../models');
-const MoMoUtils = require('../utils/momo');
 const { Op } = require('sequelize');
 
 class PaymentService {
@@ -133,6 +132,21 @@ class PaymentService {
         changed_by_user_id: userId,
         change_reason: `Payment Intent Created (${methodUpper})`
       }, { transaction });
+
+      // Notify customer on payment creation
+      try {
+        const NotificationService = require('./notification.service');
+        await NotificationService.createNotification({
+          recipientUserId: userId,
+          type: 'PAYMENT_INITIATED',
+          title: 'Khởi tạo thanh toán 💳',
+          message: `Giao dịch thanh toán ${Number(serverAmount).toLocaleString('vi-VN')}đ (${methodUpper}) cho đơn đặt sân #${bookingId.substring(0, 8)} đã được khởi tạo thành công.`,
+          entityType: 'BOOKING',
+          entityId: bookingId
+        }, transaction);
+      } catch (e) {
+        console.error('Failed to notify customer on payment creation:', e.message);
+      }
 
       await transaction.commit();
       return payment;
@@ -272,6 +286,23 @@ class PaymentService {
           changed_by_user_id: null,
           change_reason: `IPN Callback - ${isSuccess ? 'Payment Success, Waiting Owner Confirmation' : 'Payment Failed'}`
         }, { transaction });
+
+        // Notify customer on IPN Payment outcome
+        try {
+          const NotificationService = require('./notification.service');
+          await NotificationService.createNotification({
+            recipientUserId: payment.user_id,
+            type: isSuccess ? 'PAYMENT_SUCCESS' : 'PAYMENT_FAILED',
+            title: isSuccess ? 'Thanh toán thành công 💳' : 'Thanh toán thất bại ❌',
+            message: isSuccess
+              ? `Thanh toán thành công ${Number(payment.amount).toLocaleString('vi-VN')}đ cho đơn #${booking.booking_id.substring(0, 8)}. Vui lòng chờ chủ sân xác nhận.`
+              : `Giao dịch thanh toán cho đơn #${booking.booking_id.substring(0, 8)} không thành công. Lý do: ${message || 'Thanh toán thất bại.'}`,
+            entityType: 'BOOKING',
+            entityId: booking.booking_id
+          }, transaction);
+        } catch (e) {
+          console.error('Failed to notify customer on IPN payment outcome:', e.message);
+        }
       }
 
       // 6. Log IPN
@@ -500,6 +531,20 @@ class PaymentService {
     if (payment) {
       payment.payment_status = 'PENDING';
       await payment.save();
+    }
+
+    try {
+      const NotificationService = require('./notification.service');
+      await NotificationService.createNotification({
+        recipientUserId: booking.user_id,
+        type: 'PAYMENT_SUBMITTED',
+        title: 'Đã gửi xác nhận thanh toán 💳',
+        message: `Ảnh chuyển khoản cho đơn đặt sân #${booking.booking_id.substring(0, 8)} đã được tải lên thành công. Vui lòng chờ chủ sân kiểm tra và xác nhận.`,
+        entityType: 'BOOKING',
+        entityId: booking.booking_id
+      });
+    } catch (e) {
+      console.error('Failed to notify customer on proof upload:', e.message);
     }
 
     return { payment, booking };

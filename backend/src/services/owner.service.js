@@ -805,15 +805,26 @@ class OwnerService {
       change_reason: 'Owner Approved Booking'
     });
 
-    // Notify Customer about Booking Confirmation
+    // Notify Customer about Booking Confirmation & Payment Success
     try {
       const NotificationService = require('./notification.service');
       const venueName = booking.court?.branch?.venue?.venue_name || 'Sân thể thao';
+      const customerId = booking.customer_user_id || booking.user_id;
+
       await NotificationService.createNotification({
-        recipientUserId: booking.customer_user_id,
+        recipientUserId: customerId,
         type: 'BOOKING_CONFIRMED',
         title: 'Đặt sân thành công',
         message: `Đơn đặt sân #${booking.booking_id.substring(0, 8)} (${booking.court?.court_name || 'Sân'}) tại ${venueName} đã được chủ sân xác nhận thành công. Giờ chơi: ${String(booking.start_time).substring(0, 5)} - ${String(booking.end_time).substring(0, 5)} ngày ${booking.booking_date}.`,
+        entityType: 'BOOKING',
+        entityId: booking.booking_id
+      });
+
+      await NotificationService.createNotification({
+        recipientUserId: customerId,
+        type: 'PAYMENT_SUCCESS',
+        title: 'Thanh toán thành công 💳',
+        message: `Thanh toán cho đơn đặt sân #${booking.booking_id.substring(0, 8)} tại ${venueName} đã thành công sau khi chủ sân xác nhận.`,
         entityType: 'BOOKING',
         entityId: booking.booking_id
       });
@@ -1689,6 +1700,21 @@ class OwnerService {
         changed_by_user_id: ownerId,
         change_reason: 'Owner Approved Payment Transaction'
       }, { transaction });
+
+      // Notify customer on payment approval
+      try {
+        const NotificationService = require('./notification.service');
+        await NotificationService.createNotification({
+          recipientUserId: booking.user_id,
+          type: 'PAYMENT_SUCCESS',
+          title: 'Thanh toán đã được phê duyệt 💳',
+          message: `Chủ sân đã xác nhận thanh toán ${Number(payment.amount).toLocaleString('vi-VN')}đ cho đơn đặt sân #${booking.booking_id.substring(0, 8)}. Lịch đặt sân của bạn đã được xác nhận thành công!`,
+          entityType: 'BOOKING',
+          entityId: booking.booking_id
+        }, transaction);
+      } catch (e) {
+        console.error('Failed to notify customer on payment approval:', e.message);
+      }
 
       await transaction.commit();
       return payment;

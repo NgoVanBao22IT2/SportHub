@@ -16,6 +16,20 @@ import {
 import { getImageUrl } from '../../../utils/imageUrl';
 
 const POST_TYPE_CONFIG = {
+  EVENTS: {
+    label: 'Sự kiện & Ưu đãi sân',
+    badgeBg: 'bg-orange-100 text-orange-800 border-orange-300',
+    icon: Sparkles,
+    actionText: 'Xem chi tiết sự kiện',
+    color: 'orange'
+  },
+  PROMOTION: {
+    label: 'Chương trình Ưu đãi',
+    badgeBg: 'bg-red-100 text-red-800 border-red-300',
+    icon: Sparkles,
+    actionText: 'Xem thông tin ưu đãi',
+    color: 'red'
+  },
   RECRUIT: {
     label: 'Tuyển vãng lai',
     badgeBg: 'bg-emerald-100 text-emerald-800 border-emerald-300',
@@ -74,6 +88,11 @@ const getPostImage = (post) => {
   return DEFAULT_SPORT_IMAGES[post.sport_type] || 'https://images.unsplash.com/photo-1517649763962-0c623266ddc0?w=800&auto=format&fit=crop&q=80';
 };
 
+const stripHtml = (html) => {
+  if (!html) return '';
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+};
+
 export default function PostCard({ post, onApply, currentUserId }) {
   const config = POST_TYPE_CONFIG[post.post_type] || POST_TYPE_CONFIG.RECRUIT;
   const TypeIcon = config.icon;
@@ -88,6 +107,7 @@ export default function PostCard({ post, onApply, currentUserId }) {
   };
 
   const cardImage = getPostImage(post);
+  const cleanContentText = stripHtml(post.content || post.excerpt);
 
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-gray-100 hover:shadow-lg transition-all p-5 flex flex-col justify-between overflow-hidden group">
@@ -136,7 +156,14 @@ export default function PostCard({ post, onApply, currentUserId }) {
               )}
             </div>
             <div>
-              <span className="font-semibold text-gray-900 text-sm block leading-tight">{post.author?.full_name || 'Thành viên SportHub'}</span>
+              <span className="font-semibold text-gray-900 text-sm flex items-center gap-1.5 leading-tight">
+                {post.author?.full_name || 'Thành viên SportHub'}
+                {post.is_venue_event && (
+                  <span className="text-[10px] font-extrabold bg-brand-orange/15 text-brand-orange border border-brand-orange/30 px-2 py-0.5 rounded-full">
+                    🏢 CHỦ SÂN
+                  </span>
+                )}
+              </span>
               <span className="text-[11px] text-gray-400">
                 {new Date(post.created_at || Date.now()).toLocaleDateString('vi-VN', {
                   hour: '2-digit',
@@ -153,6 +180,14 @@ export default function PostCard({ post, onApply, currentUserId }) {
         <h3 className="font-bold text-lg text-gray-900 mb-2 hover:text-emerald-600 transition-colors">
           {post.title}
         </h3>
+
+        {/* PROMO / DISCOUNT BADGE FOR VENUE EVENTS */}
+        {post.is_venue_event && (post.promo_code || post.discount_info) && (
+          <div className="my-2 p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-900 font-semibold flex items-center justify-between shadow-xs">
+            <span>🎁 {post.discount_info || 'Ưu đãi đặc biệt từ sân'}</span>
+            {post.promo_code && <span className="bg-amber-200 px-2 py-0.5 rounded-lg font-mono font-extrabold text-amber-900">Mã: {post.promo_code}</span>}
+          </div>
+        )}
 
         {/* Details Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 my-3 text-sm text-gray-600 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
@@ -185,9 +220,9 @@ export default function PostCard({ post, onApply, currentUserId }) {
         </div>
 
         {/* Content / Note */}
-        {post.content && (
+        {cleanContentText && (
           <p className="text-gray-600 text-sm mb-4 line-clamp-2 leading-relaxed italic">
-            "{post.content}"
+            "{cleanContentText}"
           </p>
         )}
 
