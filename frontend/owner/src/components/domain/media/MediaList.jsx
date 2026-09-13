@@ -5,6 +5,32 @@ import Button from '../../ui/Button';
 
 import { getImageUrl } from '../../../utils/imageUrl';
 
+const fixVietnameseText = (str) => {
+  if (!str) return '';
+  let s = String(str);
+  s = s
+    .replace(/\u00CC\u2030/g, '\u0309')
+    .replace(/\u00CC\u20AC/g, '\u0300')
+    .replace(/\u00CC\u0080/g, '\u0300')
+    .replace(/\u00CC\u0301/g, '\u0301')
+    .replace(/\u00CC\u0081/g, '\u0301')
+    .replace(/\u00C3\u00AA/g, 'ê')
+    .replace(/\u00C3\u00B4/g, 'ô')
+    .replace(/\u00C3\u00A2/g, 'â')
+    .replace(/\u00C4\u0091/g, 'đ')
+    .replace(/AÌ[‰€\s]?nh|AÌ‰nh|AÌ€nh|AÌ nh/gi, 'Ảnh')
+    .replace(/biÌ[€\s]?a|biÌ€a|biÌ a/gi, 'bìa')
+    .replace(/sẠen|sẠân/gi, 'sân')
+    .replace(/Khẩng|Khảng|Khả'ng|Khẩ'ng/gi, 'Không')
+    .replace(/SÆ["”]?ĨE|SÆ["”]?IE|SÆ"ĨE/gi, 'Sự')
+    .replace(/kỉẢỉen|kỉẢen|kiẢen/gi, 'kiện')
+    .replace(/giại|giả'i/gi, 'giải');
+  try {
+    s = s.normalize('NFC');
+  } catch (e) {}
+  return s.trim();
+};
+
 export default function MediaList({
   items = [],
   selectedIds = [],
@@ -113,10 +139,7 @@ export default function MediaList({
                       </div>
                       <div className="min-w-0">
                         <div className="font-bold text-gray-900 truncate group-hover:text-accent-primary transition">
-                          {(item.title || 'Ảnh chưa đặt tên')
-                            .replace(/AÌ[\s\S]?nh|AÌ‰nh/g, 'Ảnh')
-                            .replace(/biÌ[\s\S]?a|biÌ€a/g, 'bìa')
-                            .normalize('NFC')}
+                          {fixVietnameseText(item.title || 'Ảnh chưa đặt tên')}
                         </div>
                         <div className="text-[11px] text-text-muted truncate max-w-[240px]">
                           {item.caption || item.alt_text || item.image_url}

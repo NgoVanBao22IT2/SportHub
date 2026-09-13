@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { 
   Users, 
   Ticket, 
@@ -11,9 +12,13 @@ import {
   Phone, 
   MessageCircle, 
   Sparkles,
-  DollarSign
+  DollarSign,
+  Pencil,
+  Trash2,
+  X
 } from 'lucide-react';
 import { getImageUrl } from '../../../utils/imageUrl';
+import communityApi from '../../../api/communityApi';
 
 const POST_TYPE_CONFIG = {
   EVENTS: {
@@ -48,7 +53,7 @@ const POST_TYPE_CONFIG = {
     label: 'Tìm slot vãng lai',
     badgeBg: 'bg-blue-100 text-blue-800 border-blue-300',
     icon: UserCheck,
-    actionText: 'Mời vào nhóm',
+    actionText: 'Tham gia',
     color: 'blue'
   },
   CHALLENGE: {
@@ -93,7 +98,10 @@ const stripHtml = (html) => {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
 };
 
-export default function PostCard({ post, onApply, currentUserId }) {
+export default function PostCard({ post, onApply, onEdit, onDelete, currentUserId }) {
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [showApplicantsModal, setShowApplicantsModal] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
   const config = POST_TYPE_CONFIG[post.post_type] || POST_TYPE_CONFIG.RECRUIT;
   const TypeIcon = config.icon;
 
@@ -102,7 +110,7 @@ export default function PostCard({ post, onApply, currentUserId }) {
   const isClosed = post.status === 'CLOSED' || post.status === 'CANCELLED';
 
   const formatPrice = (val) => {
-    if (!val || parseFloat(val) === 0) return 'Miễn phí / Chia đều';
+    if (!val || parseFloat(val) === 0) return 'Chia đều';
     return `${parseInt(val).toLocaleString('vi-VN')}đ`;
   };
 
@@ -113,7 +121,7 @@ export default function PostCard({ post, onApply, currentUserId }) {
     <div className="bg-white rounded-3xl shadow-sm border border-gray-100 hover:shadow-lg transition-all p-5 flex flex-col justify-between overflow-hidden group">
       <div>
         {/* Cover Image Banner */}
-        <div className="relative w-full h-48 sm:h-52 rounded-2xl overflow-hidden mb-4 bg-slate-100 border border-gray-100">
+        <div className="relative w-full h-48 sm:h-72 rounded-2xl overflow-hidden mb-4 bg-slate-100 border border-gray-100">
           <img
             src={cardImage}
             alt={post.title}
@@ -227,7 +235,7 @@ export default function PostCard({ post, onApply, currentUserId }) {
         )}
 
         {/* Slot Progress Bar (for RECRUIT or PASS_BOOKING) */}
-        {post.post_type !== 'FIND_SLOT' && (
+        {/* {post.post_type !== 'FIND_SLOT' && (
           <div className="mb-4">
             <div className="flex justify-between text-xs text-gray-500 font-medium mb-1">
               <span>Thành viên tham gia</span>
@@ -240,7 +248,7 @@ export default function PostCard({ post, onApply, currentUserId }) {
               ></div>
             </div>
           </div>
-        )}
+        )} */}
       </div>
 
       {/* Footer / Price & Action */}
@@ -266,20 +274,56 @@ export default function PostCard({ post, onApply, currentUserId }) {
         </div>
 
         <div className="flex items-center space-x-2">
-          {post.contact_phone && (
-            <a
-              href={`tel:${post.contact_phone}`}
-              className="p-2.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
-              title="Gọi điện"
+          <button
+            type="button"
+            onClick={() => setShowContactModal(true)}
+            className="p-2.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors border border-emerald-200/60"
+            title="Xem thông tin liên hệ"
+          >
+            <Phone className="w-4 h-4" />
+          </button>
+
+          {post.applications && post.applications.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowApplicantsModal(true)}
+              className="relative p-2.5 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors border border-amber-200/80 flex items-center gap-1.5"
+              title="Danh sách người đăng ký tham gia"
             >
-              <Phone className="w-4 h-4" />
-            </a>
+              <UserCheck className="w-4 h-4 text-amber-600" />
+              <span className="text-xs font-extrabold text-amber-800">
+                {post.applications.length}
+              </span>
+              {post.applications.some(a => a.status === 'PENDING') && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-ping" />
+              )}
+              {post.applications.some(a => a.status === 'PENDING') && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full" />
+              )}
+            </button>
           )}
 
           {isAuthor ? (
-            <span className="px-4 py-2 bg-gray-100 text-gray-500 text-xs font-semibold rounded-xl">
-              Bài của bạn
-            </span>
+            <div className="flex items-center space-x-1.5">
+              {onEdit && (
+                <button
+                  onClick={() => onEdit(post)}
+                  className="px-3 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold rounded-xl transition-colors flex items-center gap-1 border border-blue-200"
+                  title="Chỉnh sửa bài đăng"
+                >
+                  <Pencil className="w-3.5 h-3.5" /> 
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={() => onDelete(post)}
+                  className="px-3 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-bold rounded-xl transition-colors flex items-center gap-1 border border-rose-200"
+                  title="Xóa bài đăng"
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> 
+                </button>
+              )}
+            </div>
           ) : isClosed || isFull ? (
             <span className="px-4 py-2 bg-gray-100 text-gray-400 text-xs font-semibold rounded-xl">
               {isFull ? 'Đã đủ slot' : 'Đã đóng'}
@@ -294,6 +338,230 @@ export default function PostCard({ post, onApply, currentUserId }) {
           )}
         </div>
       </div>
+
+      {/* Contact Information Card Modal */}
+      {showContactModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:p-6 pt-16 sm:pt-20 bg-black/60 backdrop-blur-xs animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative border border-gray-100 space-y-3.5 text-left max-h-[78vh] sm:max-h-[82vh] overflow-y-auto mb-8">
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setShowContactModal(false)}
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-900 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-2 text-emerald-700 font-bold text-base">
+              <Phone className="w-5 h-5 text-emerald-600" />
+              <span>Thông tin liên hệ</span>
+            </div>
+
+            {/* Post Image */}
+            <div className="w-full h-36 sm:h-44 rounded-2xl overflow-hidden bg-gray-100 border border-gray-100">
+              <img
+                src={cardImage}
+                alt={post.title}
+                className="w-full h-full object-cover"
+              />
+            </div>
+
+            {/* Post Title */}
+            {/* <h4 className="font-bold text-base text-gray-900 line-clamp-2 leading-snug">
+              {post.title}
+            </h4> */}
+
+            {/* Author Name */}
+            <div className="flex items-center space-x-2.5 p-3.5 bg-slate-50 rounded-2xl border border-slate-100">
+              <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-base overflow-hidden shrink-0 border border-emerald-200">
+                {post.author?.avatar_url ? (
+                  <img src={getImageUrl(post.author.avatar_url)} alt="avatar" className="w-full h-full object-cover" />
+                ) : (
+                  post.author?.full_name?.charAt(0) || 'U'
+                )}
+              </div>
+              <div>
+                {/* <span className="text-[11px] text-gray-400 font-medium block">Tác giả bài đăng:</span> */}
+                <span className="font-bold text-gray-900 text-sm">
+                  {post.author?.full_name || 'Thành viên SportHub'}
+                </span>
+              </div>
+            </div>
+
+            {/* Contact Information (Phone & Zalo) */}
+            <div className="space-y-2.5 pt-1">
+              {/* Phone Number */}
+              <div className="flex items-center justify-between p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-2xl">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-xs">
+                    <Phone className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-emerald-800 font-medium block">Số điện thoại:</span>
+                    <span className="text-sm font-extrabold text-emerald-950 font-mono tracking-wide">
+                      {post.contact_phone || 'Chưa cập nhật'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Zalo Number */}
+              <div className="flex items-center justify-between p-3.5 bg-blue-50/70 border border-blue-200 rounded-2xl">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 bg-blue-600 text-white rounded-xl font-extrabold text-xs shadow-xs">
+                    Zalo
+                  </div>
+                  <div>
+                    <span className="text-[11px] text-blue-800 font-medium block">Số Zalo:</span>
+                    <span className="text-sm font-extrabold text-blue-950 font-mono tracking-wide">
+                      {post.contact_zalo || post.contact_phone || 'Chưa cập nhật'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Close Action */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowContactModal(false)}
+                className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Applicants List Modal */}
+      {showApplicantsModal && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:p-6 pt-16 sm:pt-20 bg-black/60 backdrop-blur-xs animate-fade-in overflow-y-auto">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl relative border border-gray-100 space-y-4 text-left max-h-[78vh] sm:max-h-[82vh] overflow-y-auto mb-8">
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setShowApplicantsModal(false)}
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-900 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center space-x-2 text-emerald-700 font-bold text-base">
+              <UserCheck className="w-5 h-5 text-emerald-600" />
+              <span>Danh sách người đăng ký ({post.applications?.length || 0})</span>
+            </div>
+
+            {/* <p className="text-xs text-gray-500">
+              Dưới đây là danh sách thành viên đã đăng ký tham gia bài viết <strong>"{post.title}"</strong>.
+            </p> */}
+
+            {/* Applications List */}
+            <div className="space-y-3">
+              {post.applications && post.applications.length > 0 ? (
+                post.applications.map((app) => (
+                  <div key={app.application_id} className="p-3.5 bg-slate-50 border border-slate-100 rounded-2xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2.5">
+                        <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs overflow-hidden shrink-0">
+                          {app.applicant?.full_name?.charAt(0) || 'U'}
+                        </div>
+                        <div>
+                          <span className="font-bold text-gray-900 text-sm block leading-tight">
+                            {app.applicant?.full_name || 'Người chơi'}
+                          </span>
+                          {app.applicant?.phone_number && (
+                            <span className="text-[11px] text-gray-500 font-mono">
+                              SĐT: {app.applicant.phone_number}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full border ${
+                        app.status === 'ACCEPTED'
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                          : app.status === 'REJECTED'
+                          ? 'bg-rose-100 text-rose-800 border-rose-300'
+                          : 'bg-amber-100 text-amber-800 border-amber-300'
+                      }`}>
+                        {app.status === 'ACCEPTED' ? '✓ Đã đồng ý' : app.status === 'REJECTED' ? '✕ Đã từ chối' : ' Chờ duyệt'}
+                      </span>
+                    </div>
+
+                    {app.message && (
+                      <div className="text-xs text-gray-600 bg-white p-2.5 rounded-xl border border-gray-100 italic">
+                        "{app.message}"
+                      </div>
+                    )}
+
+                    {/* Author Actions if PENDING and isAuthor */}
+                    {isAuthor && app.status === 'PENDING' && (
+                      <div className="flex items-center justify-end space-x-2 pt-1 border-t border-gray-100">
+                        <button
+                          type="button"
+                          disabled={actionLoading}
+                          onClick={async () => {
+                            setActionLoading(true);
+                            try {
+                              await communityApi.updateApplicationStatus(app.application_id, 'REJECTED');
+                              app.status = 'REJECTED';
+                              if (onApply) onApply(null);
+                            } catch (err) {
+                              console.error('Error rejecting app:', err);
+                            } finally {
+                              setActionLoading(false);
+                            }
+                          }}
+                          className="px-3 py-1.5 bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-bold rounded-xl transition-colors border border-rose-200 disabled:opacity-50"
+                        >
+                          Từ chối
+                        </button>
+                        <button
+                          type="button"
+                          disabled={actionLoading}
+                          onClick={async () => {
+                            setActionLoading(true);
+                            try {
+                              await communityApi.updateApplicationStatus(app.application_id, 'ACCEPTED');
+                              app.status = 'ACCEPTED';
+                              post.slots_joined = (post.slots_joined || 0) + 1;
+                              if (onApply) onApply(null);
+                            } catch (err) {
+                              console.error('Error accepting app:', err);
+                            } finally {
+                              setActionLoading(false);
+                            }
+                          }}
+                          className="px-4 py-1.5 bg-emerald-600 text-white hover:bg-emerald-700 text-xs font-bold rounded-xl shadow-xs transition-colors disabled:opacity-50"
+                        >
+                          Đồng ý
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6 text-xs text-gray-500">
+                  Chưa có ai đăng ký tham gia bài đăng này.
+                </div>
+              )}
+            </div>
+
+            {/* Close Action */}
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowApplicantsModal(false)}
+                className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold rounded-xl transition-colors"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

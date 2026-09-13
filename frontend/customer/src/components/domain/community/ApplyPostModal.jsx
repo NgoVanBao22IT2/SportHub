@@ -31,8 +31,8 @@ export default function ApplyPostModal({ isOpen, onClose, post, onSuccess }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl relative border border-gray-100">
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:p-6 pt-16 sm:pt-20 bg-black/60 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl relative border border-gray-100 max-h-[78vh] sm:max-h-[82vh] overflow-y-auto mb-8">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
@@ -44,7 +44,7 @@ export default function ApplyPostModal({ isOpen, onClose, post, onSuccess }) {
           <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
             {post.post_type === 'PASS_BOOKING' ? 'Nhận suất pass' : 'Đăng ký tham gia'}
           </span>
-          <h3 className="font-bold text-lg text-gray-900 mt-2 line-clamp-1">{post.title}</h3>
+          {/* <h3 className="font-bold text-lg text-gray-900 mt-2 line-clamp-1">{post.title}</h3> */}
           <p className="text-xs text-gray-500 mt-0.5">Tác giả: {post.author?.full_name}</p>
         </div>
 

@@ -64,6 +64,38 @@ router.post('/posts', authenticateJWT, async (req, res, next) => {
   }
 });
 
+// Protected: Update post
+router.put('/posts/:id', authenticateJWT, async (req, res, next) => {
+  try {
+    const userId = req.user.userId || req.user.user_id;
+    const userRole = req.user.role || req.user.primary_role;
+    const post = await CommunityService.updatePost(req.params.id, userId, userRole, req.body);
+    res.json({
+      success: true,
+      data: post,
+      message: 'Cập nhật bài đăng thành công!',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Protected: Delete post
+router.delete('/posts/:id', authenticateJWT, async (req, res, next) => {
+  try {
+    const userId = req.user.userId || req.user.user_id;
+    const userRole = req.user.role || req.user.primary_role;
+    const result = await CommunityService.deletePost(req.params.id, userId, userRole);
+    res.json({
+      success: true,
+      data: result,
+      message: 'Xóa bài đăng thành công!',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Protected: Apply to join a post
 router.post('/posts/:id/apply', authenticateJWT, async (req, res, next) => {
   try {

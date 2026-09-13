@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Users, Ticket, UserCheck, Swords, GraduationCap, Calendar, Clock, MapPin, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { X, Users, Ticket, UserCheck, Swords, GraduationCap, Calendar, Clock, MapPin, Sparkles, AlertCircle, CheckCircle2, Upload, Trash2 } from 'lucide-react';
 import communityApi from '../../../api/communityApi';
 
 const POST_TYPES = [
@@ -40,7 +40,7 @@ const POST_TYPES = [
   },
 ];
 
-export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
+export default function CreatePostModal({ isOpen, onClose, onSuccess, postToEdit = null }) {
   const [postType, setPostType] = useState('RECRUIT');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -52,13 +52,14 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
   const [playDate, setPlayDate] = useState(new Date().toISOString().split('T')[0]);
   const [startTime, setStartTime] = useState('18:00');
   const [endTime, setEndTime] = useState('20:00');
-  const [skillLevel, setSkillLevel] = useState('ALL');
+  const [skillLevel, setSkillLevel] = useState('Mới chơi / Nhập môn');
   const [slotsNeeded, setSlotsNeeded] = useState(2);
   const [pricePerSlot, setPricePerSlot] = useState('');
   const [originalPrice, setOriginalPrice] = useState('');
   const [passPrice, setPassPrice] = useState('');
   const [locationName, setLocationName] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [imagePreview, setImagePreview] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [contactZalo, setContactZalo] = useState('');
 
@@ -66,6 +67,51 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
   const [myBookings, setMyBookings] = useState([]);
   const [selectedBookingId, setSelectedBookingId] = useState('');
   const [loadingBookings, setLoadingBookings] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (postToEdit) {
+      setPostType(postToEdit.post_type || 'RECRUIT');
+      setTitle(postToEdit.title || '');
+      setContent(postToEdit.content || '');
+      setSportType(postToEdit.sport_type || 'Cầu lông');
+      setPlayDate(postToEdit.play_date || new Date().toISOString().split('T')[0]);
+      setStartTime(postToEdit.start_time ? String(postToEdit.start_time).substring(0, 5) : '18:00');
+      setEndTime(postToEdit.end_time ? String(postToEdit.end_time).substring(0, 5) : '20:00');
+      setSkillLevel(postToEdit.skill_level || 'Mới chơi / Nhập môn');
+      setSlotsNeeded(postToEdit.slots_needed || 1);
+      setPricePerSlot(postToEdit.price_per_slot || '');
+      setOriginalPrice(postToEdit.original_price || '');
+      setPassPrice(postToEdit.pass_price || '');
+      setLocationName(postToEdit.location_name || '');
+      setImageUrl(postToEdit.image_url || '');
+      setImagePreview(postToEdit.image_url || '');
+      setContactPhone(postToEdit.contact_phone || '');
+      setContactZalo(postToEdit.contact_zalo || '');
+      setSelectedBookingId(postToEdit.booking_id || '');
+    } else {
+      setPostType('RECRUIT');
+      setTitle('');
+      setContent('');
+      setSportType('Cầu lông');
+      setPlayDate(new Date().toISOString().split('T')[0]);
+      setStartTime('18:00');
+      setEndTime('20:00');
+      setSkillLevel('Mới chơi / Nhập môn');
+      setSlotsNeeded(2);
+      setPricePerSlot('');
+      setOriginalPrice('');
+      setPassPrice('');
+      setLocationName('');
+      setImageUrl('');
+      setImagePreview('');
+      setContactPhone('');
+      setContactZalo('');
+      setSelectedBookingId('');
+    }
+    setError(null);
+  }, [isOpen, postToEdit]);
 
   useEffect(() => {
     if (isOpen && postType === 'PASS_BOOKING') {
@@ -83,6 +129,29 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
     } finally {
       setLoadingBookings(false);
     }
+  };
+
+  const handleImageFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Kích thước ảnh vượt quá 5MB. Vui lòng chọn ảnh nhỏ hơn.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64Url = reader.result;
+      setImageUrl(base64Url);
+      setImagePreview(base64Url);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveImage = () => {
+    setImageUrl('');
+    setImagePreview('');
   };
 
   const handleSelectBooking = (b) => {
@@ -122,11 +191,15 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
         contact_zalo: contactZalo,
       };
 
-      await communityApi.createPost(payload);
+      if (postToEdit) {
+        await communityApi.updatePost(postToEdit.post_id, payload);
+      } else {
+        await communityApi.createPost(payload);
+      }
       onSuccess();
       onClose();
     } catch (err) {
-      setError(err.response?.data?.message || err.message || 'Không thể tạo bài đăng');
+      setError(err.response?.data?.message || err.message || (postToEdit ? 'Không thể cập nhật bài đăng' : 'Không thể tạo bài đăng'));
     } finally {
       setLoading(false);
     }
@@ -135,8 +208,8 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl relative my-8 border border-gray-100 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:p-6 pt-16 sm:pt-20 bg-black/60 backdrop-blur-sm overflow-y-auto">
+      <div className="bg-white rounded-l max-w-2xl w-full p-5 sm:p-6 shadow-2xl relative border border-gray-100 max-h-[78vh] sm:max-h-[82vh] overflow-y-auto mb-8">
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-6">
           <div className="flex items-center space-x-2">
@@ -144,7 +217,9 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
               <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">Đăng bài Khám phá mới</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                {postToEdit ? 'Chỉnh sửa bài đăng Khám phá' : 'Đăng bài Khám phá mới'}
+              </h2>
               <p className="text-xs text-gray-500">Kết nối ngay với cộng đồng thể thao SportHub</p>
             </div>
           </div>
@@ -282,16 +357,13 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
 
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">Yêu cầu trình độ</label>
-                <select
+                <input
+                  type="text"
                   value={skillLevel}
                   onChange={(e) => setSkillLevel(e.target.value)}
+                  placeholder="Ví dụ: Mới chơi, Trung bình khá, Kèo cứng, Giao lưu vui vẻ..."
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
-                >
-                  <option value="ALL">Mọi trình độ (Giao lưu vui vẻ)</option>
-                  <option value="BEGINNER">Mới chơi / Nhập môn</option>
-                  <option value="INTERMEDIATE">Trung bình (Yếu / Khá)</option>
-                  <option value="ADVANCED">Khá / Nâng cao (Cần kèo cứng)</option>
-                </select>
+                />
               </div>
             </div>
 
@@ -340,14 +412,45 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Hình ảnh đính kèm (URL hình ảnh / Để trống sẽ tự nhận ảnh đẹp của môn thể thao)</label>
-              <input
-                type="text"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="Dán link hình ảnh (https://...) hoặc để trống"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
-              />
+              <label className="block text-xs font-semibold text-gray-700 mb-1.5">Hình ảnh đính kèm </label>
+              {!imagePreview ? (
+                <div className="relative border-2 border-dashed border-gray-200 hover:border-emerald-500 rounded-2xl p-4 text-center transition-colors bg-gray-50/60 hover:bg-emerald-50/40 cursor-pointer group">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageFileChange}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                  />
+                  <div className="flex flex-col items-center justify-center space-y-1.5 pointer-events-none">
+                    <div className="w-10 h-10 rounded-full bg-emerald-100/80 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Upload className="w-5 h-5" />
+                    </div>
+                    <p className="text-xs font-bold text-gray-800">
+                      Bấm vào đây để chọn ảnh từ máy tính / điện thoại
+                    </p>
+                    <p className="text-[11px] text-gray-400">
+                      Hỗ trợ định dạng JPG, PNG, WEBP (Tối đa 5MB)
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative rounded-2xl overflow-hidden border border-gray-200 group bg-gray-100">
+                  <img
+                    src={imagePreview}
+                    alt="Preview"
+                    className="w-full h-44 object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md transition-transform hover:scale-105"
+                    >
+                      <Trash2 className="w-4 h-4" /> Xóa ảnh / Chọn lại
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Pricing fields depending on type */}
@@ -378,7 +481,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Số lượng slot (Người cần tuyển)</label>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Số lượng slot </label>
                   <input
                     type="number"
                     min="1"
@@ -403,7 +506,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Số điện thoại liên hệ</label>
+                <label className="block text-xs font-semibold text-gray-700 mb-1">Số điện thoại</label>
                 <input
                   type="text"
                   value={contactPhone}
@@ -425,7 +528,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-gray-700 mb-1">Nội dung chi tiết / Ghi chú</label>
+              <label className="block text-xs font-semibold text-gray-700 mb-1">Ghi chú</label>
               <textarea
                 rows="3"
                 value={content}
@@ -450,7 +553,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess }) {
               disabled={loading}
               className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold shadow-md transition-all disabled:opacity-50"
             >
-              {loading ? 'Đang đăng...' : 'Đăng bài ngay'}
+              {loading ? (postToEdit ? 'Đang lưu...' : 'Đang đăng...') : (postToEdit ? 'Cập nhật bài đăng' : 'Đăng bài ngay')}
             </button>
           </div>
         </form>

@@ -20,6 +20,32 @@ import Badge from '../../ui/Badge';
 
 import { getImageUrl } from '../../../utils/imageUrl';
 
+const fixVietnameseText = (str) => {
+  if (!str) return '';
+  let s = String(str);
+  s = s
+    .replace(/\u00CC\u2030/g, '\u0309')
+    .replace(/\u00CC\u20AC/g, '\u0300')
+    .replace(/\u00CC\u0080/g, '\u0300')
+    .replace(/\u00CC\u0301/g, '\u0301')
+    .replace(/\u00CC\u0081/g, '\u0301')
+    .replace(/\u00C3\u00AA/g, 'ê')
+    .replace(/\u00C3\u00B4/g, 'ô')
+    .replace(/\u00C3\u00A2/g, 'â')
+    .replace(/\u00C4\u0091/g, 'đ')
+    .replace(/AÌ[‰€\s]?nh|AÌ‰nh|AÌ€nh|AÌ nh/gi, 'Ảnh')
+    .replace(/biÌ[€\s]?a|biÌ€a|biÌ a/gi, 'bìa')
+    .replace(/sẠen|sẠân/gi, 'sân')
+    .replace(/Khẩng|Khảng|Khả'ng|Khẩ'ng/gi, 'Không')
+    .replace(/SÆ["”]?ĨE|SÆ["”]?IE|SÆ"ĨE/gi, 'Sự')
+    .replace(/kỉẢỉen|kỉẢen|kiẢen/gi, 'kiện')
+    .replace(/giại|giả'i/gi, 'giải');
+  try {
+    s = s.normalize('NFC');
+  } catch (e) {}
+  return s.trim();
+};
+
 export default function MediaPreviewLightbox({
   item,
   items = [],
@@ -142,7 +168,7 @@ export default function MediaPreviewLightbox({
               </div>
 
               <h2 className="text-lg font-bold text-gray-900 leading-tight">
-                {item.title || 'Ảnh chưa đặt tên'}
+                {fixVietnameseText(item.title || 'Ảnh chưa đặt tên')}
               </h2>
               {item.caption && (
                 <p className="text-xs text-text-muted leading-relaxed">

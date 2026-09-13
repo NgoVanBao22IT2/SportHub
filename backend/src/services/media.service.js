@@ -5,6 +5,29 @@ const { Op } = require('sequelize');
 const { Venue, VenueImage, sequelize } = require('../models');
 const StorageService = require('./storage.service');
 
+function fixVietnameseText(str) {
+  if (!str) return '';
+  let s = String(str);
+  s = s
+    .replace(/\u00CC\u2030/g, '\u0309')
+    .replace(/\u00CC\u20AC/g, '\u0300')
+    .replace(/\u00CC\u0080/g, '\u0300')
+    .replace(/\u00CC\u0301/g, '\u0301')
+    .replace(/\u00CC\u0081/g, '\u0301')
+    .replace(/\u00C3\u00AA/g, 'ê')
+    .replace(/\u00C3\u00B4/g, 'ô')
+    .replace(/\u00C3\u00A2/g, 'â')
+    .replace(/\u00C4\u0091/g, 'đ')
+    .replace(/AÌ[‰€\s]?nh|AÌ‰nh|AÌ€nh|AÌ nh/gi, 'Ảnh')
+    .replace(/biÌ[€\s]?a|biÌ€a|biÌ a/gi, 'bìa')
+    .replace(/sẠen|sẠân/gi, 'sân')
+    .replace(/Khẩng|Khảng/gi, 'Không');
+  try {
+    s = s.normalize('NFC');
+  } catch (e) {}
+  return s.trim();
+}
+
 class MediaService {
   /**
    * Helper: Ensure venue exists and is strictly owned by ownerUserId.
@@ -219,7 +242,8 @@ class MediaService {
           const variants = await StorageService.saveImageBuffer(file.buffer, file.originalname);
 
           const imgId = uuidv4();
-          const finalTitle = title || file.originalname.replace(/\.[^/.]+$/, '');
+          const rawTitle = title || file.originalname.replace(/\.[^/.]+$/, '');
+          const finalTitle = fixVietnameseText(rawTitle);
 
           const record = await VenueImage.create({
             image_id: imgId,
@@ -260,7 +284,8 @@ class MediaService {
           const variants = await StorageService.saveBase64Image(b64, title || 'venue_media');
 
           const imgId = uuidv4();
-          const finalTitle = title || 'Ảnh tải lên';
+          const rawTitle = title || 'Ảnh tải lên';
+          const finalTitle = fixVietnameseText(rawTitle);
 
           const record = await VenueImage.create({
             image_id: imgId,

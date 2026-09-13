@@ -31,6 +31,7 @@ import { useNavigate } from 'react-router-dom';
 
 const FILTER_TABS = [
   { key: 'ALL', label: '🔥 Tất cả bài đăng', icon: Flame },
+  { key: 'MY_POSTS', label: '📌 Bài đăng của tôi', icon: UserCheck },
   { key: 'EVENTS', label: '📢 Sự kiện & Ưu đãi sân', icon: Megaphone },
   { key: 'RECRUIT', label: '👥 Tuyển vãng lai', icon: Users },
   { key: 'PASS_BOOKING', label: '🎟️ Pass sân / Vé nhượng', icon: Ticket },
@@ -56,6 +57,10 @@ export default function ExplorePage() {
 
   // Modals
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [editingPost, setEditingPost] = useState(null);
+  const [deletingPost, setDeletingPost] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState(null);
   const [selectedPostToApply, setSelectedPostToApply] = useState(null);
   const [selectedVenueEventModal, setSelectedVenueEventModal] = useState(null);
 
@@ -65,7 +70,7 @@ export default function ExplorePage() {
 
   useEffect(() => {
     fetchPosts();
-  }, [activeTab, selectedSport]);
+  }, [activeTab, selectedSport, currentUser?.user_id]);
 
   const fetchBanner = async () => {
     try {
@@ -109,37 +114,48 @@ export default function ExplorePage() {
     try {
       let combinedPosts = [];
 
-      // 1. Fetch Venue Owner Events / Posts if activeTab is EVENTS or ALL
-      let venueEventsList = [];
-      if (activeTab === 'EVENTS' || activeTab === 'ALL') {
-        try {
-          const resVenueEvents = await getPublicFeaturedEvents({ limit: 50 });
-          const rawVenueEvents = Array.isArray(resVenueEvents) ? resVenueEvents : (resVenueEvents?.data || []);
-          venueEventsList = rawVenueEvents.map(transformVenuePost);
-        } catch (errEvents) {
-          console.error('Error loading venue events:', errEvents);
-        }
-      }
-
-      // 2. Fetch Community Posts if activeTab is not strictly EVENTS
-      if (activeTab !== 'EVENTS') {
-        const params = {
-          post_type: activeTab,
-          sport_type: selectedSport,
-          search: searchTerm,
-        };
-        const resComm = await communityApi.getPosts(params);
-        const commPosts = resComm.data?.posts || [];
-
-        if (activeTab === 'ALL') {
-          // Merge venue events at top of ALL feed
-          combinedPosts = [...venueEventsList, ...commPosts];
+      if (activeTab === 'MY_POSTS') {
+        if (currentUser?.user_id) {
+          const resComm = await communityApi.getPosts({ user_id: currentUser.user_id });
+          const commPosts = resComm.data?.posts || [];
+          combinedPosts = commPosts.filter(p => p.user_id === currentUser.user_id);
         } else {
-          combinedPosts = commPosts;
+          combinedPosts = [];
         }
       } else {
-        // Tab is strictly EVENTS
-        combinedPosts = venueEventsList;
+        // 1. Fetch Venue Owner Events / Posts if activeTab is EVENTS or ALL
+        let venueEventsList = [];
+        if (activeTab === 'EVENTS' || activeTab === 'ALL') {
+          try {
+            const resVenueEvents = await getPublicFeaturedEvents({ limit: 50 });
+            const rawVenueEvents = Array.isArray(resVenueEvents) ? resVenueEvents : (resVenueEvents?.data || []);
+            venueEventsList = rawVenueEvents.map(transformVenuePost);
+          } catch (errEvents) {
+            console.error('Error loading venue events:', errEvents);
+          }
+        }
+
+        // 2. Fetch Community Posts if activeTab is not strictly EVENTS
+        if (activeTab !== 'EVENTS') {
+          const params = {
+            post_type: activeTab,
+            sport_type: selectedSport,
+            search: searchTerm,
+            status: 'ALL',
+          };
+          const resComm = await communityApi.getPosts(params);
+          const commPosts = resComm.data?.posts || [];
+
+          if (activeTab === 'ALL') {
+            // Merge venue events at top of ALL feed
+            combinedPosts = [...venueEventsList, ...commPosts];
+          } else {
+            combinedPosts = commPosts;
+          }
+        } else {
+          // Tab is strictly EVENTS
+          combinedPosts = venueEventsList;
+        }
       }
 
       // Filter by selectedSport if specified and not ALL
@@ -177,7 +193,18 @@ export default function ExplorePage() {
       navigate('/login');
       return;
     }
+    setEditingPost(null);
     setIsCreateOpen(true);
+  };
+
+  const handleEditClick = (post) => {
+    setEditingPost(post);
+    setIsCreateOpen(true);
+  };
+
+  const handleDeleteClick = (post) => {
+    setDeletingPost(post);
+    setDeleteError(null);
   };
 
   const handleApplyClick = (post) => {
@@ -221,13 +248,25 @@ export default function ExplorePage() {
             </p>
           </div>
 
-          <button
-            onClick={handleOpenCreateModal}
-            className="px-6 py-3.5 bg-brand-orange hover:bg-orange-400 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center space-x-2 shrink-0"
-          >
-            <Plus className="w-5 h-5 stroke-[2.5]" />
-            <span>{bannerBtnText}</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-3 shrink-0">
+            {/* {isAuthenticated && (
+              <button
+                onClick={() => setActiveTab('MY_POSTS')}
+                className="px-5 py-3.5 bg-white/15 hover:bg-white/25 text-white font-bold rounded-2xl border border-white/20 backdrop-blur-md transition-all flex items-center space-x-2"
+              >
+                <UserCheck className="w-4 h-4" />
+                <span>Bài đăng của tôi</span>
+              </button>
+            )} */}
+
+            <button
+              onClick={handleOpenCreateModal}
+              className="px-6 py-3.5 bg-brand-orange hover:bg-orange-400 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center space-x-2 shrink-0"
+            >
+              <Plus className="w-5 h-5 stroke-[2.5]" />
+              <span>{bannerBtnText}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -283,7 +322,13 @@ export default function ExplorePage() {
             return (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => {
+                  if (tab.key === 'MY_POSTS' && !isAuthenticated) {
+                    navigate('/login');
+                    return;
+                  }
+                  setActiveTab(tab.key);
+                }}
                 className={`px-4 py-2.5 rounded-2xl text-sm font-semibold transition-all shrink-0 flex items-center space-x-2 ${
                   isActive
                     ? 'bg-white text-emerald-700 shadow-sm border border-emerald-200 ring-2 ring-emerald-500/10'
@@ -321,9 +366,13 @@ export default function ExplorePage() {
                 <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
                   <Sparkles className="w-8 h-8" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900">Chưa có bài đăng phù hợp</h3>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {activeTab === 'MY_POSTS' ? 'Bạn chưa có bài đăng nào' : 'Chưa có bài đăng phù hợp'}
+                </h3>
                 <p className="text-xs text-gray-500 max-w-md mx-auto">
-                  Hiện chưa có bài đăng nào trong phân mục này. Hãy trở thành người đầu tiên đăng bài để tìm đối thủ hoặc nhượng vé nhé!
+                  {activeTab === 'MY_POSTS'
+                    ? 'Bạn chưa tạo bài đăng Khám phá nào. Hãy bấm nút bên dưới để tạo bài đăng đầu tiên!'
+                    : 'Hiện chưa có bài đăng nào trong phân mục này. Hãy trở thành người đầu tiên đăng bài để tìm đối thủ hoặc nhượng vé nhé!'}
                 </p>
                 <button
                   onClick={handleOpenCreateModal}
@@ -343,6 +392,8 @@ export default function ExplorePage() {
                     key={post.post_id}
                     post={post}
                     onApply={handleApplyClick}
+                    onEdit={handleEditClick}
+                    onDelete={handleDeleteClick}
                     currentUserId={currentUser?.user_id}
                   />
                 ))}
@@ -406,14 +457,72 @@ export default function ExplorePage() {
         </div>
       </div>
 
-      {/* Create Post Modal */}
+      {/* Create / Edit Post Modal */}
       <CreatePostModal
         isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
+        postToEdit={editingPost}
+        onClose={() => {
+          setIsCreateOpen(false);
+          setEditingPost(null);
+        }}
         onSuccess={() => {
           fetchPosts();
+          setEditingPost(null);
         }}
       />
+
+      {/* Delete Confirmation Modal */}
+      {deletingPost && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-gray-100">
+            <h3 className="text-lg font-bold text-gray-900">Xác nhận xóa bài đăng</h3>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              Bạn có chắc chắn muốn xóa bài đăng <strong className="text-gray-900">"{deletingPost.title}"</strong> không? Hành động này sẽ gỡ bài khỏi trang Khám phá và không thể hoàn tác.
+            </p>
+
+            {deleteError && (
+              <div className="p-3 bg-red-50 text-red-700 rounded-xl text-xs font-semibold flex items-center space-x-2">
+                <Info className="w-4 h-4 shrink-0 text-red-600" />
+                <span>{deleteError}</span>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end space-x-3 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeletingPost(null);
+                  setDeleteError(null);
+                }}
+                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-semibold rounded-xl transition-colors"
+                disabled={deleteLoading}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setDeleteLoading(true);
+                  setDeleteError(null);
+                  try {
+                    await communityApi.deletePost(deletingPost.post_id);
+                    setDeletingPost(null);
+                    fetchPosts();
+                  } catch (err) {
+                    setDeleteError(err.response?.data?.message || err.message || 'Xóa bài thất bại');
+                  } finally {
+                    setDeleteLoading(false);
+                  }
+                }}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-sm transition-colors disabled:opacity-50"
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? 'Đang xóa...' : 'Xóa bài ngay'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Apply / Join Modal */}
       <ApplyPostModal
@@ -438,7 +547,7 @@ export default function ExplorePage() {
 
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold bg-brand-orange/15 text-brand-orange px-3 py-1 rounded-full border border-brand-orange/30">
-                📢 SỰ KIỆN TỪ CHỦ SÂN
+                📢 SỰ KIỆN TỪ SÂN
               </span>
               <span className="text-xs font-semibold text-gray-500">
                 {selectedVenueEventModal.author?.full_name}

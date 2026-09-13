@@ -7,7 +7,8 @@ import {
   CreditCard,
   Calendar,
   Star,
-  Sparkles
+  Sparkles,
+  UserCheck
 } from 'lucide-react';
 import {
   getNotifications,
@@ -122,6 +123,8 @@ export default function NotificationDropdown() {
           navigate(`/my-bookings/${notif.entity_id}`);
         } else if (notif.entity_type === 'VENUE' && notif.entity_id) {
           navigate(`/venues/${notif.entity_id}`);
+        } else if (notif.entity_type === 'COMMUNITY_POST') {
+          navigate('/explore');
         } else {
           navigate('/notifications');
         }
@@ -133,6 +136,7 @@ export default function NotificationDropdown() {
     if (type?.includes('PAYMENT')) return <CreditCard size={15} className="text-amber-500" />;
     if (type?.includes('BOOKING')) return <Calendar size={15} className="text-emerald-500" />;
     if (type?.includes('REVIEW')) return <Star size={15} className="text-amber-500 fill-amber-500" />;
+    if (type?.includes('POST')) return <UserCheck size={15} className="text-emerald-600" />;
     return <Sparkles size={15} className="text-brand-orange" />;
   };
 

@@ -2,6 +2,7 @@
 
 const { CommunityPost, PostApplication, User, Venue, Booking, Court, Branch, Sequelize } = require('../models');
 const { Op } = Sequelize;
+const NotificationService = require('./notification.service');
 
 class CommunityService {
   /**
@@ -12,13 +13,18 @@ class CommunityService {
       post_type,
       sport_type,
       skill_level,
-      status = 'OPEN',
+      status = 'ALL',
       search,
       page = 1,
-      limit = 10,
+      limit = 50,
+      user_id,
     } = query;
 
     const where = {};
+
+    if (user_id) {
+      where.user_id = user_id;
+    }
 
     if (post_type && post_type !== 'ALL') {
       where.post_type = post_type;
@@ -254,6 +260,23 @@ class CommunityService {
       status: 'PENDING',
     });
 
+    // Notify post author
+    try {
+      const applicant = await User.findByPk(userId);
+      const applicantName = applicant?.full_name || 'Một người chơi';
+
+      await NotificationService.createNotification({
+        recipientUserId: post.user_id,
+        type: 'POST_APPLICATION',
+        title: 'Có người đăng ký tham gia bài đăng của bạn',
+        message: `${applicantName} vừa đăng ký tham gia bài viết "${post.title}". Lời nhắn: "${message || 'Không có lời nhắn'}"`,
+        entityType: 'COMMUNITY_POST',
+        entityId: post.post_id,
+      });
+    } catch (notifErr) {
+      console.error('Error creating post application notification:', notifErr);
+    }
+
     return application;
   }
 
@@ -288,6 +311,21 @@ class CommunityService {
         post.status = 'FULL';
       }
       await post.save();
+    }
+
+    // Notify applicant of status update
+    try {
+      const statusText = status === 'ACCEPTED' ? 'chấp nhận' : 'từ chối';
+      await NotificationService.createNotification({
+        recipientUserId: app.applicant_user_id,
+        type: 'POST_APPLICATION_STATUS',
+        title: `Yêu cầu tham gia bài đăng được ${statusText}`,
+        message: `Yêu cầu gia nhập bài đăng "${app.post?.title || 'bài viết'}" của bạn đã được tác giả ${statusText}.`,
+        entityType: 'COMMUNITY_POST',
+        entityId: app.post_id,
+      });
+    } catch (notifErr) {
+      console.error('Error notifying application status change:', notifErr);
     }
 
     return app;
@@ -332,6 +370,99 @@ class CommunityService {
       address: b.court?.branch?.venue?.address || '',
       court_name: b.court?.court_name || 'Sân',
     }));
+  }
+
+  /**
+   * Update an existing post by author or Admin
+   */
+  static async updatePost(postId, userId, userRole, postData) {
+    const post = await CommunityPost.findByPk(postId);
+
+    if (!post) {
+      const error = new Error('Bài đăng không tồn tại');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (userRole === 'OWNER') {
+      const error = new Error('Chủ sân (Owner) không có quyền chỉnh sửa bài đăng này');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    if (userRole !== 'ADMIN' && post.user_id !== userId) {
+      const error = new Error('Bạn không có quyền chỉnh sửa bài đăng này');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    const {
+      title,
+      content,
+      sport_type,
+      play_date,
+      start_time,
+      end_time,
+      skill_level,
+      slots_needed,
+      price_per_slot,
+      original_price,
+      pass_price,
+      location_name,
+      image_url,
+      contact_phone,
+      contact_zalo,
+      status
+    } = postData;
+
+    if (title !== undefined) post.title = title;
+    if (content !== undefined) post.content = content;
+    if (sport_type !== undefined) post.sport_type = sport_type;
+    if (play_date !== undefined) post.play_date = play_date;
+    if (start_time !== undefined) post.start_time = start_time;
+    if (end_time !== undefined) post.end_time = end_time;
+    if (skill_level !== undefined) post.skill_level = skill_level;
+    if (slots_needed !== undefined) post.slots_needed = parseInt(slots_needed) || post.slots_needed;
+    if (price_per_slot !== undefined) post.price_per_slot = parseFloat(price_per_slot) || 0;
+    if (original_price !== undefined) post.original_price = original_price ? parseFloat(original_price) : null;
+    if (pass_price !== undefined) post.pass_price = pass_price ? parseFloat(pass_price) : null;
+    if (location_name !== undefined) post.location_name = location_name;
+    if (image_url !== undefined) post.image_url = image_url;
+    if (contact_phone !== undefined) post.contact_phone = contact_phone;
+    if (contact_zalo !== undefined) post.contact_zalo = contact_zalo;
+    if (status !== undefined) post.status = status;
+
+    await post.save();
+    return await this.getPostById(postId);
+  }
+
+  /**
+   * Delete post by author or Admin
+   */
+  static async deletePost(postId, userId, userRole) {
+    const post = await CommunityPost.findByPk(postId);
+
+    if (!post) {
+      const error = new Error('Bài đăng không tồn tại');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (userRole === 'OWNER') {
+      const error = new Error('Chủ sân (Owner) không có quyền xóa bài đăng này');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    // Admin can delete ALL posts from customer or owner. Customer can delete only their own post.
+    if (userRole !== 'ADMIN' && post.user_id !== userId) {
+      const error = new Error('Bạn không có quyền xóa bài đăng này');
+      error.statusCode = 403;
+      throw error;
+    }
+
+    await post.destroy();
+    return { success: true, message: 'Đã xóa bài đăng thành công' };
   }
 }
 

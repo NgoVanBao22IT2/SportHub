@@ -214,7 +214,7 @@ export default function PublicPostDetail() {
                 <div className="flex items-start gap-2.5">
                   <Tag size={16} className="text-purple-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="font-bold text-gray-900 block">Mã ưu đãi (Promo Code):</span>
+                    <span className="font-bold text-gray-900 block">Mã ưu đãi:</span>
                     <span className="inline-block px-2.5 py-0.5 rounded-lg bg-purple-100 text-purple-800 font-extrabold text-xs tracking-wider border border-purple-300 mt-0.5">
                       {post.promo_code}
                     </span>
@@ -226,7 +226,7 @@ export default function PublicPostDetail() {
                 <div className="flex items-start gap-2.5">
                   <Trophy size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
                   <div>
-                    <span className="font-bold text-gray-900 block">Lệ phí / Chi phí:</span>
+                    <span className="font-bold text-gray-900 block">Chi phí:</span>
                     <span className="text-brand-orange font-extrabold text-sm">
                       {Number(post.fee_amount).toLocaleString('vi-VN')} đ
                     </span>

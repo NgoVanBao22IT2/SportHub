@@ -226,11 +226,11 @@ export default function HomePage() {
           <div className="flex flex-col gap-6">
             <div className="bg-status-info-bg rounded-3xl p-8 flex-1 flex flex-col justify-center relative overflow-hidden border border-status-info-bg">
               <div className="w-10 h-10 rounded-full bg-surface text-status-info-text flex items-center justify-center mb-4 shadow-sm">
-                <Search size={20} />
+                <MapPin size={20} />
               </div>
-              <h4 className="font-bold text-xl text-gray-900 mb-2">Trợ lý SportHubAI</h4>
-              <p className="text-sm text-text-muted mb-4">Đề xuất sân phù hợp dựa trên vị trí và lịch rảnh của bạn.</p>
-              <Link to="/search" className="text-status-info-text font-semibold text-sm flex items-center hover:underline">
+              <h4 className="font-bold text-xl text-gray-900 mb-2">Bản đồ & Vị trí sân</h4>
+              <p className="text-sm text-text-muted mb-4">Tìm kiếm và định vị các sân thể thao trực quan quanh khu vực của bạn.</p>
+              <Link to="/map" className="text-status-info-text font-semibold text-sm flex items-center hover:underline">
                 Thử ngay <ArrowRight size={16} className="ml-1" />
               </Link>
             </div>
@@ -239,10 +239,10 @@ export default function HomePage() {
               <div className="w-10 h-10 rounded-full bg-white/10 text-brand-orange flex items-center justify-center mb-4">
                 <Users size={20} />
               </div>
-              <h4 className="font-bold text-xl mb-2">Ghép kèo/Tìm trận đấu</h4>
+              <h4 className="font-bold text-xl mb-2">Tìm trận đấu</h4>
               <p className="text-sm text-white/80 mb-4">Tìm đồng đội cùng trình độ ngay tại khu vực của bạn.</p>
-              <Link to="/search" className="text-brand-orange font-semibold text-sm flex items-center hover:underline">
-                Tìm kèo ngay <ArrowRight size={16} className="ml-1" />
+              <Link to="/explore" className="text-brand-orange font-semibold text-sm flex items-center hover:underline">
+                Khám phá ngay <ArrowRight size={16} className="ml-1" />
               </Link>
             </div>
           </div>
@@ -342,7 +342,7 @@ export default function HomePage() {
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-1">Đề xuất thông minh</h3>
                   <p className="text-sm text-text-muted leading-relaxed">
-                    Dựa vào thói quen và vị trí của bạn, hệ thống AI tự động gợi ý những sân trống phù hợp nhất.
+                    Dựa vào thói quen và vị trí của bạn, hệ thống tự động gợi ý những sân trống phù hợp nhất.
                   </p>
                 </div>
               </div>

@@ -10,14 +10,24 @@ import {
   AlertTriangle,
   ArrowRight,
   RefreshCw,
-  FileCheck2
+  FileCheck2,
+  Flame
 } from 'lucide-react';
-import { getAdminDashboard, getAdminVenues, updateAdminVenueStatus, getAdminOwnerRegistrations } from '../api/admin';
+import {
+  getAdminDashboard,
+  getAdminVenues,
+  updateAdminVenueStatus,
+  getAdminOwnerRegistrations,
+  getAdminReviews,
+  getAdminCommunityPosts
+} from '../api/admin';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState(null);
   const [pendingVenues, setPendingVenues] = useState([]);
   const [pendingRegistrations, setPendingRegistrations] = useState([]);
+  const [reviewsCount, setReviewsCount] = useState(0);
+  const [postsCount, setPostsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState(null);
@@ -27,15 +37,19 @@ export default function AdminDashboard() {
       setLoading(true);
       setError(false);
 
-      const [dashStats, venuesRes, regsRes] = await Promise.all([
-        getAdminDashboard(),
-        getAdminVenues({ status: 'PENDING', limit: 6 }),
-        getAdminOwnerRegistrations({ status: 'PENDING', limit: 6 }).catch(() => ({ data: [] }))
+      const [dashStats, venuesRes, regsRes, reviewsRes, postsRes] = await Promise.all([
+        getAdminDashboard().catch(() => null),
+        getAdminVenues({ status: 'PENDING', limit: 6 }).catch(() => ({ data: [] })),
+        getAdminOwnerRegistrations({ status: 'PENDING', limit: 6 }).catch(() => ({ data: [] })),
+        getAdminReviews({ limit: 1 }).catch(() => ({ meta: { total: 0 } })),
+        getAdminCommunityPosts({ limit: 1 }).catch(() => ({ meta: { total: 0 } }))
       ]);
 
       setStats(dashStats);
-      setPendingVenues(venuesRes.data || []);
-      setPendingRegistrations(regsRes.data || []);
+      setPendingVenues(venuesRes?.data || []);
+      setPendingRegistrations(regsRes?.data || []);
+      setReviewsCount(dashStats?.total_reviews ?? reviewsRes?.meta?.total ?? 0);
+      setPostsCount(dashStats?.total_community_posts ?? postsRes?.meta?.total ?? 0);
     } catch (err) {
       console.error('Failed to load admin dashboard:', err);
       setError(true);
@@ -109,12 +123,11 @@ export default function AdminDashboard() {
       color: 'from-emerald-600 to-teal-600'
     },
     {
-      title: 'Hồ Sơ Chủ Sân Chờ Duyệt',
-      value: pendingRegistrations.length || 0,
-      sub: 'Đăng ký kinh doanh mới',
-      icon: FileCheck2,
-      color: 'from-orange-600 to-amber-600',
-      badge: pendingRegistrations.length > 0 ? 'Cần xét duyệt' : null
+      title: 'Bài đăng Khám phá',
+      value: (stats?.total_community_posts ?? postsCount ?? 0).toLocaleString('vi-VN'),
+      sub: 'Bài viết & Sự kiện cộng đồng',
+      icon: Flame,
+      color: 'from-orange-600 to-amber-600'
     },
     {
       title: 'Tổng Cụm Sân Thể Thao',
@@ -133,7 +146,7 @@ export default function AdminDashboard() {
     },
     {
       title: 'Đánh Giá Khách Hàng',
-      value: (stats?.total_reviews || 0).toLocaleString('vi-VN'),
+      value: (stats?.total_reviews ?? reviewsCount ?? 0).toLocaleString('vi-VN'),
       sub: 'Phản hồi toàn nền tảng',
       icon: Star,
       color: 'from-violet-600 to-indigo-600'

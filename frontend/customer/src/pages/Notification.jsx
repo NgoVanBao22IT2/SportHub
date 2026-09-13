@@ -8,6 +8,7 @@ import {
   CreditCard,
   Star,
   Sparkles,
+  UserCheck,
   Trash2,
   RefreshCw,
   Clock
@@ -142,6 +143,8 @@ export default function Notification() {
       navigate(`/my-bookings/${notif.entity_id}`);
     } else if (notif.entity_type === 'VENUE' && notif.entity_id) {
       navigate(`/venues/${notif.entity_id}`);
+    } else if (notif.entity_type === 'COMMUNITY_POST') {
+      navigate('/explore');
     }
   };
 
@@ -149,6 +152,7 @@ export default function Notification() {
     if (type?.includes('PAYMENT')) return <CreditCard size={18} className="text-amber-500" />;
     if (type?.includes('BOOKING')) return <Calendar size={18} className="text-emerald-500" />;
     if (type?.includes('REVIEW')) return <Star size={18} className="text-amber-500 fill-amber-500" />;
+    if (type?.includes('POST')) return <UserCheck size={18} className="text-emerald-600" />;
     return <Sparkles size={18} className="text-brand-orange" />;
   };
 

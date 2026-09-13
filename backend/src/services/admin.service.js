@@ -1,4 +1,4 @@
-const { User, Venue, Booking, Payment, CommunityPost, PostApplication, sequelize } = require('../models');
+const { User, Venue, Booking, Payment, CommunityPost, PostApplication, Review, sequelize } = require('../models');
 
 class AdminService {
   /**
@@ -10,6 +10,8 @@ class AdminService {
     const venueCount = await Venue.count();
     const pendingVenueCount = await Venue.count({ where: { operating_status: 'PENDING' } });
     const bookingCount = await Booking.count();
+    const reviewCount = await Review.count();
+    const communityPostCount = await CommunityPost.count();
     
     // Revenue from PAID payments
     const revenueStats = await Payment.findAll({
@@ -29,6 +31,8 @@ class AdminService {
       total_venues: venueCount,
       pending_venues: pendingVenueCount,
       total_bookings: bookingCount,
+      total_reviews: reviewCount,
+      total_community_posts: communityPostCount,
       total_revenue: parseFloat(revenueStats[0].total_revenue) || 0,
       total_transactions: parseInt(revenueStats[0].total_transactions) || 0
     };

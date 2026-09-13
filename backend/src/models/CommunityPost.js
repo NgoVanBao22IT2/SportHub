@@ -62,7 +62,7 @@ module.exports = (sequelize) => {
         allowNull: true,
       },
       skill_level: {
-        type: DataTypes.ENUM('BEGINNER', 'INTERMEDIATE', 'ADVANCED', 'ALL'),
+        type: DataTypes.STRING(100),
         allowNull: false,
         defaultValue: 'ALL',
       },
@@ -94,7 +94,7 @@ module.exports = (sequelize) => {
         allowNull: true,
       },
       image_url: {
-        type: DataTypes.TEXT,
+        type: DataTypes.TEXT('long'),
         allowNull: true,
       },
       contact_phone: {

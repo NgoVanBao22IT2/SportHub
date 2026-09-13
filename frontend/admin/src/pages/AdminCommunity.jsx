@@ -251,7 +251,7 @@ export default function AdminCommunity() {
     }
     return post.price_per_slot && parseFloat(post.price_per_slot) > 0 
       ? `${parseInt(post.price_per_slot).toLocaleString()}đ` 
-      : 'Miễn phí / Chia đều';
+      : 'Chia đều';
   };
 
   return (
@@ -379,13 +379,13 @@ export default function AdminCommunity() {
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className="bg-slate-900/80 text-[11px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700/80">
-                  <th className="py-4 px-6">Bài đăng / Banner</th>
+                  <th className="py-4 px-6">Bài đăng </th>
                   <th className="py-4 px-6">Loại & Môn</th>
-                  <th className="py-4 px-6">Tác giả (User)</th>
+                  <th className="py-4 px-6">Tác giả</th>
                   <th className="py-4 px-6">Thời gian & Địa điểm</th>
-                  <th className="py-4 px-6">Chi phí / Giá</th>
+                  <th className="py-4 px-6">Chi phí</th>
                   <th className="py-4 px-6">Trạng thái</th>
-                  <th className="py-4 px-6 text-right">Thao tác Admin</th>
+                  <th className="py-4 px-6 text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-700/60 text-xs text-slate-200">
@@ -464,7 +464,7 @@ export default function AdminCommunity() {
                           </span>
                         ) : post.status === 'FULL' ? (
                           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                            Đã đủ slot (FULL)
+                            Đã đủ (FULL)
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">

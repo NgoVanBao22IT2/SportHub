@@ -37,6 +37,18 @@ export const communityApi = {
     return response.data;
   },
 
+  // Update post
+  updatePost: async (postId, postData) => {
+    const response = await apiClient.put(`/community/posts/${postId}`, postData);
+    return response.data;
+  },
+
+  // Delete post
+  deletePost: async (postId) => {
+    const response = await apiClient.delete(`/community/posts/${postId}`);
+    return response.data;
+  },
+
   // Accept/Reject application
   updateApplicationStatus: async (applicationId, status) => {
     const response = await apiClient.put(`/community/applications/${applicationId}/status`, { status });
