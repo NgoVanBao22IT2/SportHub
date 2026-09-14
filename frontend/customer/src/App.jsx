@@ -22,6 +22,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import OwnerRegistrationPage from './pages/OwnerRegistrationPage';
 import PublicPostDetail from './pages/PublicPostDetail';
 import ExplorePage from './pages/ExplorePage';
+import VenueSocialEvents from './pages/VenueSocialEvents';
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
           <Route path="map" element={<MapPage />} />
           <Route path="explore" element={<ExplorePage />} />
           <Route path="venues/:id" element={<VenueDetail />} />
+          <Route path="venues/:id/social-events" element={<VenueSocialEvents />} />
           <Route path="posts/:slug" element={<PublicPostDetail />} />
           <Route
             path="venues/:id/booking"

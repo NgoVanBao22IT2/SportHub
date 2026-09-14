@@ -373,8 +373,9 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, postToEdit
                 <input
                   type="date"
                   value={playDate}
+                  onClick={(e) => { try { e.currentTarget.showPicker(); } catch (_) {} }}
                   onChange={(e) => setPlayDate(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:ring-2 focus:ring-emerald-500 outline-none cursor-pointer"
                   required
                 />
               </div>

@@ -265,7 +265,7 @@ export default function Checkout() {
       if (selectedSlots && selectedSlots.length > 0) {
         bookingPayload = {
           slots: selectedSlots.map(s => ({
-            court_id: s.court_id,
+            court_id: s.court_id || targetCourtId,
             booking_date: s.booking_date || bookingDate,
             start_time: s.start_time,
             end_time: s.end_time

@@ -17,7 +17,8 @@ import {
   ChevronRight,
   X,
   ExternalLink,
-  CheckCircle
+  CheckCircle,
+  Ticket
 } from 'lucide-react';
 import { getPublicPostBySlug } from '../api/public';
 
@@ -92,12 +93,78 @@ export default function PublicPostDetail() {
   const venue = post.venue;
   const coverUrl = post.cover_image_url || post.cover_image?.large_url || post.cover_image?.image_url;
 
+  // Parse excerpt if JSON string
+  let eventMeta = {};
+  const isExcerptJson = post.excerpt && typeof post.excerpt === 'string' && post.excerpt.trim().startsWith('{');
+  if (isExcerptJson) {
+    try {
+      eventMeta = JSON.parse(post.excerpt);
+    } catch (e) {
+      eventMeta = {};
+    }
+  }
+
   // Post gallery images
   const galleryImages = post.post_images ? post.post_images.map(item => item.image).filter(Boolean) : [];
 
   const handleOpenLightbox = (index) => {
     setLightboxIndex(index);
     setLightboxOpen(true);
+  };
+
+  const handleBuyTicket = () => {
+    const venueIdToUse = venue?.venue_id || post.venue_id;
+    if (!venueIdToUse) {
+      if (post.registration_url) {
+        window.open(post.registration_url, '_blank');
+      }
+      return;
+    }
+
+    const playDate = eventMeta.play_date || (post.start_at ? post.start_at.split('T')[0] : new Date().toISOString().split('T')[0]);
+    const startTime = eventMeta.start_time || (post.start_at ? post.start_at.split('T')[1]?.substring(0, 5) : '20:00');
+    const endTime = eventMeta.end_time || (post.end_at ? post.end_at.split('T')[1]?.substring(0, 5) : '23:00');
+    const price = Number(eventMeta.ticket_price || post.fee_amount || 90000);
+
+    // Resolve real DB court_id for this venue
+    const allVenueCourts = venue?.branches?.flatMap(b => b.courts || []) || [];
+    const targetCourtName = eventMeta.court_name || post.court_name || post.location || '';
+    const matchedCourt = allVenueCourts.find(c => 
+      c.court_name && targetCourtName && c.court_name.trim().toLowerCase() === targetCourtName.trim().toLowerCase()
+    ) || allVenueCourts[0];
+
+    const courtIdToUse = eventMeta.court_id || matchedCourt?.court_id || matchedCourt?.id || '';
+    const courtNameToUse = targetCourtName || matchedCourt?.court_name || 'Sân 1';
+
+    const params = new URLSearchParams();
+    params.set('venueId', venueIdToUse);
+    if (courtIdToUse) params.set('courtId', courtIdToUse);
+    params.set('date', playDate);
+    params.set('startTime', startTime.length === 5 ? `${startTime}:00` : startTime);
+    params.set('endTime', endTime.length === 5 ? `${endTime}:00` : endTime);
+
+    navigate(`/checkout?${params.toString()}`, {
+      state: {
+        venueId: venueIdToUse,
+        venueName: venue?.venue_name,
+        date: playDate,
+        courtId: courtIdToUse,
+        courtName: courtNameToUse,
+        ticketPrice: price,
+        eventTitle: post.title,
+        selectedSlots: [
+          {
+            court_id: courtIdToUse,
+            court_name: courtNameToUse,
+            start_time: startTime.length === 5 ? `${startTime}:00` : startTime,
+            end_time: endTime.length === 5 ? `${endTime}:00` : endTime,
+            price: price
+          }
+        ],
+        totalAmount: price,
+        totalHours: 3
+      }
+    });
   };
 
   return (
@@ -243,27 +310,36 @@ export default function PublicPostDetail() {
                   </div>
                 </div>
               )}
+
+              {eventMeta.skill_level && (
+                <div className="flex items-start gap-2.5">
+                  <GraduationCap size={16} className="text-emerald-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <span className="font-bold text-gray-900 block">Trình độ yêu cầu:</span>
+                    <span className="text-gray-700 font-semibold">{eventMeta.skill_level}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* ACTION CTA BUTTON */}
-            {post.registration_url && (
-              <div className="pt-2 border-t border-brand-orange/20 flex justify-end">
-                <a
-                  href={post.registration_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-orange hover:bg-brand-orange-hover text-white rounded-xl text-xs font-bold shadow-md transition-all"
-                >
-                  Đăng ký tham gia ngay <ExternalLink size={14} />
-                </a>
-              </div>
-            )}
+            <div className="pt-2 border-t border-brand-orange/20 flex justify-end">
+              <Button
+                variant="primary"
+                size="md"
+                leftIcon={<Ticket size={16} />}
+                onClick={handleBuyTicket}
+                className="bg-brand-orange hover:bg-brand-orange-hover text-white rounded-xl text-xs font-bold shadow-md transition-all px-6 py-2.5"
+              >
+                Mua vé / Thanh toán ngay
+              </Button>
+            </div>
           </Card>
         )}
 
         {/* ARTICLE CONTENT HTML */}
         <div className="bg-surface p-6 md:p-8 rounded-2xl border border-border-subtle-medium shadow-xs space-y-4">
-          {post.excerpt && (
+          {post.excerpt && !isExcerptJson && (
             <p className="text-sm font-semibold text-gray-700 italic border-l-4 border-brand-orange pl-4 py-1 leading-relaxed bg-surface-subtle rounded-r-xl">
               {post.excerpt}
             </p>

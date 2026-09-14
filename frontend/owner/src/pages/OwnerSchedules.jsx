@@ -190,8 +190,9 @@ export default function OwnerSchedules() {
             <input
               type="date"
               value={selectedDate}
+              onClick={(e) => { try { e.currentTarget.showPicker(); } catch (_) {} }}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full p-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:border-brand-orange focus:outline-none"
+              className="w-full p-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:border-brand-orange focus:outline-none cursor-pointer"
             />
           </div>
 

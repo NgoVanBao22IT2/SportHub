@@ -677,7 +677,7 @@ export default function VenueDetail() {
                             <h4 className="text-sm font-bold text-gray-900 group-hover:text-brand-orange transition-colors line-clamp-2">
                               {post.title}
                             </h4>
-                            {post.excerpt && (
+                            {post.excerpt && !post.excerpt.trim().startsWith('{') && (
                               <p className="text-xs text-text-muted line-clamp-2 leading-relaxed">
                                 {post.excerpt}
                               </p>
@@ -789,6 +789,10 @@ export default function VenueDetail() {
         onSelectVisualBooking={(targetType) => {
           setIsBookingModalOpen(false);
           navigate(`/venues/${id}/booking`, { state: { bookingTarget: targetType } });
+        }}
+        onSelectSocialEvents={() => {
+          setIsBookingModalOpen(false);
+          navigate(`/venues/${id}/social-events`);
         }}
         venue={venue}
       />

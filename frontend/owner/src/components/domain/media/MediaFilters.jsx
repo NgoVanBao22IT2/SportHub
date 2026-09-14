@@ -61,11 +61,20 @@ export default function MediaFilters({
           </select>
 
           {/* Date From */}
-          <div className="flex items-center gap-1 bg-surface border border-border-subtle rounded-xl px-2 py-1 text-xs">
+          <div 
+            onClick={(e) => {
+              const input = e.currentTarget.querySelector('input');
+              if (input && typeof input.showPicker === 'function') {
+                try { input.showPicker(); } catch (_) {}
+              }
+            }}
+            className="flex items-center gap-1 bg-surface border border-border-subtle rounded-xl px-2 py-1 text-xs cursor-pointer"
+          >
             <Calendar size={14} className="text-text-muted flex-shrink-0" />
             <input
               type="date"
               value={dateFrom}
+              onClick={(e) => { try { e.currentTarget.showPicker(); } catch (_) {} }}
               onChange={(e) => onDateFromChange && onDateFromChange(e.target.value)}
               aria-label="Từ ngày"
               className="bg-transparent border-none text-xs text-gray-800 focus:outline-none cursor-pointer"
@@ -73,11 +82,20 @@ export default function MediaFilters({
           </div>
 
           {/* Date To */}
-          <div className="flex items-center gap-1 bg-surface border border-border-subtle rounded-xl px-2 py-1 text-xs">
+          <div 
+            onClick={(e) => {
+              const input = e.currentTarget.querySelector('input');
+              if (input && typeof input.showPicker === 'function') {
+                try { input.showPicker(); } catch (_) {}
+              }
+            }}
+            className="flex items-center gap-1 bg-surface border border-border-subtle rounded-xl px-2 py-1 text-xs cursor-pointer"
+          >
             <span className="text-text-muted text-[11px]">Đến:</span>
             <input
               type="date"
               value={dateTo}
+              onClick={(e) => { try { e.currentTarget.showPicker(); } catch (_) {} }}
               onChange={(e) => onDateToChange && onDateToChange(e.target.value)}
               aria-label="Đến ngày"
               className="bg-transparent border-none text-xs text-gray-800 focus:outline-none cursor-pointer"

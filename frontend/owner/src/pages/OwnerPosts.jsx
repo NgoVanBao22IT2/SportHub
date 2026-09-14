@@ -60,7 +60,7 @@ const CONTENT_TYPES = [
 ];
 
 const STATUS_FILTERS = [
-  { id: 'ALL', label: 'Tất cả trạng thái' },
+  { id: 'ALL', label: 'Tất cả' },
   { id: 'PUBLISHED', label: 'Đã xuất bản' },
   { id: 'DRAFT', label: 'Bản nháp' },
   { id: 'ARCHIVED', label: 'Đã lưu trữ' }
@@ -677,7 +677,7 @@ export default function OwnerPosts() {
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-800 mb-1">Loại nội dung (*)</label>
+                  <label className="block text-xs font-semibold text-gray-800 mb-1">Loại nội dung *</label>
                   <select
                     value={contentType}
                     onChange={(e) => setContentType(e.target.value)}
@@ -696,15 +696,15 @@ export default function OwnerPosts() {
                     onChange={(e) => setStatus(e.target.value)}
                     className="w-full text-xs font-medium bg-surface-subtle border border-border-subtle-medium rounded-xl p-2.5 focus:outline-none focus:border-brand-orange"
                   >
-                    <option value="DRAFT">Bản nháp (Draft)</option>
-                    <option value="PUBLISHED">Xuất bản công khai (Published)</option>
-                    <option value="ARCHIVED">Lưu trữ (Archived)</option>
+                    <option value="DRAFT">Bản nháp </option>
+                    <option value="PUBLISHED">Xuất bản công khai </option>
+                    <option value="ARCHIVED">Lưu trữ </option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-gray-800 mb-1">Tiêu đề bài viết / sự kiện (*)</label>
+                <label className="block text-xs font-semibold text-gray-800 mb-1">Tiêu đề bài viết / sự kiện *</label>
                 <input
                   type="text"
                   placeholder="Ví dụ: GIẢI CẦU LÔNG MỞ RỘNG SPORT HUB OPEN 2026"
@@ -717,7 +717,7 @@ export default function OwnerPosts() {
               {/* COVER IMAGE SELECTOR */}
               {/* COVER IMAGE UPLOAD & SELECTOR */}
               <div className="space-y-2">
-                <label className="block text-xs font-semibold text-gray-800">Ảnh bìa (Cover Image)</label>
+                <label className="block text-xs font-semibold text-gray-800">Ảnh bài viết </label>
 
                 {/* IMAGE PREVIEW BOX */}
                 {coverImageUrl ? (
@@ -726,7 +726,7 @@ export default function OwnerPosts() {
                     <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                       <label className="cursor-pointer bg-white text-gray-900 px-3 py-1.5 rounded-xl text-xs font-bold hover:bg-gray-100 flex items-center gap-1.5 shadow-md">
                         <Upload size={14} className="text-brand-orange" />
-                        Thay ảnh khác từ máy
+                        Thay ảnh khác
                         <input type="file" accept="image/*" className="hidden" onChange={handleFileSelect} />
                       </label>
                       <button
@@ -765,7 +765,7 @@ export default function OwnerPosts() {
                     Chọn từ Thư viện Sân
                   </Button>
 
-                  <input
+                  {/* <input
                     type="text"
                     placeholder="Hoặc dán URL ảnh..."
                     value={coverImageUrl.startsWith('data:') ? '' : coverImageUrl}
@@ -774,7 +774,7 @@ export default function OwnerPosts() {
                       setPendingCoverBase64('');
                     }}
                     className="flex-1 min-w-[200px] text-xs bg-surface-subtle border border-border-subtle-medium rounded-xl p-2 focus:outline-none focus:border-brand-orange"
-                  />
+                  /> */}
                 </div>
 
                 {pendingCoverBase64 && (
@@ -786,7 +786,7 @@ export default function OwnerPosts() {
 
               {/* EXCERPT MÔ TẢ NGẮN */}
               <div>
-                <label className="block text-xs font-semibold text-gray-800 mb-1">Tóm tắt ngắn (Excerpt)</label>
+                <label className="block text-xs font-semibold text-gray-800 mb-1">Tóm tắt ngắn </label>
                 <textarea
                   rows={2}
                   placeholder="Mô tả ngắn gọn hiển thị trên thẻ xem trước..."
@@ -870,7 +870,7 @@ export default function OwnerPosts() {
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-semibold text-gray-800 mb-1">Lệ phí / Học phí (đ)</label>
+                      <label className="block text-[11px] font-semibold text-gray-800 mb-1">Lệ phí</label>
                       <input
                         type="number"
                         placeholder="150000"
@@ -891,7 +891,7 @@ export default function OwnerPosts() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-semibold text-gray-800 mb-1">Mã giảm giá (Promo Code)</label>
+                      <label className="block text-[11px] font-semibold text-gray-800 mb-1">Mã giảm giá</label>
                       <input
                         type="text"
                         placeholder="SUMMER2026"
@@ -918,7 +918,7 @@ export default function OwnerPosts() {
               {/* RICH FORMATTING CONTENT TOOLBAR & TEXTAREA */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-semibold text-gray-800">Nội dung chi tiết (Rich Content)</label>
+                  <label className="block text-xs font-semibold text-gray-800">Nội dung chi tiết </label>
                   <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-lg">
                     <button type="button" onClick={() => applyFormat('b')} className="p-1 hover:bg-white rounded text-gray-700" title="In đậm">
                       <Bold size={13} />

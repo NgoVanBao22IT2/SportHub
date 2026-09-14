@@ -256,8 +256,8 @@ export default function PaymentAccountFormModal({
           {/* Upload QR Code Image from Local */}
           <div className="space-y-1.5">
             <label className="font-bold text-gray-900 block flex items-center justify-between">
-              <span>Ảnh QR Code chuyển khoản</span>
-              <span className="text-[10px] text-text-muted font-normal">(Không bắt buộc)</span>
+              <span>Ảnh QR Code chuyển khoản *</span>
+              {/* <span className="text-[10px] text-text-muted font-normal">(Không bắt buộc)</span> */}
             </label>
 
             {form.qr_code_url ? (

@@ -39,6 +39,11 @@ router.get('/venues/:venueId', venueController.getMyVenueById);
 router.put('/venues/:venueId', venueController.updateVenue);
 router.delete('/venues/:venueId', venueController.deleteVenue);
 
+// Facility Catalog CRUD
+router.post('/facilities', facilityController.createFacility);
+router.put('/facilities/:facilityId', facilityController.updateFacility);
+router.delete('/facilities/:facilityId', facilityController.deleteFacility);
+
 // Venue - Facility Assignment
 router.post('/venues/:venueId/facilities', facilityController.assignFacilityToVenue);
 router.delete('/venues/:venueId/facilities/:facilityId', facilityController.removeFacilityFromVenue);

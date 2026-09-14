@@ -231,7 +231,7 @@ export default function OwnerBookingDetail() {
             </>
           )}
 
-          {(status === 'WAITING_OWNER_CONFIRMATION' || status === 'HOLDING' || status === 'PAYMENT_PENDING' || booking.payment_proof_url) && status !== 'CONFIRMED' && status !== 'REJECTED' && status !== 'CANCELLED' && status !== 'CANCEL_REQUESTED' && (
+          {['WAITING_OWNER_CONFIRMATION', 'HOLDING', 'PENDING', 'PAYMENT_PENDING'].includes(status) && (
             <>
               <Button
                 variant="danger"
@@ -252,7 +252,7 @@ export default function OwnerBookingDetail() {
             </>
           )}
 
-          {status === 'CONFIRMED' && <Badge variant="success" size="md">ĐÃ DUYỆT ĐẶT SÂN</Badge>}
+          {(status === 'CONFIRMED' || status === 'COMPLETED') && <Badge variant="success" size="md">ĐÃ DUYỆT ĐẶT SÂN</Badge>}
           {status === 'CANCEL_REQUESTED' && <Badge variant="warning" size="md">YÊU CẦU HỦY & HOÀN TIỀN</Badge>}
           {status === 'REJECTED' && <Badge variant="danger" size="md">ĐÃ TỪ CHỐI</Badge>}
           {status === 'CANCELLED' && <Badge variant="danger" size="md">ĐÃ HỦY</Badge>}

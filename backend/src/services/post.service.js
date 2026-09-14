@@ -2,7 +2,7 @@
 
 const { v4: uuidv4 } = require('uuid');
 const { Op } = require('sequelize');
-const { Venue, VenuePost, VenueImage, VenuePostImage, User, sequelize } = require('../models');
+const { Venue, VenuePost, VenueImage, VenuePostImage, User, Booking, Court, Branch, sequelize } = require('../models');
 
 class PostService {
   /**
@@ -95,8 +95,63 @@ class PostService {
       offset: parseInt(offset, 10)
     });
 
+    // Fetch all courts for this venue to match confirmed bookings
+    const venueCourts = await Court.findAll({
+      include: [{
+        model: Branch,
+        as: 'branch',
+        where: { venue_id: venueId },
+        attributes: []
+      }],
+      attributes: ['court_id', 'court_name']
+    });
+    const courtIds = venueCourts.map(c => c.court_id);
+
+    // Fetch confirmed bookings for these courts
+    let confirmedBookings = [];
+    if (courtIds.length > 0) {
+      confirmedBookings = await Booking.findAll({
+        where: {
+          court_id: { [Op.in]: courtIds },
+          booking_status: { [Op.in]: ['CONFIRMED', 'COMPLETED'] }
+        },
+        attributes: ['booking_id', 'court_id', 'booking_date', 'start_time', 'end_time']
+      });
+    }
+
+    const postsWithCounts = rows.map(post => {
+      const pObj = post.toJSON();
+      
+      let meta = {};
+      if (pObj.excerpt && typeof pObj.excerpt === 'string' && pObj.excerpt.trim().startsWith('{')) {
+        try { meta = JSON.parse(pObj.excerpt); } catch (_) {}
+      }
+
+      const playDate = meta.play_date || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[0] : '');
+      const startTime = meta.start_time || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[1]?.substring(0, 5) : '');
+      const endTime = meta.end_time || (pObj.end_at ? new Date(pObj.end_at).toISOString().split('T')[1]?.substring(0, 5) : '');
+
+      let joinedCount = 0;
+      if (playDate) {
+        // Count confirmed bookings matching playDate and time interval
+        joinedCount = confirmedBookings.filter(b => {
+          const bDate = b.booking_date;
+          const bStart = (b.start_time || '').substring(0, 5);
+          const bEnd = (b.end_time || '').substring(0, 5);
+
+          const dateMatches = bDate === playDate;
+          const timeMatches = (!startTime || bStart === startTime) && (!endTime || bEnd === endTime);
+
+          return dateMatches && timeMatches;
+        }).length;
+      }
+
+      pObj.joined_count = Math.max(joinedCount, meta.joined_count || 0);
+      return pObj;
+    });
+
     return {
-      data: rows,
+      data: postsWithCounts,
       meta: {
         total: count,
         page: parseInt(page, 10),
@@ -389,8 +444,63 @@ class PostService {
       offset: parseInt(offset, 10)
     });
 
+    // Fetch all courts for this venue to match confirmed bookings
+    const venueCourts = await Court.findAll({
+      include: [{
+        model: Branch,
+        as: 'branch',
+        where: { venue_id: venueId },
+        attributes: []
+      }],
+      attributes: ['court_id', 'court_name']
+    });
+    const courtIds = venueCourts.map(c => c.court_id);
+
+    // Fetch confirmed bookings for these courts
+    let confirmedBookings = [];
+    if (courtIds.length > 0) {
+      confirmedBookings = await Booking.findAll({
+        where: {
+          court_id: { [Op.in]: courtIds },
+          booking_status: { [Op.in]: ['CONFIRMED', 'COMPLETED'] }
+        },
+        attributes: ['booking_id', 'court_id', 'booking_date', 'start_time', 'end_time']
+      });
+    }
+
+    const postsWithCounts = rows.map(post => {
+      const pObj = post.toJSON();
+      
+      let meta = {};
+      if (pObj.excerpt && typeof pObj.excerpt === 'string' && pObj.excerpt.trim().startsWith('{')) {
+        try { meta = JSON.parse(pObj.excerpt); } catch (_) {}
+      }
+
+      const playDate = meta.play_date || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[0] : '');
+      const startTime = meta.start_time || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[1]?.substring(0, 5) : '');
+      const endTime = meta.end_time || (pObj.end_at ? new Date(pObj.end_at).toISOString().split('T')[1]?.substring(0, 5) : '');
+
+      let joinedCount = 0;
+      if (playDate) {
+        // Count confirmed bookings matching playDate and time interval
+        joinedCount = confirmedBookings.filter(b => {
+          const bDate = b.booking_date;
+          const bStart = (b.start_time || '').substring(0, 5);
+          const bEnd = (b.end_time || '').substring(0, 5);
+
+          const dateMatches = bDate === playDate;
+          const timeMatches = (!startTime || bStart === startTime) && (!endTime || bEnd === endTime);
+
+          return dateMatches && timeMatches;
+        }).length;
+      }
+
+      pObj.joined_count = Math.max(joinedCount, meta.joined_count || 0);
+      return pObj;
+    });
+
     return {
-      data: rows,
+      data: postsWithCounts,
       meta: {
         total: count,
         page: parseInt(page, 10),

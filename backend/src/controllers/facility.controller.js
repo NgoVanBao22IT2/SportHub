@@ -58,6 +58,33 @@ class FacilityController {
       });
     }
   }
+  async updateFacility(req, res) {
+    try {
+      const { facilityId } = req.params;
+      const result = await facilityService.updateFacility(facilityId, req.body, models);
+      return res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      return res.status(err.statusCode || 500).json({
+        success: false,
+        code: err.code || 'SERVER_ERROR',
+        message: err.message
+      });
+    }
+  }
+
+  async deleteFacility(req, res) {
+    try {
+      const { facilityId } = req.params;
+      const result = await facilityService.deleteFacility(facilityId, models);
+      return res.status(200).json({ success: true, data: result });
+    } catch (err) {
+      return res.status(err.statusCode || 500).json({
+        success: false,
+        code: err.code || 'SERVER_ERROR',
+        message: err.message
+      });
+    }
+  }
 }
 
 module.exports = new FacilityController();

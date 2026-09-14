@@ -199,8 +199,8 @@ export default function OwnerPaymentDetail() {
             </>
           )}
 
-          {pStatus === 'SUCCESS' && <Badge variant="success" size="md">ĐÃ THANH TOÁN (SUCCESS)</Badge>}
-          {pStatus === 'FAILED' && <Badge variant="danger" size="md">ĐÃ TỪ CHỐI (FAILED)</Badge>}
+          {pStatus === 'SUCCESS' && <Badge variant="success" size="md">ĐÃ THANH TOÁN </Badge>}
+          {pStatus === 'FAILED' && <Badge variant="danger" size="md">ĐÃ TỪ CHỐI </Badge>}
         </div>
       </div>
 
@@ -218,7 +218,7 @@ export default function OwnerPaymentDetail() {
 
           <div className="space-y-3 text-xs">
             <div>
-              <span className="text-text-muted block">Mã giao dịch (Payment ID):</span>
+              <span className="text-text-muted block">Mã giao dịch :</span>
               <span className="font-mono font-bold text-gray-900">{payment.payment_id}</span>
             </div>
 
@@ -250,7 +250,7 @@ export default function OwnerPaymentDetail() {
 
           <div className="space-y-3 text-xs">
             <div>
-              <span className="text-text-muted block">Họ và tên khách hàng:</span>
+              <span className="text-text-muted block">Họ và tên:</span>
               <span className="font-bold text-gray-900 text-sm">{custName} ({custPhone})</span>
             </div>
 

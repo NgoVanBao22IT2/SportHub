@@ -15,7 +15,7 @@ import Card from '../ui/Card';
  * @param {Function} props.onSelectVisualBooking
  * @param {Object} [props.venue]
  */
-export default function BookingModal({ isOpen, onClose, onSelectVisualBooking, venue }) {
+export default function BookingModal({ isOpen, onClose, onSelectVisualBooking, onSelectSocialEvents, venue }) {
   const [step, setStep] = useState(1); // 1: Hình thức đặt, 2: Đối tượng đặt
   const [selectedTarget, setSelectedTarget] = useState('GENERAL');
 
@@ -28,6 +28,13 @@ export default function BookingModal({ isOpen, onClose, onSelectVisualBooking, v
 
   const handleSelectBookingType = () => {
     setStep(2); // Transition to Step 2: Đối tượng đặt
+  };
+
+  const handleSelectSocial = () => {
+    setStep(1);
+    if (onSelectSocialEvents) {
+      onSelectSocialEvents();
+    }
   };
 
   const handleConfirmTarget = (targetType) => {
@@ -106,8 +113,7 @@ export default function BookingModal({ isOpen, onClose, onSelectVisualBooking, v
                 radius="xl"
                 padding="lg"
                 className="border-2 border-[#09b69b] bg-accent-primary/5 hover:bg-accent-primary/10 transition-all cursor-pointer group relative overflow-hidden"
-                onClick={handleSelectBookingType}
-
+                onClick={handleSelectSocial}
               >
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-xl bg-accent-primary text-white flex items-center justify-center flex-shrink-0">

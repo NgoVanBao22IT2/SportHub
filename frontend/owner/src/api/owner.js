@@ -557,6 +557,21 @@ export const getOwnerFacilities = async () => {
   return response.data;
 };
 
+export const createOwnerFacility = async (facilityData) => {
+  const response = await apiClient.post('/facilities', facilityData);
+  return response.data;
+};
+
+export const updateOwnerFacility = async (facilityId, facilityData) => {
+  const response = await apiClient.put(`/facilities/${facilityId}`, facilityData);
+  return response.data;
+};
+
+export const deleteOwnerFacility = async (facilityId) => {
+  const response = await apiClient.delete(`/facilities/${facilityId}`);
+  return response.data;
+};
+
 export const assignOwnerFacility = async (venueId, facilityData) => {
   const response = await apiClient.post(`/venues/${venueId}/facilities`, facilityData);
   return response.data;

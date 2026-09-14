@@ -1,5 +1,5 @@
-import React from 'react';
-import { X, CheckCircle2, XCircle, ExternalLink, Image as ImageIcon, CreditCard, User, Calendar, DollarSign } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, CheckCircle2, XCircle, ZoomIn, Image as ImageIcon, CreditCard, User, Calendar, DollarSign } from 'lucide-react';
 import Button from '../ui/Button';
 import Badge from '../ui/Badge';
 
@@ -12,6 +12,8 @@ export default function PaymentProofViewer({
   onReject,
   loadingAction
 }) {
+  const [isZoomed, setIsZoomed] = useState(false);
+
   if (!isOpen || !booking) return null;
 
   const custName = booking.customer?.full_name || 'Khách hàng';
@@ -57,11 +59,10 @@ export default function PaymentProofViewer({
 
             {proofUrl ? (
               <div className="w-full flex flex-col items-center">
-                <a
-                  href={proofUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative block w-full max-h-80 overflow-hidden rounded-xl border border-border-subtle-medium bg-black/5"
+                <button
+                  type="button"
+                  onClick={() => setIsZoomed(true)}
+                  className="group relative block w-full max-h-80 overflow-hidden rounded-xl border border-border-subtle-medium bg-black/5 text-left cursor-pointer"
                   title="Bấm để xem ảnh phóng to"
                 >
                   <img
@@ -69,10 +70,10 @@ export default function PaymentProofViewer({
                     alt="Payment Proof"
                     className="w-full h-full object-contain max-h-80 group-hover:scale-105 transition-transform duration-300"
                   />
-                  <div className="absolute inset-0 bg-dark/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1.5">
-                    <ExternalLink size={16} /> Mở ảnh phóng to
+                  <div className="absolute inset-0 bg-dark/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-bold gap-1.5">
+                    <ZoomIn size={18} /> Mở ảnh phóng to
                   </div>
-                </a>
+                </button>
                 <span className="text-[11px] text-text-muted mt-2">Bấm vào ảnh để xem kích thước đầy đủ</span>
               </div>
             ) : (
@@ -149,6 +150,35 @@ export default function PaymentProofViewer({
         </div>
 
       </div>
+
+      {/* Fullscreen Lightbox Modal Overlay */}
+      {isZoomed && proofUrl && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-4 animate-in fade-in duration-200 cursor-zoom-out"
+          onClick={() => setIsZoomed(false)}
+        >
+          <div className="relative max-w-4xl max-h-[95vh] flex flex-col items-center justify-center">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsZoomed(false);
+              }}
+              className="absolute -top-12 right-0 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-colors cursor-pointer"
+              title="Đóng ảnh phóng to"
+            >
+              <X size={24} />
+            </button>
+            <img
+              src={proofUrl}
+              alt="Payment Proof Zoomed"
+              className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <p className="text-white/70 text-xs mt-3 font-medium">Bấm bất kỳ đâu bên ngoài hoặc nút X để đóng</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

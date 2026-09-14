@@ -265,21 +265,23 @@ export default function OwnerRevenue() {
             <input
               type="date"
               value={fromDate}
+              onClick={(e) => { try { e.currentTarget.showPicker(); } catch (_) {} }}
               onChange={(e) => {
                 setPeriodPreset('CUSTOM');
                 setFromDate(e.target.value);
               }}
-              className="p-2 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 font-bold focus:border-brand-orange focus:outline-none"
+              className="p-2 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 font-bold focus:border-brand-orange focus:outline-none cursor-pointer"
             />
             <span className="text-text-muted">đến</span>
             <input
               type="date"
               value={toDate}
+              onClick={(e) => { try { e.currentTarget.showPicker(); } catch (_) {} }}
               onChange={(e) => {
                 setPeriodPreset('CUSTOM');
                 setToDate(e.target.value);
               }}
-              className="p-2 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 font-bold focus:border-brand-orange focus:outline-none"
+              className="p-2 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 font-bold focus:border-brand-orange focus:outline-none cursor-pointer"
             />
           </div>
 
@@ -308,9 +310,9 @@ export default function OwnerRevenue() {
               onChange={(e) => setPaymentMethodFilter(e.target.value)}
               className="w-full p-2 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:border-brand-orange focus:outline-none"
             >
-              <option value="ALL">Tất cả phương thức thanh toán</option>
+              <option value="ALL">Tất cả </option>
               <option value="BANK_TRANSFER">Chuyển khoản Ngân hàng</option>
-              <option value="MOMO">Ví MoMo</option>
+              {/* <option value="MOMO">Ví MoMo</option> */}
             </select>
           </div>
         </div>
@@ -347,7 +349,7 @@ export default function OwnerRevenue() {
 
         {/* KPI 3 */}
         <Card padding="md" radius="xl" className="border border-border-subtle-medium bg-surface">
-          <span className="text-text-muted text-[11px] font-bold block uppercase">Số giao dịch thành công</span>
+          <span className="text-text-muted text-[11px] font-bold block uppercase">Giao dịch thành công</span>
           <p className="text-2xl font-extrabold text-gray-900 mt-1">{summary.totalTransactions}</p>
           <p className="text-[11px] text-text-muted mt-1">Giao dịch đã xác nhận thành công</p>
         </Card>

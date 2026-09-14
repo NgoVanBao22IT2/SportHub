@@ -450,11 +450,24 @@ export default function VisualBooking() {
               </button>
             </div>
 
-            <div className="flex items-center gap-2 bg-surface-subtle px-3 py-1.5 rounded-lg border border-border-subtle-medium text-gray-800 font-bold">
+            <div
+              onClick={(e) => {
+                const input = e.currentTarget.querySelector('input');
+                if (input && typeof input.showPicker === 'function') {
+                  try { input.showPicker(); } catch (_) {}
+                }
+              }}
+              className="flex items-center gap-2 bg-surface-subtle px-3 py-1.5 rounded-lg border border-border-subtle-medium text-gray-800 font-bold cursor-pointer"
+            >
               <input
                 type="date"
                 min={new Date().toISOString().split('T')[0]}
                 value={selectedDate}
+                onClick={(e) => {
+                  if (typeof e.currentTarget.showPicker === 'function') {
+                    try { e.currentTarget.showPicker(); } catch (_) {}
+                  }
+                }}
                 onChange={(e) => {
                   const todayStr = new Date().toISOString().split('T')[0];
                   if (e.target.value && e.target.value >= todayStr) {

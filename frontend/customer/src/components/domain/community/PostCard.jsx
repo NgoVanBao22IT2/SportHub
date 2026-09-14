@@ -115,7 +115,8 @@ export default function PostCard({ post, onApply, onEdit, onDelete, currentUserI
   };
 
   const cardImage = getPostImage(post);
-  const cleanContentText = stripHtml(post.content || post.excerpt);
+  const validExcerpt = post.excerpt && !post.excerpt.trim().startsWith('{') ? post.excerpt : '';
+  const cleanContentText = stripHtml(post.content || validExcerpt);
 
   return (
     <div className="bg-white rounded-3xl shadow-sm border border-gray-100 hover:shadow-lg transition-all p-5 flex flex-col justify-between overflow-hidden group">

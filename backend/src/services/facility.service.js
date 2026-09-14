@@ -7,26 +7,79 @@ class FacilityService {
   /**
    * ADMIN only: Create a global facility in the catalog
    */
+  /**
+   * ADMIN / OWNER: Create a facility in the catalog
+   */
   async createFacility(data, models, transaction = null) {
     const { facility_name, facility_icon } = data;
-    const facilityId = crypto.randomUUID();
+    const facilityId = data.facility_id || `fac_${crypto.randomUUID().substring(0, 8)}`;
 
     const facility = await models.Facility.create({
       facility_id: facilityId,
       facility_name,
-      facility_icon
+      facility_icon: facility_icon || null
     }, { transaction });
 
     return facility;
   }
 
   /**
-   * Public: Get all facilities
+   * Get all facilities
    */
   async getFacilities(models) {
     return models.Facility.findAll({
-      order: [['facility_name', 'ASC']]
+      order: [['created_at', 'ASC'], ['facility_name', 'ASC']]
     });
+  }
+
+  /**
+   * Update a facility in the catalog
+   */
+  async updateFacility(facilityId, data, models, transaction = null) {
+    const { facility_name, facility_icon } = data;
+
+    const targetId = String(facilityId).trim();
+
+    const [updatedRows] = await models.Facility.update(
+      {
+        ...(facility_name !== undefined && { facility_name }),
+        ...(facility_icon !== undefined && { facility_icon })
+      },
+      {
+        where: { facility_id: targetId },
+        transaction
+      }
+    );
+
+    const facility = await models.Facility.findOne({ where: { facility_id: targetId } });
+    if (!facility && updatedRows === 0) {
+      const error = new Error('Không tìm thấy tiện ích để cập nhật.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    return facility;
+  }
+
+  /**
+   * Delete a facility from the catalog idempotently
+   */
+  async deleteFacility(facilityId, models, transaction = null) {
+    const targetId = String(facilityId).trim();
+
+    // 1. Remove all mappings in venue_facilities
+    await models.VenueFacility.destroy({
+      where: { facility_id: targetId },
+      transaction
+    });
+
+    // 2. Delete the facility record
+    await models.Facility.destroy({
+      where: { facility_id: targetId },
+      transaction
+    });
+
+    return { success: true, message: 'Đã xóa tiện ích thành công.' };
   }
 
   /**
