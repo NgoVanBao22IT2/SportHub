@@ -513,10 +513,25 @@ class PostService {
    * Customer API: Get post detail by slug with view count increment & related posts
    */
   static async getPublicPostBySlug(slug) {
-    const post = await VenuePost.findOne({
+    const postModel = await VenuePost.findOne({
       where: { slug, status: 'PUBLISHED' },
       include: [
-        { model: Venue, as: 'venue' },
+        { 
+          model: Venue, 
+          as: 'venue',
+          include: [
+            { 
+              model: Branch, 
+              as: 'branches',
+              include: [{ model: Court, as: 'courts' }]
+            },
+            {
+              model: VenueImage,
+              as: 'images',
+              required: false
+            }
+          ]
+        },
         { model: VenueImage, as: 'cover_image', required: false },
         {
           model: VenuePostImage,
@@ -526,22 +541,62 @@ class PostService {
       ]
     });
 
-    if (!post) {
+    if (!postModel) {
       const err = new Error('Không tìm thấy bài viết hoặc bài viết đã bị gỡ.');
       err.statusCode = 404;
       throw err;
     }
 
     // Increment view count
-    post.view_count = (post.view_count || 0) + 1;
-    await post.save();
+    postModel.view_count = (postModel.view_count || 0) + 1;
+    await postModel.save();
+
+    const pObj = postModel.toJSON();
+
+    // Calculate real joined count from confirmed database bookings
+    const courtIds = pObj.venue?.branches?.flatMap(b => b.courts?.map(c => c.court_id)) || [];
+    let confirmedBookings = [];
+    if (courtIds.length > 0) {
+      confirmedBookings = await Booking.findAll({
+        where: {
+          court_id: { [Op.in]: courtIds },
+          booking_status: { [Op.in]: ['CONFIRMED', 'COMPLETED'] }
+        },
+        attributes: ['booking_id', 'court_id', 'booking_date', 'start_time', 'end_time']
+      });
+    }
+
+    let meta = {};
+    if (pObj.excerpt && typeof pObj.excerpt === 'string' && pObj.excerpt.trim().startsWith('{')) {
+      try { meta = JSON.parse(pObj.excerpt); } catch (_) {}
+    }
+
+    const playDate = meta.play_date || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[0] : '');
+    const startTime = meta.start_time || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[1]?.substring(0, 5) : '');
+    const endTime = meta.end_time || (pObj.end_at ? new Date(pObj.end_at).toISOString().split('T')[1]?.substring(0, 5) : '');
+
+    let joinedCount = 0;
+    if (playDate) {
+      joinedCount = confirmedBookings.filter(b => {
+        const bDate = b.booking_date;
+        const bStart = (b.start_time || '').substring(0, 5);
+        const bEnd = (b.end_time || '').substring(0, 5);
+
+        const dateMatches = bDate === playDate;
+        const timeMatches = (!startTime || bStart === startTime) && (!endTime || bEnd === endTime);
+
+        return dateMatches && timeMatches;
+      }).length;
+    }
+
+    pObj.joined_count = Math.max(joinedCount, meta.joined_count || 0);
 
     // Fetch related posts from same venue
     const relatedPosts = await VenuePost.findAll({
       where: {
-        venue_id: post.venue_id,
+        venue_id: pObj.venue_id,
         status: 'PUBLISHED',
-        post_id: { [Op.ne]: post.post_id }
+        post_id: { [Op.ne]: pObj.post_id }
       },
       include: [{ model: VenueImage, as: 'cover_image', required: false }],
       order: [['publish_at', 'DESC']],
@@ -549,7 +604,7 @@ class PostService {
     });
 
     return {
-      post,
+      post: pObj,
       relatedPosts
     };
   }

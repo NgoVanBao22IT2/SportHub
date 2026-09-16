@@ -230,7 +230,17 @@ export default function OwnerPosts() {
   const openEditModal = (post) => {
     setEditingPostId(post.post_id);
     setTitle(post.title || '');
-    setExcerpt(post.excerpt || '');
+
+    let displayExcerpt = post.excerpt || '';
+    if (displayExcerpt && typeof displayExcerpt === 'string' && displayExcerpt.trim().startsWith('{')) {
+      try {
+        const meta = JSON.parse(displayExcerpt);
+        displayExcerpt = meta.note || meta.description || '';
+      } catch (_) {
+        displayExcerpt = '';
+      }
+    }
+    setExcerpt(displayExcerpt);
     setContent(post.content || '');
     setContentType(post.content_type || 'POST');
     setCoverImageId(post.cover_image_id || '');
@@ -299,9 +309,21 @@ export default function OwnerPosts() {
         ? finalCoverImageUrl
         : (coverImageUrl && !coverImageUrl.startsWith('data:') ? coverImageUrl : null);
 
+      let finalExcerptPayload = excerpt;
+      if (editingPostId) {
+        const targetPost = posts.find(p => p.post_id === editingPostId);
+        if (targetPost && targetPost.excerpt && typeof targetPost.excerpt === 'string' && targetPost.excerpt.trim().startsWith('{')) {
+          try {
+            const meta = JSON.parse(targetPost.excerpt);
+            meta.note = excerpt.trim();
+            finalExcerptPayload = JSON.stringify(meta);
+          } catch (_) {}
+        }
+      }
+
       const payload = {
         title,
-        excerpt,
+        excerpt: finalExcerptPayload,
         content,
         content_type: contentType,
         cover_image_id: finalCoverImageId || null,
@@ -568,11 +590,24 @@ export default function OwnerPosts() {
                     {post.title}
                   </h3>
 
-                  {post.excerpt && (
+                  {post.excerpt && !post.excerpt.trim().startsWith('{') && (
                     <p className="text-xs text-text-muted line-clamp-2 leading-relaxed">
                       {post.excerpt}
                     </p>
                   )}
+                  {post.excerpt && post.excerpt.trim().startsWith('{') && (() => {
+                    try {
+                      const meta = JSON.parse(post.excerpt);
+                      if (meta.note) {
+                        return (
+                          <p className="text-xs text-text-muted line-clamp-2 leading-relaxed">
+                            <span className="font-medium text-gray-700">Ghi chú:</span> {meta.note}
+                          </p>
+                        );
+                      }
+                    } catch (_) {}
+                    return null;
+                  })()}
 
                   {/* EVENT METADATA */}
                   {(post.start_at || post.location) && (
@@ -1036,7 +1071,20 @@ export default function OwnerPosts() {
 
             <div
               className="text-xs text-gray-800 leading-relaxed prose max-w-none"
-              dangerouslySetInnerHTML={{ __html: viewingPost.content || viewingPost.excerpt || 'Chưa có nội dung.' }}
+              dangerouslySetInnerHTML={{
+                __html: viewingPost.content || (
+                  viewingPost.excerpt && !viewingPost.excerpt.trim().startsWith('{')
+                    ? viewingPost.excerpt
+                    : (viewingPost.excerpt && viewingPost.excerpt.trim().startsWith('{')
+                      ? (() => {
+                        try {
+                          const meta = JSON.parse(viewingPost.excerpt);
+                          return meta.note ? `<strong>Ghi chú:</strong> ${meta.note}` : '';
+                        } catch (_) { return ''; }
+                      })()
+                      : '')
+                ) || 'Chưa có nội dung.'
+              }}
             />
 
             <div className="pt-3 border-t flex justify-end">

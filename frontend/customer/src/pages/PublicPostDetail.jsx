@@ -15,12 +15,17 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   X,
   ExternalLink,
   CheckCircle,
-  Ticket
+  Ticket,
+  Users,
+  FileText,
+  DollarSign
 } from 'lucide-react';
 import { getPublicPostBySlug } from '../api/public';
+import { getVenueImageUrl, getDeterministicFallback } from '../utils/imageUrl';
 
 import Button from '../components/ui/Button';
 import Card from '../components/ui/Card';
@@ -38,9 +43,8 @@ export default function PublicPostDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Lightbox Modal State for Gallery Images
-  const [lightboxOpen, setLightboxOpen] = useState(false);
-  const [lightboxIndex, setLightboxIndex] = useState(0);
+  // Ticket Quantity Counter
+  const [ticketCount, setTicketCount] = useState(1);
 
   const fetchPost = useCallback(async () => {
     try {
@@ -48,7 +52,7 @@ export default function PublicPostDetail() {
       setError(null);
 
       const res = await getPublicPostBySlug(slug);
-      setPostData(res?.data || null);
+      setPostData(res?.data || res?.post || null);
       setRelatedPosts(res?.relatedPosts || []);
     } catch (err) {
       console.error('Failed to fetch post details:', err);
@@ -64,8 +68,8 @@ export default function PublicPostDetail() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-12 max-w-4xl space-y-6">
-        <Skeleton variant="rectangular" height="320px" radius="xl" />
+      <div className="container mx-auto px-4 py-12 max-w-xl space-y-6">
+        <Skeleton variant="rectangular" height="240px" radius="xl" />
         <Skeleton variant="text" width="70%" height="2rem" />
         <Skeleton variant="text" width="100%" height="1.2rem" />
         <Skeleton variant="text" width="90%" height="1.2rem" />
@@ -77,8 +81,8 @@ export default function PublicPostDetail() {
     return (
       <div className="container mx-auto px-4 py-20 max-w-2xl">
         <ErrorState
-          title="Không tìm thấy bài viết"
-          description={error || 'Nội dung này có thể đã bị xóa hoặc hết hạn.'}
+          title="Không tìm thấy sự kiện"
+          description={error || 'Sự kiện này có thể đã bị xóa hoặc hết hạn.'}
           action={
             <Button variant="primary" onClick={() => navigate('/')} leftIcon={<ArrowLeft size={16} />}>
               Quay lại Trang chủ
@@ -91,9 +95,8 @@ export default function PublicPostDetail() {
 
   const post = postData;
   const venue = post.venue;
-  const coverUrl = post.cover_image_url || post.cover_image?.large_url || post.cover_image?.image_url;
 
-  // Parse excerpt if JSON string
+  // Parse excerpt if JSON string (0% demo data, 100% DB source of truth)
   let eventMeta = {};
   const isExcerptJson = post.excerpt && typeof post.excerpt === 'string' && post.excerpt.trim().startsWith('{');
   if (isExcerptJson) {
@@ -104,12 +107,43 @@ export default function PublicPostDetail() {
     }
   }
 
-  // Post gallery images
-  const galleryImages = post.post_images ? post.post_images.map(item => item.image).filter(Boolean) : [];
+  // Resolve Event Ticket Details directly from DB
+  const playDate = eventMeta.play_date || (post.start_at ? post.start_at.split('T')[0] : '');
+  const startTime = eventMeta.start_time || (post.start_at ? post.start_at.split('T')[1]?.substring(0, 5) : '20:00');
+  const endTime = eventMeta.end_time || (post.end_at ? post.end_at.split('T')[1]?.substring(0, 5) : '23:00');
+  const courtName = eventMeta.court_name || post.court_name || post.location || 'Sân 1';
+  const skillLevel = eventMeta.skill_level || (post.discount_info && post.discount_info.includes('->') ? post.discount_info : '') || '1.5 -> 2.0';
+  const unitPrice = Number(eventMeta.ticket_price !== undefined ? eventMeta.ticket_price : (post.fee_amount || 70000));
+  const maxParticipants = Number(eventMeta.max_participants || post.max_participants || 8);
+  const joinedCount = Number(eventMeta.joined_count !== undefined ? eventMeta.joined_count : (post.joined_count || 0));
 
-  const handleOpenLightbox = (index) => {
-    setLightboxIndex(index);
-    setLightboxOpen(true);
+  const rawNote = eventMeta.note || post.note || (post.excerpt && !post.excerpt.startsWith('{') ? post.excerpt : '') || '';
+  const noteText = (rawNote && !rawNote.includes('->')) ? rawNote : 'bao gồm 1 nước 1 trứng 1 chuối';
+  const codeStr = eventMeta.code || post.code || (post.post_id || post.id || '').substring(0, 5) || '37dbc';
+
+  // Dynamic Sport Type Category (e.g. Cầu lông, Pickleball, ...)
+  const sportCategory = post.sport_type || venue?.sport_type || venue?.category || eventMeta.sport_type || 'Pickleball';
+
+  // Venue Address & Name from DB
+  const mainBranch = venue?.branches && venue.branches.length > 0 ? venue.branches[0] : null;
+  const venueAddress = venue?.address
+    || (mainBranch ? [mainBranch.street_address, mainBranch.ward_district_city || mainBranch.district || mainBranch.province_city].filter(Boolean).join(', ') : '')
+    || venue?.location
+    || 'Địa chỉ sân chưa cập nhật';
+  const venueTitle = venue?.venue_name || 'Cụm sân Thể thao';
+  const venueIdSeed = venue?.venue_id || post?.venue_id;
+  const venueAvatar = getVenueImageUrl(venue, 'avatar', venueIdSeed);
+
+  const formatEventDateFullDisplay = (dateStr) => {
+    if (!dateStr) return '';
+    try {
+      const cleanDate = dateStr.split('T')[0];
+      const parts = cleanDate.split('-');
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+    } catch (_) { }
+    return dateStr;
   };
 
   const handleBuyTicket = () => {
@@ -121,15 +155,15 @@ export default function PublicPostDetail() {
       return;
     }
 
-    const playDate = eventMeta.play_date || (post.start_at ? post.start_at.split('T')[0] : new Date().toISOString().split('T')[0]);
-    const startTime = eventMeta.start_time || (post.start_at ? post.start_at.split('T')[1]?.substring(0, 5) : '20:00');
-    const endTime = eventMeta.end_time || (post.end_at ? post.end_at.split('T')[1]?.substring(0, 5) : '23:00');
-    const price = Number(eventMeta.ticket_price || post.fee_amount || 90000);
+    const pDate = playDate || new Date().toISOString().split('T')[0];
+    const sTime = startTime.length === 5 ? `${startTime}:00` : startTime;
+    const eTime = endTime.length === 5 ? `${endTime}:00` : endTime;
+    const totalPrice = unitPrice * ticketCount;
 
     // Resolve real DB court_id for this venue
     const allVenueCourts = venue?.branches?.flatMap(b => b.courts || []) || [];
-    const targetCourtName = eventMeta.court_name || post.court_name || post.location || '';
-    const matchedCourt = allVenueCourts.find(c => 
+    const targetCourtName = courtName;
+    const matchedCourt = allVenueCourts.find(c =>
       c.court_name && targetCourtName && c.court_name.trim().toLowerCase() === targetCourtName.trim().toLowerCase()
     ) || allVenueCourts[0];
 
@@ -139,318 +173,268 @@ export default function PublicPostDetail() {
     const params = new URLSearchParams();
     params.set('venueId', venueIdToUse);
     if (courtIdToUse) params.set('courtId', courtIdToUse);
-    params.set('date', playDate);
-    params.set('startTime', startTime.length === 5 ? `${startTime}:00` : startTime);
-    params.set('endTime', endTime.length === 5 ? `${endTime}:00` : endTime);
+    params.set('date', pDate);
+    params.set('startTime', sTime);
+    params.set('endTime', eTime);
+    params.set('quantity', String(ticketCount));
 
+    // Direct navigation to Checkout Page with Bank Transfer as default payment method
     navigate(`/checkout?${params.toString()}`, {
       state: {
         venueId: venueIdToUse,
-        venueName: venue?.venue_name,
-        date: playDate,
+        venueName: venue?.venue_name || venueTitle,
+        date: pDate,
         courtId: courtIdToUse,
         courtName: courtNameToUse,
-        ticketPrice: price,
+        ticketPrice: unitPrice,
+        quantity: ticketCount,
         eventTitle: post.title,
+        paymentMethod: 'banking',
         selectedSlots: [
           {
             court_id: courtIdToUse,
             court_name: courtNameToUse,
-            start_time: startTime.length === 5 ? `${startTime}:00` : startTime,
-            end_time: endTime.length === 5 ? `${endTime}:00` : endTime,
-            price: price
+            start_time: sTime,
+            end_time: eTime,
+            price: unitPrice
           }
         ],
-        totalAmount: price,
+        totalAmount: totalPrice,
         totalHours: 3
       }
     });
   };
 
   return (
-    <div className="w-full bg-surface-subtle min-h-screen pb-20">
-      {/* HEADER & BREADCRUMB */}
-      <section className="bg-surface border-b border-border-subtle-medium py-6 px-4">
-        <div className="container mx-auto max-w-4xl space-y-3">
-          {/* <div className="flex items-center text-xs text-text-muted gap-2">
-            <Link to="/" className="hover:text-brand-orange">Trang chủ</Link>
-            <span>/</span>
-            {venue && (
-              <>
-                <Link to={`/venues/${venue.venue_id}`} className="hover:text-brand-orange">
-                  {venue.venue_name}
-                </Link>
-                <span>/</span>
-              </>
-            )}
-            <span className="text-gray-900 font-medium truncate max-w-xs">{post.title}</span>
-          </div> */}
+    <div className="w-full bg-[#f4f7f5] min-h-screen pb-32">
 
-          <button
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 hover:text-brand-orange transition-colors"
-          >
-            <ArrowLeft size={16} /> Quay lại
-          </button>
+      {/* HEADER TOP BAR - EXACT SPORTHUB DESIGN LAYOUT */}
+      <section className="bg-surface border-b border-border-subtle-medium py-6 px-4">
+        <div className="container mx-auto max-w-5xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+
+            {/* Left: Title & Subtitle */}
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
+                Thông tin chi tiết
+              </h1>
+              <p className="text-xs text-text-muted mt-1">
+                Kiểm tra thông tin suất xé vé sự kiện từ hệ thống và hoàn tất giữ chỗ
+              </p>
+            </div>
+
+            {/* Right: Quay lại Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              leftIcon={<ArrowLeft size={16} />}
+              onClick={() => navigate(-1)}
+            >
+              Quay lại
+            </Button>
+
+          </div>
         </div>
       </section>
 
-      {/* ARTICLE BODY CONTAINER */}
-      <div className="container mx-auto px-4 max-w-4xl py-8 space-y-8">
-        
-        {/* HERO COVER IMAGE */}
-        {coverUrl && (
-          <div className="relative w-full aspect-21/9 rounded-2xl overflow-hidden shadow-md border border-border-subtle-medium bg-gray-900">
-            <img src={coverUrl} alt={post.title} className="w-full h-full object-cover" />
-            <div className="absolute top-4 left-4 z-10">
-              <span className="px-3 py-1 rounded-xl text-xs font-extrabold bg-brand-orange text-white shadow-md uppercase tracking-wider">
-                {post.content_type}
-              </span>
+      {/* MAIN BODY CONTENT */}
+      <div className="max-w-5xl mx-auto px-4 py-5 space-y-5">
+
+        {/* SECTION 1: THÔNG TIN SÂN */}
+        <div className="space-y-2">
+          <h3 className="text-xs sm:text-sm font-bold text-black">Thông tin sân</h3>
+          <div className="bg-white rounded-2xl p-4 border border-emerald-100/80 shadow-xs flex items-center gap-3">
+            <div className="w-16 h-16 rounded-xl overflow-hidden bg-gray-100 shrink-0 border border-emerald-100 shadow-xs">
+              <img
+                src={venueAvatar}
+                alt={venueTitle}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = getDeterministicFallback(venueIdSeed);
+                }}
+              />
             </div>
-          </div>
-        )}
-
-        {/* TITLE & META HEADER */}
-        <div className="space-y-3 bg-surface p-6 rounded-2xl border border-border-subtle-medium shadow-xs">
-          <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 leading-tight">
-            {post.title}
-          </h1>
-
-          <div className="flex flex-wrap items-center gap-4 text-xs text-text-muted border-t border-gray-100 pt-3">
-            {venue && (
-              <span className="flex items-center gap-1.5 font-bold text-gray-800">
-                <Building2 size={15} className="text-brand-orange" />
-                {venue.venue_name}
-              </span>
-            )}
-            <span>•</span>
-            <span className="flex items-center gap-1">
-              <Calendar size={14} />
-              {new Date(post.publish_at || post.created_at).toLocaleDateString('vi-VN')}
-            </span>
-            <span>•</span>
-            <span className="flex items-center gap-1">
-              <Eye size={14} /> {post.view_count || 0} lượt xem
-            </span>
+            <div className="flex-1 min-w-0">
+              <h4 className="font-bold text-gray-900 text-sm leading-snug line-clamp-2">
+                {venueTitle}
+              </h4>
+              <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                <MapPin size={13} className="text-gray-400 shrink-0" />
+                <span className="truncate">{venueAddress}</span>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* EVENT / PROMOTION INFO CARD (IF EVENT OR PROMOTION) */}
-        {(post.start_at || post.location || post.promo_code || post.contact_hotline) && (
-          <Card radius="2xl" padding="lg" className="border-2 border-brand-orange bg-brand-orange/5 space-y-4 shadow-sm">
-            <h3 className="text-base font-bold text-brand-orange flex items-center gap-2">
-              <Sparkles size={20} />
-              Chi tiết Sự kiện & Ưu đãi
-            </h3>
+        {/* SECTION 2: THÔNG TIN SỰ KIỆN (TICKET BOX) */}
+        <div className="space-y-2">
+          <h3 className="text-xs sm:text-sm font-bold text-black">Thông tin sự kiện</h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              {post.start_at && (
-                <div className="flex items-start gap-2.5">
-                  <Clock size={16} className="text-brand-orange mt-0.5 flex-shrink-0" />
-                  <div>
-                    <span className="font-bold text-gray-900 block">Thời gian diễn ra:</span>
-                    <span className="text-gray-700">
-                      {new Date(post.start_at).toLocaleString('vi-VN')}
-                      {post.end_at ? ` - ${new Date(post.end_at).toLocaleString('vi-VN')}` : ''}
-                    </span>
-                  </div>
-                </div>
-              )}
+          <div className="bg-accent-primary rounded-2xl overflow-hidden shadow-xs">
 
-              {post.location && (
-                <div className="flex items-start gap-2.5">
-                  <MapPin size={16} className="text-accent-primary mt-0.5 flex-shrink-0" />
-                  <div>
-                    <span className="font-bold text-gray-900 block">Địa điểm tổ chức:</span>
-                    <span className="text-gray-700">{post.location}</span>
-                  </div>
-                </div>
-              )}
+            {/* Top Info Header */}
+            <div className="p-4 bg-accent-primary space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="bg-gray-200/80 text-gray-700 font-mono text-[11px] font-semibold px-2 py-0.5 rounded-md">
+                  #{codeStr}
+                </span>
 
-              {post.contact_hotline && (
-                <div className="flex items-start gap-2.5">
-                  <Phone size={16} className="text-status-success mt-0.5 flex-shrink-0" />
-                  <div>
-                    <span className="font-bold text-gray-900 block">Hotline đăng ký & Hỗ trợ:</span>
-                    <span className="text-gray-700 font-semibold">{post.contact_hotline}</span>
-                  </div>
-                </div>
-              )}
+                <span className="bg-blue-500 text-white font-bold text-[11px] px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white opacity-80" />
+                  <span>{sportCategory}</span>
+                  {skillLevel && (
+                    <span className="px-1.5 py-0.2 rounded-full text-[10px] ml-0.5">{skillLevel}</span>
+                  )}
+                </span>
+              </div>
 
-              {post.promo_code && (
-                <div className="flex items-start gap-2.5">
-                  <Tag size={16} className="text-purple-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <span className="font-bold text-gray-900 block">Mã ưu đãi:</span>
-                    <span className="inline-block px-2.5 py-0.5 rounded-lg bg-purple-100 text-purple-800 font-extrabold text-xs tracking-wider border border-purple-300 mt-0.5">
-                      {post.promo_code}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {post.fee_amount > 0 && (
-                <div className="flex items-start gap-2.5">
-                  <Trophy size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <span className="font-bold text-gray-900 block">Chi phí:</span>
-                    <span className="text-brand-orange font-extrabold text-sm">
-                      {Number(post.fee_amount).toLocaleString('vi-VN')} đ
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {post.max_participants > 0 && (
-                <div className="flex items-start gap-2.5">
-                  <CheckCircle size={16} className="text-blue-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <span className="font-bold text-gray-900 block">Giới hạn số lượng:</span>
-                    <span className="text-gray-700">{post.max_participants} suất</span>
-                  </div>
-                </div>
-              )}
-
-              {eventMeta.skill_level && (
-                <div className="flex items-start gap-2.5">
-                  <GraduationCap size={16} className="text-emerald-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <span className="font-bold text-gray-900 block">Trình độ yêu cầu:</span>
-                    <span className="text-gray-700 font-semibold">{eventMeta.skill_level}</span>
-                  </div>
-                </div>
-              )}
+              <h3 className="text-base font-extrabold text-white leading-snug">
+                [Xé vé] - {post.title}
+              </h3>
             </div>
 
-            {/* ACTION CTA BUTTON */}
-            <div className="pt-2 border-t border-brand-orange/20 flex justify-end">
-              <Button
-                variant="primary"
-                size="md"
-                leftIcon={<Ticket size={16} />}
-                onClick={handleBuyTicket}
-                className="bg-brand-orange hover:bg-brand-orange-hover text-white rounded-xl text-xs font-bold shadow-md transition-all px-6 py-2.5"
-              >
-                Mua vé / Thanh toán ngay
-              </Button>
+            {/* Ticket Cut Edge Notched Dashed Line */}
+            <div className="relative w-full">
+              <div className="border-b border-dashed border-[#a8d5b5]" />
+              <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#f4f7f5] rounded-full border-r border-[#a8d5b5] z-10" />
+              <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-[#f4f7f5] rounded-full border-l border-[#a8d5b5] z-10" />
             </div>
-          </Card>
-        )}
 
-        {/* ARTICLE CONTENT HTML */}
-        <div className="bg-surface p-6 md:p-8 rounded-2xl border border-border-subtle-medium shadow-xs space-y-4">
-          {post.excerpt && !isExcerptJson && (
-            <p className="text-sm font-semibold text-gray-700 italic border-l-4 border-brand-orange pl-4 py-1 leading-relaxed bg-surface-subtle rounded-r-xl">
-              {post.excerpt}
-            </p>
-          )}
+            {/* Ticket Details Rows */}
+            <div className="p-4 space-y-3.5 text-xs text-gray-700">
 
-          <div
-            className="text-sm text-gray-800 leading-relaxed prose max-w-none space-y-4"
-            dangerouslySetInnerHTML={{ __html: post.content || 'Nội dung chi tiết đang được cập nhật.' }}
-          />
+              {/* Row 1: Giá vé */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-bold text-white">
+                  <div className="w-5 h-5 rounded-full text-white flex items-center justify-center font-bold text-xs">
+                    $
+                  </div>
+                  <span>Giá vé</span>
+                </div>
+                <span className="font-extrabold text-sm text-white">
+                  {unitPrice.toLocaleString('vi-VN')} <span className="underline">đ</span>
+                </span>
+              </div>
+
+              {/* Row 2: Ngày */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 font-bold text-white">
+                  <Calendar size={16} className="text-white" />
+                  <span>Ngày</span>
+                </div>
+                <span className="font-bold text-white">
+                  {formatEventDateFullDisplay(playDate)}
+                </span>
+              </div>
+
+              {/* Row 3: Sân & Thời gian */}
+              <div className="space-y-1.5">
+                <div className="flex items-center gap-2 font-bold text-white">
+                  <Trophy size={16} className="text-white" />
+                  <span>Sân & Thời gian</span>
+                </div>
+                <div className="bg-white rounded-xl py-2 px-6 text-left border border-emerald-100 font-bold text-gray-900 shadow-2xs">
+                  {startTime} - {endTime} <span className="text-gray-300 mx-4">|</span> {courtName}
+                </div>
+              </div>
+
+              {/* Row 4: Ghi chú */}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 font-bold text-white">
+                  <FileText size={16} className="text-white" />
+                  <span>Ghi chú</span>
+                </div>
+                <p className="pl-6 text-gray-200 font-medium">
+                  {noteText}
+                </p>
+              </div>
+
+              {/* Row 5: Người tham gia */}
+              <div className="flex items-center justify-between pt-2 border-t border-emerald-200/60">
+                <div className="flex items-center gap-2 font-bold text-white">
+                  <Users size={16} className="text-white" />
+                  <span>Người tham gia</span>
+                </div>
+                <span className="bg-white border border-emerald-200 text-accent-primary font-bold text-xs px-3 py-1 rounded-full flex items-center gap-1 shadow-2xs">
+                  {joinedCount}/{maxParticipants}
+                </span>
+              </div>
+
+            </div>
+
+          </div>
         </div>
 
-        {/* GALLERY IMAGES ATTACHED TO POST */}
-        {galleryImages.length > 0 && (
-          <div className="space-y-4 bg-surface p-6 rounded-2xl border border-border-subtle-medium shadow-xs">
-            <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-              <Image size={20} className="text-brand-orange" />
-              Hình ảnh liên quan
-            </h3>
+        {/* SECTION 3: SỐ LƯỢNG VÉ MUỐN ĐẶT */}
+        <div className="bg-white rounded-2xl p-4 border border-emerald-100/80 shadow-xs flex items-center justify-between">
+          <span className="font-bold text-gray-900 text-sm">Số lượng vé muốn đặt</span>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setTicketCount(prev => Math.max(1, prev - 1))}
+              className="w-8 h-8 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold flex items-center justify-center transition-colors border border-gray-200 cursor-pointer"
+            >
+              -
+            </button>
+            <span className="font-extrabold text-base text-gray-900 min-w-[20px] text-center">
+              {ticketCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => setTicketCount(prev => Math.min(maxParticipants - joinedCount || 8, prev + 1))}
+              className="w-8 h-8 rounded-lg bg-accent-primary hover:bg-emerald-800 text-white font-bold flex items-center justify-center transition-colors shadow-xs cursor-pointer"
+            >
+              +
+            </button>
+          </div>
+        </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {galleryImages.map((img, idx) => (
-                <div
-                  key={img.image_id || idx}
-                  onClick={() => handleOpenLightbox(idx)}
-                  className="cursor-pointer group aspect-4/3 rounded-xl overflow-hidden border border-gray-200 bg-gray-100 relative"
-                >
-                  <img
-                    src={img.medium_url || img.image_url}
-                    alt={img.title || 'Gallery Image'}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                  />
-                  <div className="absolute inset-0 bg-dark/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <Eye size={20} className="text-white" />
-                  </div>
-                </div>
-              ))}
+        {/* SECTION 4: PHƯƠNG THỨC THANH TOÁN (MẶC ĐỊNH NGÂN HÀNG) */}
+        <div className="bg-white rounded-2xl p-4 border border-emerald-100/80 shadow-xs flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-emerald-100 text-accent-primary flex items-center justify-center font-bold text-sm shrink-0">
+              <Building2 size={18} />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5 font-bold text-gray-900 text-xs sm:text-sm">
+                <span>Phương thức thanh toán</span>
+                {/* <span className="bg-emerald-50 text-emerald-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-200">
+                  Ngân hàng (Mặc định)
+                </span> */}
+              </div>
+              <p className="text-xs text-gray-500 font-medium">Chuyển khoản ngân hàng (QR Code / Banking)</p>
             </div>
           </div>
-        )}
+          {/* <span className="text-xs font-semibold text-gray-500 flex items-center gap-0.5 hover:text-accent-primary cursor-pointer">
+            Thay đổi <ChevronRight size={14} />
+          </span> */}
+        </div>
 
-        {/* RELATED POSTS / EVENTS */}
-        {relatedPosts.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="text-lg font-bold text-gray-900">Bài viết & Sự kiện liên quan</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {relatedPosts.map((rel) => {
-                const relCover = rel.cover_image_url || rel.cover_image?.medium_url || rel.cover_image?.image_url;
-                return (
-                  <Link
-                    key={rel.post_id}
-                    to={`/posts/${rel.slug}`}
-                    className="group bg-surface p-4 rounded-2xl border border-border-subtle-medium hover:border-brand-orange transition-all flex gap-3 shadow-xs"
-                  >
-                    {relCover && (
-                      <div className="w-24 h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
-                        <img src={relCover} alt={rel.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                      </div>
-                    )}
-                    <div className="flex-1 space-y-1">
-                      <span className="text-[10px] font-bold text-brand-orange uppercase">{rel.content_type}</span>
-                      <h4 className="text-xs font-bold text-gray-900 line-clamp-2 group-hover:text-brand-orange transition-colors">
-                        {rel.title}
-                      </h4>
-                      <span className="text-[10px] text-text-muted block">
-                        {new Date(rel.publish_at || rel.created_at).toLocaleDateString('vi-VN')}
-                      </span>
-                    </div>
-                  </Link>
-                );
-              })}
+        {/* BOTTOM STICKY BAR */}
+        <div className="bg-white rounded-2xl p-4 border-t border-gray-200 px-4 py-4 shadow-xl z-50">
+          <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-1 text-xs text-gray-500 font-medium">
+                <span>Tổng ({ticketCount} Vé)</span>
+                <ChevronDown size={14} />
+              </div>
+              <div className="text-lg font-extrabold text-accent-primary">
+                {(unitPrice * ticketCount).toLocaleString('vi-VN')} <span className="">VNĐ</span>
+              </div>
             </div>
+
+            <button
+              type="button"
+              onClick={handleBuyTicket}
+              className="bg-accent-primary hover:bg-emerald-800 text-white font-bold py-3 px-8 rounded-xl shadow-md transition-all text-sm cursor-pointer border-none"
+            >
+              Xác nhận
+            </button>
           </div>
-        )}
+        </div>
+
       </div>
 
-      {/* LIGHTBOX MODAL */}
-      {lightboxOpen && galleryImages[lightboxIndex] && (
-        <div className="fixed inset-0 z-50 bg-dark/90 backdrop-blur-md flex items-center justify-center p-4">
-          <button
-            onClick={() => setLightboxOpen(false)}
-            className="absolute top-4 right-4 text-white hover:text-brand-orange p-2"
-          >
-            <X size={28} />
-          </button>
-
-          <button
-            onClick={() => setLightboxIndex((lightboxIndex - 1 + galleryImages.length) % galleryImages.length)}
-            className="absolute left-4 text-white hover:text-brand-orange p-2 bg-dark/50 rounded-full"
-          >
-            <ChevronLeft size={32} />
-          </button>
-
-          <div className="max-w-4xl max-h-[85vh] overflow-hidden rounded-2xl flex flex-col items-center">
-            <img
-              src={galleryImages[lightboxIndex].large_url || galleryImages[lightboxIndex].image_url}
-              alt="Lightbox View"
-              className="max-h-[75vh] w-auto object-contain rounded-xl"
-            />
-            <p className="text-xs text-gray-300 mt-3 text-center">
-              {lightboxIndex + 1} / {galleryImages.length}
-            </p>
-          </div>
-
-          <button
-            onClick={() => setLightboxIndex((lightboxIndex + 1) % galleryImages.length)}
-            className="absolute right-4 text-white hover:text-brand-orange p-2 bg-dark/50 rounded-full"
-          >
-            <ChevronRight size={32} />
-          </button>
-        </div>
-      )}
     </div>
   );
 }

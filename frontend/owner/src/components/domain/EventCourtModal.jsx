@@ -16,6 +16,7 @@ export default function EventCourtModal({ isOpen, onClose, onSave, eventData, ve
   const [endTime, setEndTime] = useState('23:00');
   const [ticketPrice, setTicketPrice] = useState('90000');
   const [maxParticipants, setMaxParticipants] = useState('8');
+  const [note, setNote] = useState('bao gồm 1 nước 1 trứng 1 chuối');
   const [status, setStatus] = useState('PUBLISHED');
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -37,6 +38,11 @@ export default function EventCourtModal({ isOpen, onClose, onSave, eventData, ve
       setEndTime(eventData.end_time || '23:00');
       setTicketPrice(eventData.ticket_price ? String(eventData.ticket_price) : '90000');
       setMaxParticipants(eventData.max_participants ? String(eventData.max_participants) : '8');
+      
+      let rawNote = eventData.note || (eventData.excerpt && typeof eventData.excerpt === 'string' && eventData.excerpt.startsWith('{') ? JSON.parse(eventData.excerpt).note : '');
+      if (!rawNote && eventData.amenities) rawNote = eventData.amenities;
+      setNote((rawNote && !rawNote.includes('->')) ? rawNote : 'bao gồm 1 nước 1 trứng 1 chuối');
+      
       setStatus(eventData.status || 'PUBLISHED');
     } else {
       setTitle('');
@@ -47,6 +53,7 @@ export default function EventCourtModal({ isOpen, onClose, onSave, eventData, ve
       setEndTime('23:00');
       setTicketPrice('90000');
       setMaxParticipants('8');
+      setNote('bao gồm 1 nước 1 trứng 1 chuối');
       setStatus('PUBLISHED');
     }
     setErrorMsg('');
@@ -80,7 +87,8 @@ export default function EventCourtModal({ isOpen, onClose, onSave, eventData, ve
         start_time: startTime,
         end_time: endTime,
         ticket_price: Number(ticketPrice),
-        max_participants: Number(maxParticipants) || 8
+        max_participants: Number(maxParticipants) || 8,
+        note: note.trim() || 'bao gồm 1 nước 1 trứng 1 chuối'
       };
 
       const payload = {
@@ -101,6 +109,7 @@ export default function EventCourtModal({ isOpen, onClose, onSave, eventData, ve
         start_time: startTime,
         end_time: endTime,
         ticket_price: Number(ticketPrice),
+        note: note.trim() || 'bao gồm 1 nước 1 chuối',
         status: status || 'PUBLISHED'
       };
 
@@ -266,6 +275,18 @@ export default function EventCourtModal({ isOpen, onClose, onSave, eventData, ve
                 required
               />
             </div>
+          </div>
+
+          {/* Note / Amenities */}
+          <div>
+            <label className="block font-bold text-gray-700 mb-1">Ghi chú / Tiện ích bao gồm</label>
+            <input
+              type="text"
+              placeholder="VD: bao gồm 1 nước 1 trứng 1 chuối,..."
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              className="w-full p-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 font-semibold focus:border-accent-primary focus:outline-none"
+            />
           </div>
 
           {/* Status Select */}

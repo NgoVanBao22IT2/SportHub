@@ -21,7 +21,11 @@ import {
   Edit2,
   Trash2,
   Zap,
-  Users
+  Users,
+  Ticket,
+  Share2,
+  MapPin,
+  Info
 } from 'lucide-react';
 import { 
   getOwnerBookings, 
@@ -75,6 +79,50 @@ export default function OwnerBookings() {
   const [confirmApproveBooking, setConfirmApproveBooking] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
+  const [nowTick, setNowTick] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const getEventTicketStatus = (playDate, startTime, joinedCount, maxParticipants, statusStr) => {
+    const joined = Number(joinedCount) || 0;
+    const max = Number(maxParticipants) || 8;
+    const isFull = joined >= max;
+    const isLive = statusStr === 'PUBLISHED';
+
+    if (!isLive) {
+      return { isClosed: true, badgeText: 'ĐÃ ĐÓNG VÉ' };
+    }
+
+    if (isFull) {
+      return { isClosed: true, badgeText: 'ĐÃ HẾT VÉ' };
+    }
+
+    if (!playDate) {
+      return { isClosed: false, badgeText: 'Đang diễn ra' };
+    }
+
+    try {
+      const cleanDate = playDate.split('T')[0];
+      const startT = startTime ? (startTime.length === 5 ? `${startTime}:00` : startTime) : '00:00:00';
+      const eventStartMs = new Date(`${cleanDate}T${startT}`).getTime();
+      const diffMs = eventStartMs - nowTick;
+
+      if (isNaN(diffMs) || diffMs <= 0) {
+        return { isClosed: true, badgeText: 'ĐÃ ĐÓNG VÉ' };
+      }
+
+      const totalSec = Math.floor(diffMs / 1000);
+      const hh = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+      const mm = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+      const ss = String(totalSec % 60).padStart(2, '0');
+      return { isClosed: false, badgeText: `Còn ${hh}:${mm}:${ss}` };
+    } catch (_) {
+      return { isClosed: false, badgeText: 'Đang diễn ra' };
+    }
+  };
 
   // Fetch Owner Venues & Event Courts
   const fetchEventCourts = useCallback(async () => {
@@ -589,7 +637,7 @@ export default function OwnerBookings() {
               </Button>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
               {eventCourts
                 .filter(e => !eventSearchQuery || (e.title || e.content || '').toLowerCase().includes(eventSearchQuery.toLowerCase()))
                 .map((rawEv) => {
@@ -600,6 +648,9 @@ export default function OwnerBookings() {
                     } catch (_) {}
                   }
 
+                  const rawNote = rawEv.note || meta.note || meta.amenities || '';
+                  const noteText = (rawNote && !rawNote.includes('->')) ? rawNote : 'bao gồm 1 nước 1 trứng 1 chuối';
+
                   const ev = {
                     ...rawEv,
                     ...meta,
@@ -607,138 +658,181 @@ export default function OwnerBookings() {
                     start_time: rawEv.start_time || meta.start_time || (rawEv.start_at ? rawEv.start_at.split('T')[1]?.substring(0, 5) : ''),
                     end_time: rawEv.end_time || meta.end_time || (rawEv.end_at ? rawEv.end_at.split('T')[1]?.substring(0, 5) : ''),
                     court_name: rawEv.court_name || meta.court_name || rawEv.location || 'Sân sự kiện',
-                    skill_level: rawEv.skill_level || meta.skill_level || rawEv.discount_info || '',
+                    skill_level: rawEv.skill_level || meta.skill_level || '',
                     ticket_price: (rawEv.ticket_price !== undefined && rawEv.ticket_price !== null) ? rawEv.ticket_price : ((meta.ticket_price !== undefined && meta.ticket_price !== null) ? meta.ticket_price : (rawEv.fee_amount || 0)),
                     max_participants: rawEv.max_participants || meta.max_participants || 8,
-                    joined_count: (rawEv.joined_count !== undefined && rawEv.joined_count !== null) ? Number(rawEv.joined_count) : (meta.joined_count !== undefined ? Number(meta.joined_count) : 0)
+                    joined_count: (rawEv.joined_count !== undefined && rawEv.joined_count !== null) ? Number(rawEv.joined_count) : (meta.joined_count !== undefined ? Number(meta.joined_count) : 0),
+                    note: noteText
                   };
 
                   const isLive = ev.status === 'PUBLISHED';
-                  const remainingSlots = Math.max(0, (ev.max_participants || 8) - (ev.joined_count || 0));
+                  const ticketStatus = getEventTicketStatus(ev.play_date, ev.start_time, ev.joined_count, ev.max_participants, ev.status);
 
                   return (
-                    <Card
+                    <div
                       key={ev.id || ev.post_id}
-                      radius="xl"
-                      padding="lg"
-                      className="border border-border-subtle-medium hover:border-accent-primary/50 transition-all space-y-3 bg-surface relative"
+                      className="bg-white rounded-2xl border border-gray-200/90 shadow-xs hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between group"
                     >
-                      {/* Top Badges */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {isLive ? (
-                            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-red-100 text-red-600 flex items-center gap-1">
-                              <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span>
-                              LIVE
+                      {/* TOP RIGHT DIAGONAL IMAGE BANNER */}
+                      <div className="absolute top-0 right-0 w-50 h-36 overflow-hidden rounded-tr-2xl pointer-events-none z-0">
+                        <img
+                          src={ev.cover_image_url || ev.cover_image?.image_url || 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=500&auto=format&fit=crop&q=60'}
+                          alt={ev.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          style={{ clipPath: 'polygon(25% 0, 100% 0, 100% 100%, 0% 100%)' }}
+                        />
+                      </div>
+
+                      {/* MAIN CARD CONTENT */}
+                      <div className="p-4 relative z-10 space-y-3">
+                        
+                        {/* TOP BADGES ROW */}
+                        <div className="flex items-center gap-1.5 flex-wrap max-w-[calc(100%-10px)]">
+                          {/* Status / Countdown Badge */}
+                          {ticketStatus.isClosed ? (
+                            <span className="bg-gray-200 text-gray-700 rounded-full text-[11px] font-bold px-2.5 py-0.5 inline-flex items-center gap-1 shadow-xs">
+                              <Clock size={12} className="text-gray-500 shrink-0" />
+                              <span>{ticketStatus.badgeText}</span>
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-gray-100 text-gray-600">
-                              ĐÃ ĐÓNG VÉ
+                            <span className="bg-blue-600 text-white rounded-full text-[11px] font-extrabold px-2.5 py-0.5 inline-flex items-center gap-1 shadow-xs">
+                              <Clock size={12} className="text-white shrink-0" />
+                              <span>{ticketStatus.badgeText}</span>
                             </span>
                           )}
-                          <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-700">
-                            🎫 Xé vé
+
+                          {/* Purple Outline Ticket Badge */}
+                          <span className="bg-purple-50 text-purple-600 border border-purple-300 rounded-full text-[11px] font-bold px-2.5 py-0.5 inline-flex items-center gap-1">
+                            <Ticket size={12} className="text-purple-600 shrink-0" />
+                            <span>Xé vé</span>
+                          </span>
+
+                          {/* Gray Hashtag Code */}
+                          <span className="bg-gray-100 text-gray-600 rounded-md text-[11px] font-mono font-medium px-2 py-0.5">
+                            #{ev.code || (ev.id || ev.post_id)?.slice(0, 5) || '15281'}
                           </span>
                         </div>
 
-                        <span className="text-xs font-mono font-bold text-text-muted">
-                          #{ev.code || (ev.id || ev.post_id)?.slice(0, 6) || 'EVENT'}
-                        </span>
+                        {/* MIDDLE DETAILS ROW: TIME BOX + INFO */}
+                        <div className="flex items-stretch gap-3 pt-1">
+                          {/* LEFT: TIME & DATE BOX */}
+                          <div className="bg-blue-50/70 border border-blue-200/80 rounded-2xl px-2.5 py-2 flex flex-col items-center justify-center min-w-[72px] shrink-0 text-center">
+                            <span className="text-blue-700 font-extrabold text-sm leading-none">{ev.start_time || '09:00'}</span>
+                            <span className="text-blue-300 text-[10px] my-0.5 font-light">|</span>
+                            <span className="text-blue-700 font-extrabold text-sm leading-none">{ev.end_time || '12:00'}</span>
+                            
+                            <div className="w-full border-t border-blue-200/70 my-1.5" />
+                            
+                            <div className="flex items-center gap-1 text-blue-600 font-bold text-xs">
+                              <Calendar size={12} className="text-blue-500 shrink-0" />
+                              <span>{ev.play_date ? ev.play_date.split('-').slice(1).reverse().join('/') : '17/09'}</span>
+                            </div>
+                          </div>
+
+                          {/* RIGHT: TITLE, LEVEL, COURT, PRICE */}
+                          <div className="flex-1 space-y-1.5 pr-20">
+                            {/* Title */}
+                            <h4 className="font-bold text-gray-900 text-sm sm:text-base leading-snug line-clamp-1 group-hover:text-blue-600 transition-colors">
+                              {ev.title || ev.content || 'xé vé newbie 3-6 tháng'}
+                            </h4>
+
+                            {/* Skill Level & Location */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {ev.skill_level && (
+                                <span className="bg-blue-500 text-white font-bold text-[11px] px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-xs">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-white opacity-80" />
+                                  <span>{ev.skill_level}</span>
+                                </span>
+                              )}
+                              {ev.court_name && (
+                                <span className="text-xs font-bold text-gray-800 flex items-center gap-1">
+                                  <MapPin size={13} className="text-emerald-600 shrink-0" />
+                                  <span>{ev.court_name}</span>
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Price Row */}
+                            <div className="pt-0.5 flex items-baseline gap-1">
+                              <span className="text-amber-600 font-extrabold text-lg leading-none">
+                                {Number(ev.ticket_price || 0).toLocaleString('vi-VN')} <span className="underline">đ</span>
+                              </span>
+                              <span className="text-xs text-gray-500 font-normal">/ vé</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* AMENITIES / INCLUDED NOTE CALLOUT BOX */}
+                        <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs text-amber-900 font-medium">
+                          <Info size={14} className="text-amber-600 shrink-0" />
+                          <span className="line-clamp-1">{ev.note}</span>
+                        </div>
+
                       </div>
 
-                      {/* Event Title & Info */}
-                      <div>
-                        <h4 className="font-bold text-gray-900 text-base leading-snug">
-                          {ev.title || ev.content || 'Giao lưu ghép sân'}
-                        </h4>
-                        
-                        <div className="flex items-center gap-2 mt-1.5 text-xs flex-wrap">
-                          {ev.skill_level && (
-                            <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 font-bold text-[11px]">
-                              Trình: {ev.skill_level}
-                            </span>
-                          )}
-                          {ev.court_name && (
-                            <span className="font-semibold text-gray-700">
-                              🗺️ {ev.court_name}
-                            </span>
-                          )}
-                        </div>
+                      {/* TICKET STUB DASHED DIVIDER & HALF-CIRCLE NOTCHES */}
+                      <div className="relative w-full">
+                        <div className="border-b border-dashed border-gray-200" />
+                        <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-gray-50 rounded-full border-r border-gray-200 z-10" />
+                        <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-gray-50 rounded-full border-l border-gray-200 z-10" />
                       </div>
 
-                      {/* Date & Time & Price */}
-                      <div className="pt-2 border-t border-border-subtle flex items-center justify-between text-xs">
-                        <div className="space-y-0.5 text-text-muted">
-                          {(ev.start_time || ev.end_time) && (
-                            <div className="flex items-center gap-1 text-gray-800 font-medium">
-                              <Clock size={13} className="text-brand-orange" />
-                              <span>{ev.start_time}{ev.end_time ? ` - ${ev.end_time}` : ''}</span>
-                            </div>
-                          )}
-                          {ev.play_date && (
-                            <div className="flex items-center gap-1">
-                              <Calendar size={13} />
-                              <span>{ev.play_date}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="text-right">
-                          <span className="text-base font-extrabold text-brand-orange">
-                            {Number(ev.ticket_price).toLocaleString('vi-VN')} đ
+                      {/* PROGRESS & PARTICIPANTS SECTION */}
+                      <div className="p-4 pt-3 space-y-3">
+                        <div className="space-y-1.5">
+                          {/* Left green badge for joined count */}
+                          <span className="bg-accent-primary-500 border border-emerald-500 text-accent-primary font-extrabold text-xs px-2.5 py-0.5 rounded-full inline-block">
+                            {ev.joined_count || 0}/{ev.max_participants || 8}
                           </span>
-                          <span className="block text-[10px] text-text-muted">/ vé</span>
-                        </div>
-                      </div>
 
-                      {/* Slots Progress */}
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[11px] text-text-muted">
-                          <span>{ev.joined_count}/{ev.max_participants} người tham gia</span>
-                          <span className="font-semibold text-emerald-600">Còn {remainingSlots} chỗ</span>
+                          {/* Thin Progress bar */}
+                          <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                            <div
+                              className="bg-accent-primary h-full rounded-full transition-all duration-300"
+                              style={{
+                                width: `${Math.min(100, (((ev.joined_count || 0) / (ev.max_participants || 1)) * 100))}%`
+                              }}
+                            />
+                          </div>
                         </div>
-                        <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
-                          <div
-                            className="bg-accent-primary h-full rounded-full"
-                            style={{
-                              width: `${Math.min(100, ((ev.joined_count / (ev.max_participants || 1)) * 100))}%`
-                            }}
-                          />
-                        </div>
-                      </div>
 
-                      {/* Card Actions */}
-                      <div className="pt-3 border-t border-border-subtle flex items-center justify-between gap-2 text-xs">
-                        <button
-                          onClick={() => handleToggleEventStatus(ev)}
-                          className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition-colors ${
-                            isLive ? 'bg-amber-50 text-amber-700 hover:bg-amber-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                          }`}
-                        >
-                          {isLive ? 'Đóng vé' : 'Mở bán vé'}
-                        </button>
+                        {/* DASHED DIVIDER ABOVE FOOTER */}
+                        <div className="border-b border-dashed border-gray-200 pt-1" />
 
-                        <div className="flex items-center gap-1">
+                        {/* CARD ACTIONS */}
+                        <div className="flex items-center justify-between gap-2 pt-1 text-xs">
                           <button
-                            onClick={() => {
-                              setEditingEvent(ev);
-                              setIsEventModalOpen(true);
-                            }}
-                            className="p-1.5 text-gray-600 hover:text-accent-primary rounded-lg hover:bg-surface-subtle transition-colors"
-                            title="Sửa sự kiện"
+                            onClick={() => handleToggleEventStatus(ev)}
+                            className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-colors ${
+                              isLive ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200'
+                            }`}
                           >
-                            <Edit2 size={15} />
+                            {isLive ? 'Đóng vé' : 'Mở bán vé'}
                           </button>
-                          <button
-                            onClick={() => setDeleteConfirmEvent(ev)}
-                            className="p-1.5 text-gray-600 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
-                            title="Xóa sự kiện"
-                          >
-                            <Trash2 size={15} />
-                          </button>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => {
+                                setEditingEvent(ev);
+                                setIsEventModalOpen(true);
+                              }}
+                              className="p-1.5 text-brand-orange hover:text-accent-primary rounded-lg hover:bg-gray-100 transition-colors"
+                              title="Sửa sự kiện"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => setDeleteConfirmEvent(ev)}
+                              className="p-1.5 text-red-600 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                              title="Xóa sự kiện"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                    </Card>
+
+                    </div>
                   );
                 })}
             </div>

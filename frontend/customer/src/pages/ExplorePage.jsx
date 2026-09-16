@@ -81,33 +81,51 @@ export default function ExplorePage() {
     }
   };
 
-  const transformVenuePost = (vp) => ({
-    post_id: vp.post_id,
-    post_type: 'EVENTS',
-    title: vp.title,
-    content: vp.content || vp.excerpt || '',
-    excerpt: vp.excerpt,
-    sport_type: vp.venue?.sport_type || 'Cầu lông',
-    skill_level: 'ALL',
-    status: 'OPEN',
-    image_url: vp.cover_image_url || vp.cover_image?.medium_url || vp.cover_image?.image_url,
-    created_at: vp.publish_at || vp.created_at,
-    play_date: vp.start_at ? new Date(vp.start_at).toLocaleDateString('vi-VN') : 'Sự kiện đang diễn ra',
-    start_time: vp.start_at ? new Date(vp.start_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : null,
-    end_time: vp.end_at ? new Date(vp.end_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : null,
-    location_name: vp.location || vp.venue?.venue_name || 'Sân thể thao',
-    venue: vp.venue ? { venue_id: vp.venue.venue_id, venue_name: vp.venue.venue_name } : null,
-    author: {
-      full_name: vp.venue?.venue_name || 'Ban Quản Lý Sân',
-      avatar_url: vp.venue?.avatar || null,
-    },
-    price_per_slot: vp.fee_amount || 0,
-    contact_phone: vp.contact_hotline || vp.venue?.contact_phone,
-    is_venue_event: true,
-    promo_code: vp.promo_code,
-    discount_info: vp.discount_info,
-    registration_url: vp.registration_url
-  });
+  const transformVenuePost = (vp) => {
+    const isTicketJson = vp.excerpt && typeof vp.excerpt === 'string' && vp.excerpt.trim().startsWith('{');
+    const isTicketEvent = isTicketJson && vp.content_type !== 'PROMOTION';
+
+    const startDateDisplay = vp.start_at ? new Date(vp.start_at).toLocaleDateString('vi-VN') : '';
+    const startTimeDisplay = vp.start_at ? new Date(vp.start_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
+    const endTimeDisplay = vp.end_at ? new Date(vp.end_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : '';
+
+    return {
+      post_id: vp.post_id || vp.id,
+      slug: vp.slug,
+      post_type: vp.content_type === 'PROMOTION' ? 'PROMOTION' : 'EVENTS',
+      content_type: vp.content_type,
+      title: vp.title,
+      content: vp.content || vp.excerpt || '',
+      excerpt: vp.excerpt,
+      sport_type: vp.venue?.sport_type || 'Cầu lông',
+      skill_level: vp.discount_info || 'ALL',
+      status: vp.status || 'OPEN',
+      image_url: vp.cover_image_url || vp.cover_image?.medium_url || vp.cover_image?.image_url,
+      created_at: vp.publish_at || vp.created_at,
+      play_date: startDateDisplay || (vp.publish_at ? new Date(vp.publish_at).toLocaleDateString('vi-VN') : ''),
+      start_time: startTimeDisplay,
+      end_time: endTimeDisplay,
+      start_at: vp.start_at,
+      end_at: vp.end_at,
+      location_name: vp.location || vp.venue?.venue_name || 'Sân thể thao',
+      venue: vp.venue ? { venue_id: vp.venue.venue_id, venue_name: vp.venue.venue_name } : null,
+      author: {
+        full_name: vp.venue?.venue_name || 'Ban Quản Lý Sân',
+        avatar_url: vp.venue?.avatar || null,
+      },
+      fee_amount: vp.fee_amount || 0,
+      price_per_slot: vp.fee_amount || 0,
+      contact_phone: vp.contact_hotline || vp.venue?.contact_phone,
+      is_venue_event: true,
+      is_ticket_event: isTicketEvent,
+      promo_code: vp.promo_code,
+      discount_info: vp.discount_info,
+      registration_url: vp.registration_url,
+      joined_count: vp.joined_count || 1,
+      max_participants: vp.max_participants || 8,
+      raw_post: vp
+    };
+  };
 
   const fetchPosts = async () => {
     setLoading(true);
@@ -597,7 +615,20 @@ export default function ExplorePage() {
             {/* Rich Content HTML */}
             <div
               className="text-xs text-gray-800 leading-relaxed prose max-w-none border-t pt-3"
-              dangerouslySetInnerHTML={{ __html: selectedVenueEventModal.content || selectedVenueEventModal.excerpt || 'Chưa có nội dung mô tả chi tiết.' }}
+              dangerouslySetInnerHTML={{
+                __html: selectedVenueEventModal.content || (
+                  selectedVenueEventModal.excerpt && !selectedVenueEventModal.excerpt.trim().startsWith('{')
+                    ? selectedVenueEventModal.excerpt
+                    : (selectedVenueEventModal.excerpt && selectedVenueEventModal.excerpt.trim().startsWith('{')
+                      ? (() => {
+                        try {
+                          const meta = JSON.parse(selectedVenueEventModal.excerpt);
+                          return meta.note ? `<strong>Ghi chú:</strong> ${meta.note}` : '';
+                        } catch (_) { return ''; }
+                      })()
+                      : '')
+                ) || 'Chưa có nội dung mô tả chi tiết.'
+              }}
             />
 
             <div className="pt-3 border-t flex items-center justify-between gap-3">

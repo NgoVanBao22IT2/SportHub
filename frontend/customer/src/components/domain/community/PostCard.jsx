@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
   Ticket, 
@@ -15,7 +16,11 @@ import {
   DollarSign,
   Pencil,
   Trash2,
-  X
+  X,
+  Share2,
+  Info,
+  Eye,
+  Plus
 } from 'lucide-react';
 import { getImageUrl } from '../../../utils/imageUrl';
 import communityApi from '../../../api/communityApi';
@@ -98,7 +103,44 @@ const stripHtml = (html) => {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
 };
 
+const formatDateToYYYYMMDD = (dateVal) => {
+  if (!dateVal) return '';
+  if (typeof dateVal === 'string') {
+    const trimmed = dateVal.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+    if (trimmed.includes('T')) {
+      return trimmed.split('T')[0];
+    }
+    if (trimmed.includes('/')) {
+      const parts = trimmed.split('/');
+      if (parts.length === 3) {
+        if (parts[2].length === 4) {
+          const day = parts[0].padStart(2, '0');
+          const month = parts[1].padStart(2, '0');
+          const year = parts[2];
+          return `${year}-${month}-${day}`;
+        }
+      }
+    }
+  }
+
+  try {
+    const d = new Date(dateVal);
+    if (!isNaN(d.getTime())) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+  } catch (_) {}
+
+  return String(dateVal);
+};
+
 export default function PostCard({ post, onApply, onEdit, onDelete, currentUserId }) {
+  const navigate = useNavigate();
   const [showContactModal, setShowContactModal] = useState(false);
   const [showApplicantsModal, setShowApplicantsModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -115,6 +157,229 @@ export default function PostCard({ post, onApply, onEdit, onDelete, currentUserI
   };
 
   const cardImage = getPostImage(post);
+
+  // Render Alobo Event Ticket Card ONLY if post is a genuine Ticket Event
+  const isTicketJson = post.excerpt && typeof post.excerpt === 'string' && post.excerpt.trim().startsWith('{');
+  const isTicketCard = post.is_ticket_event || (post.is_venue_event && isTicketJson && post.content_type !== 'PROMOTION');
+
+  if (isTicketCard) {
+    const rawPost = post.raw_post || post;
+    let eventMeta = {};
+    if (post.excerpt && typeof post.excerpt === 'string' && post.excerpt.trim().startsWith('{')) {
+      try {
+        eventMeta = JSON.parse(post.excerpt);
+      } catch (_) {}
+    }
+
+    const playDate = eventMeta.play_date || post.play_date || (rawPost.start_at ? rawPost.start_at.split('T')[0] : '');
+    const startTime = eventMeta.start_time || (rawPost.start_at ? rawPost.start_at.split('T')[1]?.substring(0, 5) : '20:00');
+    const endTime = eventMeta.end_time || (rawPost.end_at ? rawPost.end_at.split('T')[1]?.substring(0, 5) : '23:00');
+    const courtName = eventMeta.court_name || rawPost.court_name || post.location_name || 'Sân 1';
+    const skillLevel = eventMeta.skill_level || post.discount_info || '1.5 -> 2.0';
+    const ticketPrice = Number(eventMeta.ticket_price !== undefined ? eventMeta.ticket_price : (post.fee_amount || post.price_per_slot || 70000));
+    const maxParticipants = Number(eventMeta.max_participants || post.max_participants || 8);
+    const joinedCount = Number(post.joined_count !== undefined ? post.joined_count : (eventMeta.joined_count || 1));
+    const noteText = eventMeta.note || post.note || 'bao gồm 1 nước 1 trứng 1 chuối';
+    const codeStr = eventMeta.code || post.code || (post.post_id || post.id || '').substring(0, 5) || '37dbc';
+    const coverImg = cardImage || 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=500&auto=format&fit=crop&q=60';
+    const slug = post.slug || rawPost.slug;
+
+    const formatEventDateDisplay = (dateStr) => {
+      if (!dateStr) return '18/09';
+      try {
+        const parts = dateStr.split('T')[0].split('-');
+        if (parts.length === 3) {
+          return `${parts[2]}/${parts[1]}`;
+        }
+      } catch (_) {}
+      return dateStr;
+    };
+
+    const isClosedTicket = post.status === 'CLOSED' || post.status === 'ARCHIVED' || joinedCount >= maxParticipants;
+    const badgeText = isClosedTicket ? (joinedCount >= maxParticipants ? 'ĐÃ HẾT VÉ' : 'ĐÃ ĐÓNG VÉ') : 'Còn 45:23:05';
+    const detailUrl = slug ? `/posts/${slug}` : `/posts/detail`;
+
+    return (
+      <div className="bg-white rounded-2xl border border-gray-200/90 shadow-xs hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between group">
+        {/* TOP RIGHT DIAGONAL IMAGE BANNER */}
+        <div className="absolute top-0 right-0 w-52 h-36 overflow-hidden rounded-tr-2xl pointer-events-none z-0">
+          <img
+            src={coverImg}
+            alt={post.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            style={{ clipPath: 'polygon(25% 0, 100% 0, 100% 100%, 0% 100%)' }}
+          />
+        </div>
+
+        {/* TOP RIGHT FLOATING SHARE BUTTON */}
+        <button
+          type="button"
+          onClick={() => {
+            if (navigator.share) {
+              navigator.share({ title: post.title || 'Sự kiện xé vé', url: window.location.origin + detailUrl });
+            } else {
+              navigator.clipboard.writeText(window.location.origin + detailUrl);
+              alert('Đã sao chép liên kết sự kiện!');
+            }
+          }}
+          className="absolute top-2.5 right-2.5 z-20 w-8 h-8 rounded-full bg-white/95 shadow-md flex items-center justify-center text-gray-700 hover:text-gray-900 transition-all hover:scale-105 border border-gray-100 cursor-pointer"
+          title="Chia sẻ sự kiện"
+        >
+          <Share2 size={14} />
+        </button>
+
+        {/* MAIN CARD CONTENT */}
+        <div className="p-4 relative z-10 space-y-3">
+          {/* TOP BADGES ROW */}
+          <div className="flex items-center gap-1.5 flex-wrap max-w-[calc(100%-38px)]">
+            {/* Countdown / Closed Badge */}
+            {isClosedTicket ? (
+              <span className="bg-gray-200 text-gray-700 rounded-full text-[11px] font-bold px-2.5 py-0.5 inline-flex items-center gap-1 shadow-xs">
+                <Clock size={12} className="text-gray-500 shrink-0" />
+                <span>{badgeText}</span>
+              </span>
+            ) : (
+              <span className="bg-blue-600 text-white rounded-full text-[11px] font-extrabold px-2.5 py-0.5 inline-flex items-center gap-1 shadow-xs">
+                <Clock size={12} className="text-white shrink-0" />
+                <span>{badgeText}</span>
+              </span>
+            )}
+
+            {/* Purple Outline Ticket Badge */}
+            <span className="bg-purple-50 text-purple-600 border border-purple-300 rounded-full text-[11px] font-bold px-2.5 py-0.5 inline-flex items-center gap-1">
+              <Ticket size={12} className="text-purple-600 shrink-0" />
+              <span>Xé vé</span>
+            </span>
+
+            {/* Gray Hashtag Code */}
+            <span className="bg-gray-100 text-gray-600 rounded-md text-[11px] font-mono font-medium px-2 py-0.5">
+              #{codeStr}
+            </span>
+          </div>
+
+          {/* MIDDLE DETAILS ROW: TIME BOX + INFO */}
+          <div className="flex items-stretch gap-3 pt-1">
+            {/* LEFT: TIME & DATE BOX */}
+            <div className="bg-blue-50/70 border border-blue-200/80 rounded-2xl px-2.5 py-2 flex flex-col items-center justify-center min-w-[72px] shrink-0 text-center">
+              <span className="text-blue-700 font-extrabold text-sm leading-none">{startTime}</span>
+              <span className="text-blue-300 text-[10px] my-0.5 font-light">|</span>
+              <span className="text-blue-700 font-extrabold text-sm leading-none">{endTime}</span>
+
+              <div className="w-full border-t border-blue-200/70 my-1.5" />
+
+              <div className="flex items-center gap-1 text-blue-600 font-bold text-xs">
+                <Calendar size={12} className="text-blue-500 shrink-0" />
+                <span>{formatEventDateDisplay(playDate)}</span>
+              </div>
+            </div>
+
+            {/* RIGHT: TITLE, LEVEL, COURT, PRICE */}
+            <div className="flex-1 space-y-1.5 pr-16 sm:pr-20">
+              {/* Title */}
+              <h4 
+                onClick={() => navigate(detailUrl)}
+                className="font-bold text-gray-900 text-sm sm:text-base leading-snug line-clamp-1 hover:text-blue-600 transition-colors cursor-pointer"
+              >
+                {post.title}
+              </h4>
+
+              {/* Skill Level & Location */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {skillLevel && (
+                  <span className="bg-blue-500 text-white font-bold text-[11px] px-2.5 py-0.5 rounded-full inline-flex items-center gap-1 shadow-xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white opacity-80" />
+                    <span>{skillLevel}</span>
+                  </span>
+                )}
+                {courtName && (
+                  <span className="text-xs font-bold text-gray-800 flex items-center gap-1">
+                    <MapPin size={13} className="text-emerald-600 shrink-0" />
+                    <span>{courtName}</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Price Row */}
+              <div className="pt-0.5 flex items-baseline gap-1">
+                <span className="text-amber-600 font-extrabold text-lg leading-none">
+                  {ticketPrice.toLocaleString('vi-VN')} <span className="underline">đ</span>
+                </span>
+                <span className="text-xs text-gray-500 font-normal">/ vé</span>
+              </div>
+            </div>
+          </div>
+
+          {/* AMENITIES / INCLUDED NOTE CALLOUT BOX */}
+          <div className="bg-amber-50/70 border border-amber-200/80 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs text-amber-900 font-medium">
+            <Info size={14} className="text-amber-600 shrink-0" />
+            <span className="line-clamp-1">{noteText}</span>
+          </div>
+        </div>
+
+        {/* TICKET STUB DASHED DIVIDER & HALF-CIRCLE NOTCHES */}
+        <div className="relative w-full">
+          <div className="border-b border-dashed border-gray-200" />
+          <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-slate-50/60 rounded-full border-r border-gray-200 z-10" />
+          <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-slate-50/60 rounded-full border-l border-gray-200 z-10" />
+        </div>
+
+        {/* PROGRESS & PARTICIPANTS SECTION */}
+        <div className="p-4 pt-3 space-y-3">
+          <div className="space-y-1.5">
+            {/* Left green badge for joined count */}
+            <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 font-extrabold text-xs px-2.5 py-0.5 rounded-full inline-block">
+              {joinedCount}/{maxParticipants}
+            </span>
+
+            {/* Thin Progress bar */}
+            <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+                style={{
+                  width: `${Math.min(100, ((joinedCount / maxParticipants) * 100))}%`
+                }}
+              />
+            </div>
+          </div>
+
+          {/* DASHED DIVIDER ABOVE FOOTER */}
+          <div className="border-b border-dashed border-gray-200 pt-1" />
+
+          {/* BOTTOM ACTION BUTTONS */}
+          <div className="flex items-center justify-between gap-2 pt-1">
+            <button
+              type="button"
+              onClick={() => navigate(detailUrl)}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full px-4 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-colors border-none cursor-pointer"
+            >
+              <Eye size={14} className="text-gray-500" />
+              <span className="text-gray-500">Xem chi tiết</span>
+            </button>
+
+            {isClosedTicket ? (
+              <button
+                type="button"
+                disabled
+                className="bg-gray-100 border border-gray-200 text-gray-400 rounded-xl px-4 py-1.5 text-xs font-bold flex items-center gap-1.5 cursor-not-allowed opacity-80"
+              >
+                <Plus size={14} className="text-gray-400" />
+                <span>{joinedCount >= maxParticipants ? 'Hết vé' : 'Đã đóng vé'}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => navigate(detailUrl)}
+                className="bg-white hover:bg-emerald-50 text-emerald-600 border border-emerald-500 hover:border-emerald-600 rounded-full px-4 py-1.5 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              >
+                <Plus size={14} className="text-emerald-600" />
+                <span>Mua vé</span>
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
   const validExcerpt = post.excerpt && !post.excerpt.trim().startsWith('{') ? post.excerpt : '';
   const cleanContentText = stripHtml(post.content || validExcerpt);
 
@@ -202,15 +467,21 @@ export default function PostCard({ post, onApply, onEdit, onDelete, currentUserI
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 my-3 text-sm text-gray-600 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
           <div className="flex items-center text-gray-700">
             <Calendar className="w-4 h-4 mr-2 text-emerald-600 shrink-0" />
-            <span className="font-medium">{post.play_date}</span>
+            <span className="font-medium">
+              {formatDateToYYYYMMDD(post.play_date || post.start_at || post.created_at)}
+            </span>
           </div>
 
-          {(post.start_time || post.end_time) && (
-            <div className="flex items-center text-gray-700">
-              <Clock className="w-4 h-4 mr-2 text-emerald-600 shrink-0" />
-              <span>{post.start_time?.substring(0, 5)} - {post.end_time?.substring(0, 5)}</span>
-            </div>
-          )}
+          <div className="flex items-center text-gray-700">
+            <Clock className="w-4 h-4 mr-2 text-emerald-600 shrink-0" />
+            <span>
+              {post.start_time
+                ? `${post.start_time.substring(0, 5)}${post.end_time ? ' - ' + post.end_time.substring(0, 5) : ''}`
+                : (post.start_at
+                  ? `${new Date(post.start_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}${post.end_at ? ' - ' + new Date(post.end_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : ''}`
+                  : (post.discount_info || 'Áp dụng cả ngày'))}
+            </span>
+          </div>
 
           <div className="flex items-center text-gray-700 col-span-1 sm:col-span-2">
             <MapPin className="w-4 h-4 mr-2 text-emerald-600 shrink-0" />
