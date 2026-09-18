@@ -32,6 +32,12 @@ export default function Checkout() {
   const startTime = searchParams.get('startTime') || '18:00:00';
   const endTime = searchParams.get('endTime') || '19:00:00';
 
+  // Event Ticket Detection
+  const isEventTicket = locationState.isEventTicket || searchParams.get('isEventTicket') === 'true' || locationState.bookingType === 'EVENT_TICKET' || searchParams.get('bookingType') === 'EVENT_TICKET';
+  const postId = locationState.postId || searchParams.get('postId');
+  const ticketQuantity = locationState.quantity || Number(searchParams.get('quantity')) || 1;
+  const ticketPrice = locationState.ticketPrice || Number(searchParams.get('ticketPrice')) || 0;
+
   // Backend trusted states
   const [venue, setVenue] = useState(null);
   const [court, setCourt] = useState(null);
@@ -206,9 +212,11 @@ export default function Checkout() {
         const targetCourt = foundCourt || activeCourts[0];
         setCourt(targetCourt);
 
-        // Revalidate price with Availability API
+        // Revalidate price with Availability API (Only for normal visual booking)
         const targetCourtId = targetCourt ? (targetCourt.court_id || targetCourt.id) : courtId;
-        if (targetCourtId && bookingDate) {
+        if (isEventTicket) {
+          setVerifiedPrice(locationState.totalAmount || (ticketPrice * ticketQuantity));
+        } else if (targetCourtId && bookingDate) {
           try {
             const availRes = await checkCourtAvailability(targetCourtId, bookingDate, startTime, endTime);
             if (availRes && availRes.data && availRes.data.pricing?.total_price) {
@@ -262,7 +270,19 @@ export default function Checkout() {
 
       // Construct payload for API
       let bookingPayload;
-      if (selectedSlots && selectedSlots.length > 0) {
+      if (isEventTicket) {
+        bookingPayload = {
+          court_id: targetCourtId,
+          booking_date: bookingDate,
+          start_time: startTime,
+          end_time: endTime,
+          is_event_ticket: true,
+          booking_type: 'EVENT_TICKET',
+          post_id: postId,
+          quantity: ticketQuantity,
+          total_amount: locationState.totalAmount || (ticketPrice * ticketQuantity)
+        };
+      } else if (selectedSlots && selectedSlots.length > 0) {
         bookingPayload = {
           slots: selectedSlots.map(s => ({
             court_id: s.court_id || targetCourtId,
@@ -301,8 +321,13 @@ export default function Checkout() {
         }
 
         const status = err.response?.status;
+        const backendMsg = err.response?.data?.message || err.response?.data?.error?.message;
         if (status === 409) {
-          setApiErrorMessage('Khung giờ này vừa được người khác đặt giữ chỗ. Vui lòng quay lại chọn khung giờ khác.');
+          if (isEventTicket) {
+            setApiErrorMessage(backendMsg || 'Vé sự kiện này đã hết lượt đặt hoặc không đủ số lượng vé khả dụng.');
+          } else {
+            setApiErrorMessage(backendMsg || 'Khung giờ này vừa được người khác đặt giữ chỗ. Vui lòng quay lại chọn khung giờ khác.');
+          }
           setSubmitting(false);
           return;
         } else if (status === 401) {
@@ -1064,7 +1089,7 @@ export default function Checkout() {
                       <AlertCircle size={16} className="flex-shrink-0 text-status-error mt-0.5" />
                       <span>{apiErrorMessage}</span>
                     </div>
-                    {apiErrorMessage.includes('Khung giờ') && (
+                    {apiErrorMessage.includes('Khung giờ') && !isEventTicket && (
                       <Button
                         variant="outline"
                         size="sm"

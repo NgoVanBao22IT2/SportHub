@@ -95,7 +95,7 @@ export default function MediaList({
               <th className="p-3">Danh mục</th>
               <th className="p-3">Trạng thái</th>
               <th className="p-3">Dung lượng</th>
-              <th className="p-3">Ngày tải lên</th>
+              <th className="p-3">Ngày Upload</th>
               <th className="p-3 text-right">Thao tác</th>
             </tr>
           </thead>

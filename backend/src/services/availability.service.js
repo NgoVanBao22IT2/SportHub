@@ -1,4 +1,4 @@
-const { Court, SlotBlocking, CourtBlockRule, Booking, Venue, Branch } = require('../models');
+const { Court, SlotBlocking, CourtBlockRule, Booking, Venue, Branch, VenuePost } = require('../models');
 const { Op } = require('sequelize');
 const PricingService = require('./pricing.service');
 
@@ -237,6 +237,15 @@ class AvailabilityService {
       }
     });
 
+    // 3b. Fetch active event posts for this venue
+    const eventPosts = await VenuePost.findAll({
+      where: {
+        venue_id: venueId,
+        content_type: 'EVENT',
+        status: { [Op.in]: ['PUBLISHED', 'DRAFT'] }
+      }
+    });
+
     // 4. Query OperatingSchedule from Database for opening and closing hours
     const { OperatingSchedule } = require('../models');
     const branchIds = (venue.branches || []).map(b => b.branch_id);
@@ -352,29 +361,63 @@ class AvailabilityService {
               };
             }
 
-            // D. Check one-time blockings
+            // D. Check event posts matching this court and date
+            const eventPostMatch = eventPosts.find(ep => {
+              let epMeta = {};
+              if (ep.excerpt && typeof ep.excerpt === 'string' && ep.excerpt.startsWith('{')) {
+                try { epMeta = JSON.parse(ep.excerpt); } catch (_) {}
+              }
+
+              const epDate = epMeta.play_date || (ep.start_at ? ep.start_at.split('T')[0] : '');
+              const epCourtName = (epMeta.court_name || ep.court_name || ep.location || '').trim().toLowerCase();
+              const cName = (court.court_name || '').trim().toLowerCase();
+
+              const isSameDate = epDate === date;
+              const isSameCourt = epCourtName && (epCourtName === cName || cName.includes(epCourtName) || epCourtName.includes(cName));
+
+              if (!isSameDate || !isSameCourt) return false;
+
+              const epStart = epMeta.start_time || (ep.start_at ? ep.start_at.split('T')[1]?.substring(0, 5) : '00:00');
+              const epEnd = epMeta.end_time || (ep.end_at ? ep.end_at.split('T')[1]?.substring(0, 5) : '23:59');
+
+              const epStartFull = epStart.length === 5 ? `${epStart}:00` : epStart;
+              const epEndFull = epEnd.length === 5 ? `${epEnd}:00` : epEnd;
+
+              return isOverlapping(epStartFull, epEndFull, slot.start_time, slot.end_time);
+            });
+
+            if (eventPostMatch) {
+              return {
+                ...slot,
+                status: 'EVENT',
+                price: pricing.total_price,
+                reason: `Sân sự kiện: ${eventPostMatch.title}`
+              };
+            }
+
+            // E. Check one-time blockings
             const blockingMatch = courtBlockings.find(b =>
               isOverlapping(b.start_time, b.end_time, slot.start_time, slot.end_time)
             );
             if (blockingMatch) {
               const reasonStr = (blockingMatch.block_reason || '').toLowerCase();
-              const isEvent = reasonStr.includes('sự kiện') || reasonStr.includes('event');
+              const isEvent = reasonStr.includes('sự kiện') || reasonStr.includes('event') || reasonStr.includes('social') || reasonStr.includes('vé') || reasonStr.includes('xé') || reasonStr.includes('giải đấu');
               return {
                 ...slot,
                 block_id: blockingMatch.block_id,
                 status: isEvent ? 'EVENT' : 'LOCKED',
                 price: pricing.total_price,
-                reason: blockingMatch.block_reason || (isEvent ? 'Sự kiện đặc biệt' : 'Chủ sân tạm khóa')
+                reason: blockingMatch.block_reason || (isEvent ? 'Sân sự kiện' : 'Chủ sân tạm khóa')
               };
             }
 
-            // E. Check active long-term block rules
+            // F. Check active long-term block rules
             const ruleMatch = courtBlockRules.find(r =>
               isOverlapping(r.start_time, r.end_time, slot.start_time, slot.end_time)
             );
             if (ruleMatch) {
               const reasonStr = (ruleMatch.block_reason || '').toLowerCase();
-              const isEvent = reasonStr.includes('sự kiện') || reasonStr.includes('event');
+              const isEvent = reasonStr.includes('sự kiện') || reasonStr.includes('event') || reasonStr.includes('social') || reasonStr.includes('vé') || reasonStr.includes('xé') || reasonStr.includes('giải đấu');
               return {
                 ...slot,
                 block_id: ruleMatch.rule_id,

@@ -177,6 +177,9 @@ export default function PublicPostDetail() {
     params.set('startTime', sTime);
     params.set('endTime', eTime);
     params.set('quantity', String(ticketCount));
+    params.set('isEventTicket', 'true');
+    params.set('bookingType', 'EVENT_TICKET');
+    if (post.post_id || post.id) params.set('postId', post.post_id || post.id);
 
     // Direct navigation to Checkout Page with Bank Transfer as default payment method
     navigate(`/checkout?${params.toString()}`, {
@@ -190,13 +193,18 @@ export default function PublicPostDetail() {
         quantity: ticketCount,
         eventTitle: post.title,
         paymentMethod: 'banking',
+        isEventTicket: true,
+        bookingType: 'EVENT_TICKET',
+        postId: post.post_id || post.id,
+        maxParticipants,
+        joinedCount,
         selectedSlots: [
           {
             court_id: courtIdToUse,
             court_name: courtNameToUse,
             start_time: sTime,
             end_time: eTime,
-            price: unitPrice
+            price: unitPrice * ticketCount
           }
         ],
         totalAmount: totalPrice,

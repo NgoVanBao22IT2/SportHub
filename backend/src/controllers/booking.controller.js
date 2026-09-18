@@ -35,12 +35,7 @@ class BookingController {
         });
       }
 
-      const booking = await BookingService.createBooking(userId, {
-        court_id,
-        booking_date,
-        start_time,
-        end_time
-      });
+      const booking = await BookingService.createBooking(userId, req.body);
 
       res.status(201).json({
         status: 'success',

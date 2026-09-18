@@ -121,7 +121,7 @@ export default function ExplorePage() {
       promo_code: vp.promo_code,
       discount_info: vp.discount_info,
       registration_url: vp.registration_url,
-      joined_count: vp.joined_count || 1,
+      joined_count: (vp.joined_count !== undefined && vp.joined_count !== null) ? Number(vp.joined_count) : 0,
       max_participants: vp.max_participants || 8,
       raw_post: vp
     };
@@ -467,7 +467,7 @@ export default function ExplorePage() {
             <div className="bg-slate-100/70 rounded-3xl p-5 border border-slate-200 text-xs text-gray-500 space-y-2">
               <div className="flex items-center space-x-1.5 font-bold text-gray-700">
                 <Info className="w-4 h-4 text-emerald-600" />
-                <span>Nội quy Khám phá</span>
+                <span>Nội quy</span>
               </div>
               <p>Vui lòng cư xử văn minh, tôn trọng đối thủ và tuân thủ đúng giờ chơi sau khi đã đăng ký tham gia slot.</p>
             </div>

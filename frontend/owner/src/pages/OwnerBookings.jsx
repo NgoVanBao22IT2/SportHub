@@ -46,6 +46,7 @@ import ErrorState from '../components/ui/ErrorState';
 import PaymentProofViewer from '../components/domain/PaymentProofViewer';
 import RejectionModal from '../components/domain/RejectionModal';
 import EventCourtModal from '../components/domain/EventCourtModal';
+import { getImageUrl } from '../utils/imageUrl';
 
 export default function OwnerBookings() {
   // Main Tab: 'BOOKINGS' (Đơn đặt sân) or 'EVENT_COURTS' (Sân sự kiện)
@@ -651,9 +652,13 @@ export default function OwnerBookings() {
                   const rawNote = rawEv.note || meta.note || meta.amenities || '';
                   const noteText = (rawNote && !rawNote.includes('->')) ? rawNote : 'bao gồm 1 nước 1 trứng 1 chuối';
 
+                  const rawImg = rawEv.cover_image_url || rawEv.cover_image?.image_url || rawEv.cover_image?.medium_url || rawEv.cover_image?.original_url || meta.cover_image_url || meta.image_url;
+                  const coverImg = getImageUrl(rawImg, rawEv.post_id || rawEv.id);
+
                   const ev = {
                     ...rawEv,
                     ...meta,
+                    cover_image_url: coverImg,
                     play_date: rawEv.play_date || meta.play_date || (rawEv.start_at ? rawEv.start_at.split('T')[0] : ''),
                     start_time: rawEv.start_time || meta.start_time || (rawEv.start_at ? rawEv.start_at.split('T')[1]?.substring(0, 5) : ''),
                     end_time: rawEv.end_time || meta.end_time || (rawEv.end_at ? rawEv.end_at.split('T')[1]?.substring(0, 5) : ''),
@@ -674,9 +679,9 @@ export default function OwnerBookings() {
                       className="bg-white rounded-2xl border border-gray-200/90 shadow-xs hover:shadow-md transition-all relative overflow-hidden flex flex-col justify-between group"
                     >
                       {/* TOP RIGHT DIAGONAL IMAGE BANNER */}
-                      <div className="absolute top-0 right-0 w-50 h-36 overflow-hidden rounded-tr-2xl pointer-events-none z-0">
+                      <div className="absolute top-0 right-0 w-52 h-36 overflow-hidden rounded-tr-2xl pointer-events-none z-0">
                         <img
-                          src={ev.cover_image_url || ev.cover_image?.image_url || 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=500&auto=format&fit=crop&q=60'}
+                          src={ev.cover_image_url}
                           alt={ev.title}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           style={{ clipPath: 'polygon(25% 0, 100% 0, 100% 100%, 0% 100%)' }}

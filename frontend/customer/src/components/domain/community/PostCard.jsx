@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Users, 
@@ -144,6 +144,12 @@ export default function PostCard({ post, onApply, onEdit, onDelete, currentUserI
   const [showContactModal, setShowContactModal] = useState(false);
   const [showApplicantsModal, setShowApplicantsModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [nowTick, setNowTick] = useState(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
   const config = POST_TYPE_CONFIG[post.post_type] || POST_TYPE_CONFIG.RECRUIT;
   const TypeIcon = config.icon;
 
@@ -178,7 +184,7 @@ export default function PostCard({ post, onApply, onEdit, onDelete, currentUserI
     const skillLevel = eventMeta.skill_level || post.discount_info || '1.5 -> 2.0';
     const ticketPrice = Number(eventMeta.ticket_price !== undefined ? eventMeta.ticket_price : (post.fee_amount || post.price_per_slot || 70000));
     const maxParticipants = Number(eventMeta.max_participants || post.max_participants || 8);
-    const joinedCount = Number(post.joined_count !== undefined ? post.joined_count : (eventMeta.joined_count || 1));
+    const joinedCount = Number((post.joined_count !== undefined && post.joined_count !== null) ? post.joined_count : (eventMeta.joined_count !== undefined ? eventMeta.joined_count : 0));
     const noteText = eventMeta.note || post.note || 'bao gồm 1 nước 1 trứng 1 chuối';
     const codeStr = eventMeta.code || post.code || (post.post_id || post.id || '').substring(0, 5) || '37dbc';
     const coverImg = cardImage || 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?w=500&auto=format&fit=crop&q=60';
@@ -195,8 +201,51 @@ export default function PostCard({ post, onApply, onEdit, onDelete, currentUserI
       return dateStr;
     };
 
-    const isClosedTicket = post.status === 'CLOSED' || post.status === 'ARCHIVED' || joinedCount >= maxParticipants;
-    const badgeText = isClosedTicket ? (joinedCount >= maxParticipants ? 'ĐÃ HẾT VÉ' : 'ĐÃ ĐÓNG VÉ') : 'Còn 45:23:05';
+    const getEventTicketStatus = () => {
+      const joined = Number(joinedCount) || 0;
+      const max = Number(maxParticipants) || 8;
+      const isFullTicket = joined >= max;
+      const isManuallyClosed = post.status === 'CLOSED' || post.status === 'ARCHIVED' || post.status === 'DRAFT';
+
+      if (isManuallyClosed) {
+        return { isClosed: true, badgeText: 'ĐÃ ĐÓNG VÉ' };
+      }
+      if (isFullTicket) {
+        return { isClosed: true, badgeText: 'ĐÃ HẾT VÉ' };
+      }
+      if (!playDate) {
+        return { isClosed: false, badgeText: 'Đang diễn ra' };
+      }
+
+      try {
+        let cleanDate = playDate.split('T')[0];
+        if (cleanDate.includes('/')) {
+          const parts = cleanDate.split('/');
+          if (parts.length === 3) {
+            cleanDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+          }
+        }
+        const startT = startTime ? (startTime.length === 5 ? `${startTime}:00` : startTime) : '00:00:00';
+        const eventStartMs = new Date(`${cleanDate}T${startT}`).getTime();
+        const diffMs = eventStartMs - nowTick;
+
+        if (isNaN(diffMs) || diffMs <= 0) {
+          return { isClosed: true, badgeText: 'ĐÃ ĐÓNG VÉ' };
+        }
+
+        const totalSec = Math.floor(diffMs / 1000);
+        const hh = String(Math.floor(totalSec / 3600)).padStart(2, '0');
+        const mm = String(Math.floor((totalSec % 3600) / 60)).padStart(2, '0');
+        const ss = String(totalSec % 60).padStart(2, '0');
+        return { isClosed: false, badgeText: `Còn ${hh}:${mm}:${ss}` };
+      } catch (_) {
+        return { isClosed: false, badgeText: 'Đang diễn ra' };
+      }
+    };
+
+    const ticketStatus = getEventTicketStatus();
+    const isClosedTicket = ticketStatus.isClosed;
+    const badgeText = ticketStatus.badgeText;
     const detailUrl = slug ? `/posts/${slug}` : `/posts/detail`;
 
     return (

@@ -9,7 +9,19 @@ class BookingService {
    * Core engine applying pessimistic locking on Court.
    */
   static async createBooking(userId, bookingData) {
-    const { court_id, booking_date, start_time, end_time } = bookingData;
+    const {
+      court_id,
+      booking_date,
+      start_time,
+      end_time,
+      is_event_ticket,
+      booking_type,
+      post_id,
+      quantity = 1,
+      total_amount
+    } = bookingData;
+
+    const isEvent = is_event_ticket || booking_type === 'EVENT_TICKET' || !!post_id;
 
     // Validate times
     if (start_time >= end_time) {
@@ -40,78 +52,139 @@ class BookingService {
         throw error;
       }
 
-      // 2. Pricing & Schedule Validation
-      let pricing;
-      try {
-        pricing = await PricingService.calculatePrice(court_id, booking_date, start_time, end_time);
-      } catch (err) {
-        if (err.message === 'Requested time is outside operating hours') {
-          const error = new Error('Outside operating hours');
-          error.statusCode = 400;
+      let finalTotalAmount = 0;
+
+      if (isEvent) {
+        // --- EVENT TICKET BOOKING LOGIC ---
+        // 2a. Check Event Post Ticket Slots Availability (Calculated based on max_participants - active tickets)
+        let maxParticipants = 8;
+        if (post_id) {
+          const { VenuePost, CommunityPost } = require('../models');
+          let eventPost = await VenuePost.findByPk(post_id, { transaction });
+          if (!eventPost) {
+            eventPost = await VenuePost.findOne({ where: { slug: post_id }, transaction });
+          }
+          if (!eventPost) {
+            eventPost = await CommunityPost.findByPk(post_id, { transaction });
+          }
+          if (eventPost) {
+            maxParticipants = Number(eventPost.max_participants || eventPost.slots_needed || 8);
+          }
+        }
+
+        // Count existing active ticket bookings for this court, booking_date & time
+        const activeBookingsCount = await Booking.count({
+          where: {
+            court_id,
+            booking_date,
+            start_time,
+            end_time,
+            booking_status: {
+              [Op.in]: ['HOLDING', 'PAYMENT_PENDING', 'PAYMENT_SUCCESS', 'WAITING_OWNER_CONFIRMATION', 'CONFIRMED', 'COMPLETED']
+            },
+            [Op.or]: [
+              { hold_expiry_at: null },
+              { hold_expiry_at: { [Op.gt]: new Date() } },
+              { booking_status: { [Op.ne]: 'HOLDING' } }
+            ]
+          },
+          transaction
+        });
+
+        const availableSlots = Math.max(0, maxParticipants - activeBookingsCount);
+        const reqQty = Math.max(1, Number(quantity) || 1);
+
+        if (reqQty > availableSlots) {
+          const error = new Error(`Vé sự kiện này đã hết lượt đặt hoặc không đủ số lượng vé khả dụng. (Còn lại: ${availableSlots} vé)`);
+          error.statusCode = 409;
+          error.code = 'EVENT_TICKETS_FULL';
           throw error;
         }
-        throw err;
-      }
 
-      // 3a. Check for One-time Blockings
-      const blocking = await SlotBlocking.findOne({
-        where: {
-          court_id,
-          block_date: booking_date,
-          start_time: { [Op.lt]: end_time },
-          end_time: { [Op.gt]: start_time }
-        },
-        transaction
-      });
+        if (total_amount !== undefined && total_amount !== null && Number(total_amount) > 0) {
+          finalTotalAmount = Number(total_amount);
+        } else {
+          finalTotalAmount = 70000 * reqQty; // Default fallback for event ticket
+        }
 
-      if (blocking) {
-        const error = new Error('Khung giờ này đã bị Chủ sân khóa.');
-        error.statusCode = 409;
-        throw error;
-      }
+        // NOTE: For Event Tickets, we SKIP checking SlotBlocking and CourtBlockRule
+        // because the Venue Owner created the event and locked the court for this event!
+      } else {
+        // --- STANDARD VISUAL COURT BOOKING LOGIC ---
+        // 2b. Pricing & Schedule Validation
+        let pricing;
+        try {
+          pricing = await PricingService.calculatePrice(court_id, booking_date, start_time, end_time);
+          finalTotalAmount = pricing.total_price;
+        } catch (err) {
+          if (err.message === 'Requested time is outside operating hours') {
+            const error = new Error('Outside operating hours');
+            error.statusCode = 400;
+            throw error;
+          }
+          throw err;
+        }
 
-      // 3b. Check for Active Long-Term Block Rules
-      const blockRule = await CourtBlockRule.findOne({
-        where: {
-          court_id,
-          status: 'ACTIVE',
-          start_date: { [Op.lte]: booking_date },
-          [Op.or]: [
-            { end_date: null },
-            { end_date: { [Op.gte]: booking_date } }
-          ],
-          start_time: { [Op.lt]: end_time },
-          end_time: { [Op.gt]: start_time }
-        },
-        transaction
-      });
-
-      if (blockRule) {
-        const error = new Error('Khung giờ này đã bị Chủ sân khóa.');
-        error.statusCode = 409;
-        error.code = 'SLOT_BLOCKED_BY_OWNER';
-        throw error;
-      }
-
-      // 4. Double Booking Guard (Conflict Detection against Bookings)
-      const conflict = await Booking.findOne({
-        where: {
-          court_id,
-          booking_date,
-          booking_status: {
-            [Op.in]: ['HOLDING', 'PAYMENT_PENDING', 'CONFIRMED', 'COMPLETED']
+        // 3a. Check for One-time Blockings
+        const blocking = await SlotBlocking.findOne({
+          where: {
+            court_id,
+            block_date: booking_date,
+            start_time: { [Op.lt]: end_time },
+            end_time: { [Op.gt]: start_time }
           },
-          start_time: { [Op.lt]: end_time },
-          end_time: { [Op.gt]: start_time }
-        },
-        transaction
-      });
+          transaction
+        });
 
-      if (conflict) {
-        const error = new Error('Time slot is already booked');
-        error.statusCode = 409;
-        error.code = 'BOOKING_SLOT_OCCUPIED';
-        throw error;
+        if (blocking) {
+          const error = new Error('Khung giờ này đã bị Chủ sân khóa.');
+          error.statusCode = 409;
+          throw error;
+        }
+
+        // 3b. Check for Active Long-Term Block Rules
+        const blockRule = await CourtBlockRule.findOne({
+          where: {
+            court_id,
+            status: 'ACTIVE',
+            start_date: { [Op.lte]: booking_date },
+            [Op.or]: [
+              { end_date: null },
+              { end_date: { [Op.gte]: booking_date } }
+            ],
+            start_time: { [Op.lt]: end_time },
+            end_time: { [Op.gt]: start_time }
+          },
+          transaction
+        });
+
+        if (blockRule) {
+          const error = new Error('Khung giờ này đã bị Chủ sân khóa.');
+          error.statusCode = 409;
+          error.code = 'SLOT_BLOCKED_BY_OWNER';
+          throw error;
+        }
+
+        // 4. Double Booking Guard (Conflict Detection against Bookings)
+        const conflict = await Booking.findOne({
+          where: {
+            court_id,
+            booking_date,
+            booking_status: {
+              [Op.in]: ['HOLDING', 'PAYMENT_PENDING', 'CONFIRMED', 'COMPLETED']
+            },
+            start_time: { [Op.lt]: end_time },
+            end_time: { [Op.gt]: start_time }
+          },
+          transaction
+        });
+
+        if (conflict) {
+          const error = new Error('Time slot is already booked');
+          error.statusCode = 409;
+          error.code = 'BOOKING_SLOT_OCCUPIED';
+          throw error;
+        }
       }
 
       // 5. Create Booking (Status: HOLDING)
@@ -125,8 +198,8 @@ class BookingService {
         booking_date,
         start_time,
         end_time,
-        total_amount: pricing.total_price,
-        currency: pricing.currency,
+        total_amount: finalTotalAmount,
+        currency: 'VND',
         booking_source: 'ONLINE_CUSTOMER',
         booking_status: 'HOLDING',
         hold_expiry_at: holdExpiry
@@ -139,7 +212,7 @@ class BookingService {
         from_status: null,
         to_status: 'HOLDING',
         changed_by_user_id: userId,
-        change_reason: 'User created booking'
+        change_reason: isEvent ? 'User bought event ticket' : 'User created booking'
       }, { transaction });
 
       await transaction.commit();

@@ -456,13 +456,18 @@ class PostService {
     });
     const courtIds = venueCourts.map(c => c.court_id);
 
-    // Fetch confirmed bookings for these courts
+    // Fetch active bookings for these courts to compute joined_count
     let confirmedBookings = [];
     if (courtIds.length > 0) {
       confirmedBookings = await Booking.findAll({
         where: {
           court_id: { [Op.in]: courtIds },
-          booking_status: { [Op.in]: ['CONFIRMED', 'COMPLETED'] }
+          booking_status: { [Op.in]: ['HOLDING', 'PAYMENT_PENDING', 'PAYMENT_SUCCESS', 'WAITING_OWNER_CONFIRMATION', 'CONFIRMED', 'COMPLETED'] },
+          [Op.or]: [
+            { hold_expiry_at: null },
+            { hold_expiry_at: { [Op.gt]: new Date() } },
+            { booking_status: { [Op.ne]: 'HOLDING' } }
+          ]
         },
         attributes: ['booking_id', 'court_id', 'booking_date', 'start_time', 'end_time']
       });
@@ -553,14 +558,19 @@ class PostService {
 
     const pObj = postModel.toJSON();
 
-    // Calculate real joined count from confirmed database bookings
+    // Calculate real joined count from database bookings
     const courtIds = pObj.venue?.branches?.flatMap(b => b.courts?.map(c => c.court_id)) || [];
     let confirmedBookings = [];
     if (courtIds.length > 0) {
       confirmedBookings = await Booking.findAll({
         where: {
           court_id: { [Op.in]: courtIds },
-          booking_status: { [Op.in]: ['CONFIRMED', 'COMPLETED'] }
+          booking_status: { [Op.in]: ['HOLDING', 'PAYMENT_PENDING', 'PAYMENT_SUCCESS', 'WAITING_OWNER_CONFIRMATION', 'CONFIRMED', 'COMPLETED'] },
+          [Op.or]: [
+            { hold_expiry_at: null },
+            { hold_expiry_at: { [Op.gt]: new Date() } },
+            { booking_status: { [Op.ne]: 'HOLDING' } }
+          ]
         },
         attributes: ['booking_id', 'court_id', 'booking_date', 'start_time', 'end_time']
       });
@@ -613,7 +623,7 @@ class PostService {
    * Customer API: Get featured published events/promotions across all venues
    */
   static async getPublicFeaturedEvents(options = {}) {
-    const { limit = 6 } = options;
+    const { limit = 50 } = options;
     const now = new Date();
 
     const events = await VenuePost.findAll({
@@ -623,7 +633,17 @@ class PostService {
         content_type: { [Op.in]: ['EVENT', 'PROMOTION', 'TOURNAMENT', 'COURSE'] }
       },
       include: [
-        { model: Venue, as: 'venue' },
+        { 
+          model: Venue, 
+          as: 'venue',
+          include: [
+            { 
+              model: Branch, 
+              as: 'branches',
+              include: [{ model: Court, as: 'courts' }]
+            }
+          ]
+        },
         { model: VenueImage, as: 'cover_image', required: false }
       ],
       order: [
@@ -633,7 +653,59 @@ class PostService {
       limit: parseInt(limit, 10)
     });
 
-    return events;
+    const venueIds = Array.from(new Set(events.map(e => e.venue_id).filter(Boolean)));
+    let confirmedBookings = [];
+    if (venueIds.length > 0) {
+      const venueCourts = await Court.findAll({
+        include: [{
+          model: Branch,
+          as: 'branch',
+          where: { venue_id: { [Op.in]: venueIds } },
+          attributes: []
+        }],
+        attributes: ['court_id']
+      });
+      const courtIds = venueCourts.map(c => c.court_id);
+      if (courtIds.length > 0) {
+        confirmedBookings = await Booking.findAll({
+          where: {
+            court_id: { [Op.in]: courtIds },
+            booking_status: { [Op.in]: ['HOLDING', 'PAYMENT_PENDING', 'PAYMENT_SUCCESS', 'WAITING_OWNER_CONFIRMATION', 'CONFIRMED', 'COMPLETED'] },
+            [Op.or]: [
+              { hold_expiry_at: null },
+              { hold_expiry_at: { [Op.gt]: new Date() } },
+              { booking_status: { [Op.ne]: 'HOLDING' } }
+            ]
+          },
+          attributes: ['booking_id', 'court_id', 'booking_date', 'start_time', 'end_time']
+        });
+      }
+    }
+
+    return events.map(post => {
+      const pObj = post.toJSON();
+      let meta = {};
+      if (pObj.excerpt && typeof pObj.excerpt === 'string' && pObj.excerpt.trim().startsWith('{')) {
+        try { meta = JSON.parse(pObj.excerpt); } catch (_) {}
+      }
+
+      const playDate = meta.play_date || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[0] : '');
+      const startTime = meta.start_time || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[1]?.substring(0, 5) : '');
+      const endTime = meta.end_time || (pObj.end_at ? new Date(pObj.end_at).toISOString().split('T')[1]?.substring(0, 5) : '');
+
+      let joinedCount = 0;
+      if (playDate) {
+        joinedCount = confirmedBookings.filter(b => {
+          const bDate = b.booking_date;
+          const bStart = (b.start_time || '').substring(0, 5);
+          const bEnd = (b.end_time || '').substring(0, 5);
+          return bDate === playDate && (!startTime || bStart === startTime) && (!endTime || bEnd === endTime);
+        }).length;
+      }
+
+      pObj.joined_count = Math.max(joinedCount, meta.joined_count || 0);
+      return pObj;
+    });
   }
 }
 

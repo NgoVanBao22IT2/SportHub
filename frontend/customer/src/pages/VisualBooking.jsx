@@ -414,7 +414,7 @@ export default function VisualBooking() {
               <span>Khoá</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-4 h-4 rounded bg-[#70385c]"></span>
+              <span className="w-4 h-4 rounded bg-blue-600"></span>
               <span>Sự kiện</span>
             </div>
             <div className="flex items-center gap-2">
@@ -600,7 +600,7 @@ export default function VisualBooking() {
                         }
                         // 5. EVENT (Sự kiện - Tím / Plum)
                         else if (slot.status === 'EVENT') {
-                          cellClass += "bg-[#70385c] text-white cursor-not-allowed opacity-95";
+                          cellClass += "bg-blue-600 text-white cursor-not-allowed opacity-95";
                           titleText += ` | Sự kiện: ${slot.reason || 'Đặc biệt'}`;
                         }
                         // 6. PAST (Đã qua thời gian - Xám nhạt)

@@ -209,6 +209,10 @@ export default function OwnerSchedules() {
             <span className="font-semibold text-gray-800">Đã được đặt / Chờ duyệt</span>
           </div>
           <div className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded-full bg-blue-600"></span>
+            <span className="font-semibold text-gray-800">Sân sự kiện</span>
+          </div>
+          <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-red-500"></span>
             <span className="font-semibold text-gray-800">Đã bị khóa </span>
           </div>
@@ -274,7 +278,11 @@ export default function OwnerSchedules() {
                         cellBg = 'bg-amber-50 text-amber-900 border-amber-200 cursor-not-allowed';
                         labelText = 'Đã đặt';
                         isClickable = false;
-                      } else if (st === 'BLOCKED' || st === 'LOCKED' || st === 'EVENT') {
+                      } else if (st === 'EVENT') {
+                        cellBg = 'bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-300';
+                        labelText = courtSlot.reason ? `✨ ${courtSlot.reason}` : '✨ Sân sự kiện';
+                        isClickable = true;
+                      } else if (st === 'BLOCKED' || st === 'LOCKED') {
                         const isLongTerm = courtSlot.is_long_term;
                         cellBg = isLongTerm
                           ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-300'
