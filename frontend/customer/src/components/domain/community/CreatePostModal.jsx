@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { X, Users, Ticket, UserCheck, Swords, GraduationCap, Calendar, Clock, MapPin, Sparkles, AlertCircle, CheckCircle2, Upload, Trash2 } from 'lucide-react';
 import communityApi from '../../../api/communityApi';
 
+import { cleanHtmlToText } from '../../../utils/articleFormatter';
+
 const POST_TYPES = [
   {
     type: 'RECRUIT',
@@ -74,7 +76,7 @@ export default function CreatePostModal({ isOpen, onClose, onSuccess, postToEdit
     if (postToEdit) {
       setPostType(postToEdit.post_type || 'RECRUIT');
       setTitle(postToEdit.title || '');
-      setContent(postToEdit.content || '');
+      setContent(cleanHtmlToText(postToEdit.content || ''));
       setSportType(postToEdit.sport_type || 'Cầu lông');
       setPlayDate(postToEdit.play_date || new Date().toISOString().split('T')[0]);
       setStartTime(postToEdit.start_time ? String(postToEdit.start_time).substring(0, 5) : '18:00');

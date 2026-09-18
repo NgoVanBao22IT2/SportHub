@@ -48,6 +48,7 @@ import Skeleton from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
 import ErrorState from '../components/ui/ErrorState';
 import { getImageUrl } from '../utils/imageUrl';
+import { cleanHtmlToText, ArticleContentDisplay } from '../utils/articleFormatter';
 
 const CONTENT_TYPES = [
   { id: 'ALL', label: 'Tất cả', icon: FileText },
@@ -241,7 +242,7 @@ export default function OwnerPosts() {
       }
     }
     setExcerpt(displayExcerpt);
-    setContent(post.content || '');
+    setContent(cleanHtmlToText(post.content || ''));
     setContentType(post.content_type || 'POST');
     setCoverImageId(post.cover_image_id || '');
     setCoverImageUrl(post.cover_image_url || post.cover_image?.image_url || '');
@@ -262,12 +263,12 @@ export default function OwnerPosts() {
   };
 
   // Rich Text Formatting Helper
-  const applyFormat = (tag, wrapper = '') => {
-    if (tag === 'b') setContent(prev => prev + ' <b>văn bản in đậm</b> ');
-    else if (tag === 'i') setContent(prev => prev + ' <i>văn bản in nghiêng</i> ');
-    else if (tag === 'h3') setContent(prev => prev + '\n<h3>Tiêu đề phụ</h3>\n');
-    else if (tag === 'ul') setContent(prev => prev + '\n<ul>\n  <li>Ý thứ 1</li>\n  <li>Ý thứ 2</li>\n</ul>\n');
-    else if (tag === 'a') setContent(prev => prev + ' <a href="https://" target="_blank">Liên kết</a> ');
+  const applyFormat = (tag) => {
+    if (tag === 'b') setContent(prev => prev + ' **văn bản in đậm** ');
+    else if (tag === 'i') setContent(prev => prev + ' *văn bản in nghiêng* ');
+    else if (tag === 'h3') setContent(prev => prev + '\n### Tiêu đề phụ:\n');
+    else if (tag === 'ul') setContent(prev => prev + '\n- Ý thứ 1\n- Ý thứ 2\n');
+    else if (tag === 'a') setContent(prev => prev + ' [Tên liên kết](https://...) ');
   };
 
   // Handle Save Post Form
@@ -1069,23 +1070,24 @@ export default function OwnerPosts() {
               <img src={getImageUrl(viewingPost.cover_image_url, viewingPost.post_id)} alt={viewingPost.title} className="w-full h-56 object-cover rounded-xl" />
             )}
 
-            <div
-              className="text-xs text-gray-800 leading-relaxed prose max-w-none"
-              dangerouslySetInnerHTML={{
-                __html: viewingPost.content || (
-                  viewingPost.excerpt && !viewingPost.excerpt.trim().startsWith('{')
-                    ? viewingPost.excerpt
-                    : (viewingPost.excerpt && viewingPost.excerpt.trim().startsWith('{')
-                      ? (() => {
-                        try {
-                          const meta = JSON.parse(viewingPost.excerpt);
-                          return meta.note ? `<strong>Ghi chú:</strong> ${meta.note}` : '';
-                        } catch (_) { return ''; }
-                      })()
-                      : '')
-                ) || 'Chưa có nội dung.'
-              }}
-            />
+            <div className="pt-2 border-t border-border-subtle my-2">
+              <ArticleContentDisplay
+                content={
+                  viewingPost.content || (
+                    viewingPost.excerpt && !viewingPost.excerpt.trim().startsWith('{')
+                      ? viewingPost.excerpt
+                      : (viewingPost.excerpt && viewingPost.excerpt.trim().startsWith('{')
+                        ? (() => {
+                          try {
+                            const meta = JSON.parse(viewingPost.excerpt);
+                            return meta.note ? meta.note : '';
+                          } catch (_) { return ''; }
+                        })()
+                        : '')
+                  ) || 'Chưa có nội dung chi tiết.'
+                }
+              />
+            </div>
 
             <div className="pt-3 border-t flex justify-end">
               <Button variant="outline" size="sm" onClick={() => setViewingPost(null)}>
