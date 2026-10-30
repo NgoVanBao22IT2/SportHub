@@ -13,14 +13,14 @@ class AdminService {
     const reviewCount = await Review.count();
     const communityPostCount = await CommunityPost.count();
     
-    // Revenue from PAID payments
+    // Revenue from SUCCESS payments
     const revenueStats = await Payment.findAll({
       attributes: [
         [sequelize.fn('SUM', sequelize.col('amount')), 'total_revenue'],
         [sequelize.fn('COUNT', sequelize.col('payment_id')), 'total_transactions']
       ],
       where: {
-        payment_status: 'PAID'
+        payment_status: 'SUCCESS'
       },
       raw: true
     });
@@ -42,12 +42,21 @@ class AdminService {
    * 13.02 / 13.03 List Users (Handles Customers and Owners based on role filter)
    */
   static async getUsers(options = {}) {
-    const { page = 1, limit = 10, role } = options;
+    const { page = 1, limit = 10, role, search } = options;
     const offset = (page - 1) * limit;
 
     const where = {};
     if (role) {
       where.primary_role = role;
+    }
+    if (search && search.trim()) {
+      const { Op } = require('sequelize');
+      const term = `%${search.trim()}%`;
+      where[Op.or] = [
+        { full_name: { [Op.like]: term } },
+        { email: { [Op.like]: term } },
+        { phone_number: { [Op.like]: term } }
+      ];
     }
 
     const { rows, count } = await User.findAndCountAll({
@@ -73,12 +82,28 @@ class AdminService {
   /**
    * 13.02 Update User Role/Status
    */
-  static async updateUser(userId, updateData) {
+  static async updateUser(userId, updateData, currentAdminId = null) {
     const user = await User.findByPk(userId);
     if (!user) {
       const error = new Error('User not found');
       error.statusCode = 404;
       throw error;
+    }
+
+    // Self-protection: Admin cannot suspend or demote themselves
+    if (currentAdminId && String(userId) === String(currentAdminId)) {
+      if (updateData.account_status && updateData.account_status !== 'ACTIVE') {
+        const error = new Error('Quản trị viên không thể tự khóa tài khoản của chính mình.');
+        error.statusCode = 400;
+        error.code = 'CANNOT_SELF_SUSPEND';
+        throw error;
+      }
+      if (updateData.primary_role && updateData.primary_role !== 'ADMIN') {
+        const error = new Error('Quản trị viên không thể tự hạ vai trò quản trị của chính mình.');
+        error.statusCode = 400;
+        error.code = 'CANNOT_SELF_DEMOTE';
+        throw error;
+      }
     }
     
     // Only allow updating specific fields
@@ -96,12 +121,22 @@ class AdminService {
    * 13.04 Venue Approval
    */
   static async getVenues(options = {}) {
-    const { page = 1, limit = 10, status } = options;
+    const { page = 1, limit = 10, status, search } = options;
     const offset = (page - 1) * limit;
 
     const where = {};
     if (status) {
       where.operating_status = status;
+    }
+    if (search && search.trim()) {
+      const { Op } = require('sequelize');
+      const term = `%${search.trim()}%`;
+      where[Op.or] = [
+        { venue_name: { [Op.like]: term } },
+        { contact_phone: { [Op.like]: term } },
+        { '$owner.full_name$': { [Op.like]: term } },
+        { '$owner.email$': { [Op.like]: term } }
+      ];
     }
 
     const { rows, count } = await Venue.findAndCountAll({
@@ -135,6 +170,28 @@ class AdminService {
 
     venue.operating_status = status;
     await venue.save();
+
+    // Notify venue owner
+    if (['APPROVED', 'REJECTED', 'SUSPENDED'].includes(status)) {
+      try {
+        const NotificationService = require('./notification.service');
+        const notifTitle = status === 'APPROVED' ? 'Cụm sân đã được phê duyệt 🎉' : status === 'REJECTED' ? 'Cụm sân bị từ chối' : 'Cụm sân bị tạm đình chỉ';
+        const notifMsg = status === 'APPROVED'
+          ? `Cụm sân "${venue.venue_name}" của bạn đã được Ban quản trị phê duyệt hoạt động trên hệ thống.`
+          : `Cụm sân "${venue.venue_name}" của bạn đã chuyển sang trạng thái: ${status}.`;
+        await NotificationService.createNotification({
+          recipientUserId: venue.owner_user_id,
+          type: `VENUE_${status}`,
+          title: notifTitle,
+          message: notifMsg,
+          entityType: 'VENUE',
+          entityId: venueId
+        });
+      } catch (notifErr) {
+        console.error('[AdminService] Error notifying venue owner:', notifErr.message);
+      }
+    }
+
     return venue;
   }
 
@@ -142,10 +199,22 @@ class AdminService {
    * 13.05 Booking Management (Platform-wide Read-only)
    */
   static async getBookings(options = {}) {
-    const { page = 1, limit = 10 } = options;
+    const { page = 1, limit = 10, search } = options;
     const offset = (page - 1) * limit;
 
+    const where = {};
+    if (search && search.trim()) {
+      const { Op } = require('sequelize');
+      const term = `%${search.trim()}%`;
+      where[Op.or] = [
+        { booking_id: { [Op.like]: term } },
+        { '$customer.full_name$': { [Op.like]: term } },
+        { '$customer.email$': { [Op.like]: term } }
+      ];
+    }
+
     const { rows, count } = await Booking.findAndCountAll({
+      where,
       include: [
         { model: User, as: 'customer', attributes: ['user_id', 'full_name', 'email'] }
       ],
@@ -164,10 +233,23 @@ class AdminService {
    * 13.06 Payment Management (Platform-wide Read-only)
    */
   static async getPayments(options = {}) {
-    const { page = 1, limit = 10 } = options;
+    const { page = 1, limit = 10, search } = options;
     const offset = (page - 1) * limit;
 
+    const where = {};
+    if (search && search.trim()) {
+      const { Op } = require('sequelize');
+      const term = `%${search.trim()}%`;
+      where[Op.or] = [
+        { payment_id: { [Op.like]: term } },
+        { payment_method: { [Op.like]: term } },
+        { '$user.full_name$': { [Op.like]: term } },
+        { '$user.email$': { [Op.like]: term } }
+      ];
+    }
+
     const { rows, count } = await Payment.findAndCountAll({
+      where,
       include: [
         { model: User, as: 'user', attributes: ['user_id', 'full_name', 'email'] }
       ],
@@ -187,12 +269,22 @@ class AdminService {
    */
   static async getCourts(options = {}) {
     const { Court, Branch, Venue } = require('../models');
-    const { page = 1, limit = 10, sport_category } = options;
+    const { page = 1, limit = 10, sport_category, search } = options;
     const offset = (page - 1) * limit;
 
     const where = {};
     if (sport_category) {
       where.sport_category = sport_category;
+    }
+    if (search && search.trim()) {
+      const { Op } = require('sequelize');
+      const term = `%${search.trim()}%`;
+      where[Op.or] = [
+        { court_name: { [Op.like]: term } },
+        { sport_category: { [Op.like]: term } },
+        { '$branch.branch_name$': { [Op.like]: term } },
+        { '$branch.venue.venue_name$': { [Op.like]: term } }
+      ];
     }
 
     const { rows, count } = await Court.findAndCountAll({

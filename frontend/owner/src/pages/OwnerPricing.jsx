@@ -215,7 +215,7 @@ export default function OwnerPricing() {
       try {
         const arr = JSON.parse(sched.days_of_week);
         if (Array.isArray(arr) && arr.length > 0) parsedDays = arr;
-      } catch (e) {}
+      } catch (e) { }
     }
 
     setForm({
@@ -263,7 +263,7 @@ export default function OwnerPricing() {
       try {
         const parsed = JSON.parse(sched.days_of_week);
         if (Array.isArray(parsed) && parsed.length > 0) daysArr = parsed;
-      } catch (e) {}
+      } catch (e) { }
     }
 
     if (daysArr.length === 0) return sched.day_scope || 'Tất cả các ngày';
@@ -408,23 +408,23 @@ export default function OwnerPricing() {
     }
   };
 
-  // Helper renderer for Pricing Table
+  // Helper renderer for Pricing Table (Dual-Mode: Desktop Table + Mobile Cards)
   const renderPricingTable = (title, groupKey, items, icon, badgeColor) => (
     <Card padding="none" radius="2xl" className="border border-border-subtle-medium shadow-xs overflow-hidden space-y-0">
       {/* Table Header Section */}
-      <div className="flex items-center justify-between px-6 py-4 bg-surface border-b border-border-subtle">
-        <div className="flex items-center gap-3">
-          <div className={`p-2 rounded-xl bg-${badgeColor}-100 text-${badgeColor}-600`}>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:px-6 sm:py-4 bg-surface border-b border-border-subtle">
+        <div className="flex items-start sm:items-center gap-3 min-w-0">
+          <div className={`p-2 rounded-xl bg-${badgeColor}-100 text-${badgeColor}-600 shrink-0 mt-0.5 sm:mt-0`}>
             {icon}
           </div>
-          <div>
-            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-              {title}
+          <div className="min-w-0">
+            <h2 className="text-sm sm:text-base font-bold text-gray-900 flex items-center gap-2 flex-wrap">
+              <span>{title}</span>
               <Badge variant={groupKey === 'STUDENT' ? 'info' : 'warning'} size="xs">
-                {items.length} Khung giờ
+                {items.length} Khung giờ
               </Badge>
             </h2>
-            <p className="text-xs text-text-muted mt-0.5">
+            <p className="text-xs text-text-muted mt-0.5 line-clamp-1 sm:line-clamp-none">
               {groupKey === 'STUDENT' ? 'Bảng giá ưu đãi dành riêng cho Học sinh - Sinh viên' : 'Bảng giá chuẩn áp dụng cho tất cả đối tượng khách hàng'}
             </p>
           </div>
@@ -435,14 +435,15 @@ export default function OwnerPricing() {
           size="sm"
           leftIcon={<Plus size={15} />}
           onClick={() => handleOpenCreateModal(groupKey)}
+          className="w-full sm:w-auto text-xs shrink-0"
         >
           Thêm khung giá {groupKey === 'STUDENT' ? 'HSSV' : 'Chung'}
         </Button>
       </div>
 
-      {/* Table Content */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left border-collapse text-xs">
+      {/* 1. DESKTOP TABLE VIEW (Visible on >= md) */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full min-w-[650px] text-left border-collapse text-xs">
           <thead>
             <tr className="bg-surface-subtle text-[11px] font-bold text-text-muted uppercase tracking-wider border-b border-border-subtle">
               <th className="py-3.5 px-5">Ngày áp dụng</th>
@@ -505,11 +506,11 @@ export default function OwnerPricing() {
                         title={isActive ? 'Bấm để Tắt khung giá' : 'Bấm để Bật khung giá'}
                       >
                         {isActive ? (
-                          <Badge variant="success" size="xs" >
+                          <Badge variant="success" size="xs">
                             Hoạt động
                           </Badge>
                         ) : (
-                          <Badge variant="danger" size="xs" >
+                          <Badge variant="danger" size="xs">
                             Vô hiệu
                           </Badge>
                         )}
@@ -551,29 +552,130 @@ export default function OwnerPricing() {
           </tbody>
         </table>
       </div>
+
+      {/* 2. MOBILE CARDS LIST VIEW (Visible on < md) */}
+      <div className="block md:hidden divide-y divide-border-subtle bg-surface">
+        {loading ? (
+          <div className="p-5 text-center text-text-muted text-xs">
+            Đang tải bảng giá từ hệ thống...
+          </div>
+        ) : items.length === 0 ? (
+          <div className="p-6 text-center text-text-muted space-y-1">
+            <p className="font-bold text-gray-800 text-xs">Chưa có khung giá nào trong nhóm này</p>
+            <p className="text-[11px] text-text-muted">Bấm "+ Thêm khung giá" để thiết lập giá thuê.</p>
+          </div>
+        ) : (
+          items.map((s) => {
+            const isActive = s.is_active ?? true;
+            const fixedP = parseInt(s.fixed_price || s.base_hourly_price || 0);
+            const walkP = parseInt(s.walk_in_price || s.base_hourly_price || 0);
+
+            return (
+              <div
+                key={s.schedule_id}
+                className={`p-3.5 space-y-2.5 transition-colors ${!isActive ? 'opacity-60 bg-gray-50' : ''}`}
+              >
+                {/* Header: Days & Status Toggle */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-1.5 font-bold text-gray-900 text-xs min-w-0">
+                    <Calendar size={14} className="text-brand-orange shrink-0" />
+                    <span className="truncate">{formatDaysDisplay(s)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleStatus(s.schedule_id)}
+                    className="focus:outline-none shrink-0"
+                    title={isActive ? 'Bấm để Tắt khung giá' : 'Bấm để Bật khung giá'}
+                  >
+                    {isActive ? (
+                      <Badge variant="success" size="xs">
+                        Hoạt động
+                      </Badge>
+                    ) : (
+                      <Badge variant="danger" size="xs">
+                        Vô hiệu
+                      </Badge>
+                    )}
+                  </button>
+                </div>
+
+                {/* Time & Prices Box */}
+                <div className="flex items-center justify-between gap-2 bg-surface-subtle p-2.5 rounded-xl border border-border-subtle text-xs">
+                  <div className="flex items-center gap-1.5 font-mono font-bold text-gray-800">
+                    <Clock size={13} className="text-gray-500 shrink-0" />
+                    <span>
+                      {(s.opening_time || '05:00').substring(0, 5)} - {(s.closing_time || '08:00').substring(0, 5)}
+                    </span>
+                  </div>
+                  <div className="text-right space-y-0.5">
+                    <div className="text-[11px] text-text-muted">
+                      Cố định: <span className="font-extrabold text-emerald-700">{fixedP > 0 ? `${fixedP.toLocaleString('vi-VN')}đ` : '---'}</span>
+                    </div>
+                    <div className="text-[11px] text-text-muted">
+                      Vãng lai: <span className="font-extrabold text-brand-orange">{walkP > 0 ? `${walkP.toLocaleString('vi-VN')}đ` : '---'}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons Toolbar */}
+                <div className="flex items-center justify-end gap-1.5 pt-0.5">
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    leftIcon={<Edit2 size={12} />}
+                    onClick={() => handleOpenEditModal(s)}
+                    className="text-xs font-semibold px-2.5 py-1"
+                  >
+                    Sửa
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    leftIcon={<Copy size={12} />}
+                    onClick={() => handleDuplicateSubmit(s.schedule_id)}
+                    className="text-xs font-semibold px-2.5 py-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                  >
+                    Nhân bản
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    leftIcon={<Trash2 size={12} />}
+                    onClick={() => setDeleteConfirmId(s.schedule_id)}
+                    className="text-xs font-semibold px-2.5 py-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                  >
+                    Xóa
+                  </Button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
     </Card>
   );
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-            <DollarSign className="text-brand-orange" size={26} />
-            Quản lý Bảng Giá & Giờ Hoạt Động
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <DollarSign className="text-brand-orange shrink-0" size={24} />
+            <span>Quản lý Bảng Giá & Giờ Hoạt Động</span>
           </h1>
           <p className="text-xs text-text-muted mt-1">
             Bảng giá cho Khách Thường và HSSV theo từng khung giờ và ngày trong tuần.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
           <Button
             variant="outline"
             size="md"
             leftIcon={<Eye size={16} />}
             onClick={() => setPreviewOpen(true)}
+            className="flex-1 sm:flex-initial text-xs sm:text-sm"
           >
             Xem trước
           </Button>
@@ -583,8 +685,9 @@ export default function OwnerPricing() {
             size="md"
             leftIcon={<Plus size={16} />}
             onClick={() => handleOpenCreateModal('GENERAL')}
+            className="flex-1 sm:flex-initial text-xs sm:text-sm font-bold"
           >
-            Thêm khung giá mới
+            Thêm khung giờ
           </Button>
         </div>
       </div>
@@ -678,10 +781,10 @@ export default function OwnerPricing() {
 
       {/* CREATE / EDIT PRICING MODAL */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-200">
-          <form onSubmit={handleSubmit} className="bg-surface border border-border-subtle-medium rounded-2xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <form onSubmit={handleSubmit} className="bg-surface border border-border-subtle-medium rounded-2xl max-w-lg w-full p-4 sm:p-6 space-y-4 sm:space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between border-b border-border-subtle pb-3">
-              <h3 className="text-lg font-bold text-gray-900">
+              <h3 className="text-base sm:text-lg font-bold text-gray-900">
                 {editingSchedule ? 'Cập nhật quy tắc bảng giá' : 'Thêm khung giá mới'}
               </h3>
               <button type="button" onClick={() => setModalOpen(false)} className="p-1 text-text-muted hover:text-gray-900">
@@ -697,11 +800,10 @@ export default function OwnerPricing() {
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, pricingGroup: 'GENERAL' })}
-                    className={`p-3 rounded-xl border flex items-center gap-2 font-bold transition-all text-xs ${
-                      form.pricingGroup === 'GENERAL'
+                    className={`p-3 rounded-xl border flex items-center gap-2 font-bold transition-all text-xs ${form.pricingGroup === 'GENERAL'
                         ? 'border-brand-orange bg-brand-orange/10 text-brand-orange shadow-xs'
                         : 'border-border-subtle-medium bg-surface text-gray-700 hover:bg-surface-subtle'
-                    }`}
+                      }`}
                   >
                     <Users size={16} />
                     <span>Giá Chung</span>
@@ -710,11 +812,10 @@ export default function OwnerPricing() {
                   <button
                     type="button"
                     onClick={() => setForm({ ...form, pricingGroup: 'STUDENT' })}
-                    className={`p-3 rounded-xl border flex items-center gap-2 font-bold transition-all text-xs ${
-                      form.pricingGroup === 'STUDENT'
+                    className={`p-3 rounded-xl border flex items-center gap-2 font-bold transition-all text-xs ${form.pricingGroup === 'STUDENT'
                         ? 'border-blue-600 bg-blue-50 text-blue-700 shadow-xs'
                         : 'border-border-subtle-medium bg-surface text-gray-700 hover:bg-surface-subtle'
-                    }`}
+                      }`}
                   >
                     <GraduationCap size={16} />
                     <span>Học sinh - Sinh viên</span>
@@ -759,11 +860,10 @@ export default function OwnerPricing() {
                         key={day.id}
                         type="button"
                         onClick={() => toggleDayCheck(day.id)}
-                        className={`py-2 rounded-xl font-bold text-center border text-xs transition-all ${
-                          isChecked
+                        className={`py-2 rounded-xl font-bold text-center border text-xs transition-all ${isChecked
                             ? 'bg-brand-orange text-white border-brand-orange shadow-xs'
                             : 'bg-surface border-border-subtle-medium text-gray-700 hover:border-brand-orange/50'
-                        }`}
+                          }`}
                         title={day.name}
                       >
                         {day.label}
@@ -859,11 +959,11 @@ export default function OwnerPricing() {
 
       {/* PREVIEW PRICING MODAL */}
       {previewOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-surface border border-border-subtle-medium rounded-2xl max-w-3xl w-full p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-surface border border-border-subtle-medium rounded-2xl max-w-3xl w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[85vh] flex flex-col">
             <div className="flex items-center justify-between border-b border-border-subtle pb-3">
-              <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                <Eye size={20} className="text-brand-orange" />
+              <h3 className="text-sm sm:text-base font-bold text-gray-900 flex items-center gap-2">
+                <Eye size={18} className="text-brand-orange" />
                 Xem trước Bảng giá tổng hợp theo phân nhóm
               </h3>
               <button onClick={() => setPreviewOpen(false)} className="p-1 rounded-lg text-text-muted hover:text-gray-900">
@@ -871,7 +971,7 @@ export default function OwnerPricing() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-6 text-xs">
+            <div className="flex-1 overflow-y-auto space-y-5 text-xs">
               <div>
                 <h4 className="font-bold text-gray-900 text-sm mb-2 flex items-center gap-2 text-brand-orange">
                   <Users size={16} /> 1. BẢNG GIÁ CHUNG ({generalSchedules.length} khung giá)
@@ -881,12 +981,12 @@ export default function OwnerPricing() {
                 ) : (
                   <div className="space-y-2">
                     {generalSchedules.map((s) => (
-                      <div key={s.schedule_id} className="p-3 rounded-xl border border-border-subtle bg-surface flex items-center justify-between">
-                        <div>
+                      <div key={s.schedule_id} className="p-3 rounded-xl border border-border-subtle bg-surface flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
                           <span className="font-bold text-gray-900">{formatDaysDisplay(s)}</span>
-                          <span className="ml-3 font-mono text-gray-600">{(s.opening_time || '05:00').substring(0, 5)} - {(s.closing_time || '08:00').substring(0, 5)}</span>
+                          <span className="font-mono text-gray-600 bg-gray-100 px-2 py-0.5 rounded text-[11px]">{(s.opening_time || '05:00').substring(0, 5)} - {(s.closing_time || '08:00').substring(0, 5)}</span>
                         </div>
-                        <div className="font-bold text-right space-x-3">
+                        <div className="font-bold flex items-center gap-3 text-xs">
                           <span className="text-emerald-700">Cố định: {parseInt(s.fixed_price || s.base_hourly_price || 0).toLocaleString()}đ</span>
                           <span className="text-brand-orange">Vãng lai: {parseInt(s.walk_in_price || s.base_hourly_price || 0).toLocaleString()}đ</span>
                         </div>
@@ -905,12 +1005,12 @@ export default function OwnerPricing() {
                 ) : (
                   <div className="space-y-2">
                     {studentSchedules.map((s) => (
-                      <div key={s.schedule_id} className="p-3 rounded-xl border border-border-subtle bg-surface flex items-center justify-between">
-                        <div>
+                      <div key={s.schedule_id} className="p-3 rounded-xl border border-border-subtle bg-surface flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
                           <span className="font-bold text-gray-900">{formatDaysDisplay(s)}</span>
-                          <span className="ml-3 font-mono text-gray-600">{(s.opening_time || '05:00').substring(0, 5)} - {(s.closing_time || '08:00').substring(0, 5)}</span>
+                          <span className="font-mono text-gray-600 bg-gray-100 px-2 py-0.5 rounded text-[11px]">{(s.opening_time || '05:00').substring(0, 5)} - {(s.closing_time || '08:00').substring(0, 5)}</span>
                         </div>
-                        <div className="font-bold text-right space-x-3">
+                        <div className="font-bold flex items-center gap-3 text-xs">
                           <span className="text-emerald-700">Cố định: {parseInt(s.fixed_price || s.base_hourly_price || 0).toLocaleString()}đ</span>
                           <span className="text-brand-orange">Vãng lai: {parseInt(s.walk_in_price || s.base_hourly_price || 0).toLocaleString()}đ</span>
                         </div>

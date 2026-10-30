@@ -218,7 +218,7 @@ export default function OwnerBookingDetail() {
                 onClick={() => setShowRejectCancelModal(true)}
                 leftIcon={<XCircle size={16} />}
               >
-                Từ chối hủy
+                Từ chối
               </Button>
               <Button
                 variant="primary"
@@ -252,10 +252,10 @@ export default function OwnerBookingDetail() {
             </>
           )}
 
-          {(status === 'CONFIRMED' || status === 'COMPLETED') && <Badge variant="success" size="md">ĐÃ DUYỆT ĐẶT SÂN</Badge>}
-          {status === 'CANCEL_REQUESTED' && <Badge variant="warning" size="md">YÊU CẦU HỦY & HOÀN TIỀN</Badge>}
-          {status === 'REJECTED' && <Badge variant="danger" size="md">ĐÃ TỪ CHỐI</Badge>}
-          {status === 'CANCELLED' && <Badge variant="danger" size="md">ĐÃ HỦY</Badge>}
+          {/* {(status === 'CONFIRMED' || status === 'COMPLETED') && <Badge variant="success" size="md">Đã xác nhận</Badge>}
+          {status === 'CANCEL_REQUESTED' && <Badge variant="warning" size="md">Yêu cầu hủy & hoàn tiền</Badge>}
+          {status === 'REJECTED' && <Badge variant="danger" size="md">Đã từ chối</Badge>}
+          {status === 'CANCELLED' && <Badge variant="danger" size="md">Đã hủy</Badge>} */}
         </div>
       </div>
 
@@ -267,7 +267,7 @@ export default function OwnerBookingDetail() {
           <div className="border-b border-border-subtle pb-3">
             <h2 className="font-bold text-gray-900 text-sm flex items-center gap-2">
               <User size={16} className="text-brand-orange" />
-              Thông tin Khách hàng & Sân
+              Thông tin khách hàng & Sân
             </h2>
           </div>
 
@@ -278,7 +278,7 @@ export default function OwnerBookingDetail() {
             </div>
 
             <div>
-              <span className="text-text-muted block">Số điện thoại liên hệ:</span>
+              <span className="text-text-muted block">Số điện thoại:</span>
               <span className="font-bold text-brand-orange text-sm font-mono">{custPhone}</span>
             </div>
 
@@ -289,7 +289,7 @@ export default function OwnerBookingDetail() {
 
             <div className="pt-2 border-t border-border-subtle space-y-2">
               <div>
-                <span className="text-text-muted block">Câu lạc bộ:</span>
+                <span className="text-text-muted block">Tên sân:</span>
                 <span className="font-bold text-gray-900">{venueName} ({branchName})</span>
               </div>
 
@@ -322,7 +322,7 @@ export default function OwnerBookingDetail() {
             </div>
 
             <div>
-              <span className="text-text-muted block">Trạng thái giữ sân:</span>
+              <span className="text-text-muted block">Trạng thái:</span>
               <Badge variant={status === 'CONFIRMED' ? 'success' : 'warning'} size="sm">
                 {status}
               </Badge>
@@ -342,7 +342,7 @@ export default function OwnerBookingDetail() {
         <div className="flex items-center justify-between border-b border-border-subtle pb-3">
           <h2 className="font-bold text-gray-900 text-sm flex items-center gap-2">
             <CreditCard size={16} className="text-brand-orange" />
-            Thông tin Thanh toán & Minh chứng Giao dịch
+            Thông tin thanh toán & Minh chứng giao dịch
           </h2>
           <Badge variant="info" size="sm">{payment?.payment_method || 'BANK_TRANSFER'}</Badge>
         </div>

@@ -1,7 +1,8 @@
 const { v4: uuidv4 } = require('uuid');
-const { Booking, BookingStatusHistory, Court, SlotBlocking, CourtBlockRule, sequelize } = require('../models');
+const { Booking, BookingStatusHistory, Court, SlotBlocking, CourtBlockRule, Payment, Branch, VenuePost, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const PricingService = require('./pricing.service');
+const AvailabilityService = require('./availability.service');
 
 class BookingService {
   /**
@@ -58,9 +59,10 @@ class BookingService {
         // --- EVENT TICKET BOOKING LOGIC ---
         // 2a. Check Event Post Ticket Slots Availability (Calculated based on max_participants - active tickets)
         let maxParticipants = 8;
+        let eventPost = null;
         if (post_id) {
           const { VenuePost, CommunityPost } = require('../models');
-          let eventPost = await VenuePost.findByPk(post_id, { transaction });
+          eventPost = await VenuePost.findByPk(post_id, { transaction });
           if (!eventPost) {
             eventPost = await VenuePost.findOne({ where: { slug: post_id }, transaction });
           }
@@ -69,11 +71,30 @@ class BookingService {
           }
           if (eventPost) {
             maxParticipants = Number(eventPost.max_participants || eventPost.slots_needed || 8);
+            let eventMeta = {};
+            if (eventPost.excerpt && typeof eventPost.excerpt === 'string' && eventPost.excerpt.trim().startsWith('{')) {
+              try { eventMeta = JSON.parse(eventPost.excerpt); } catch (_) {}
+            }
+            if (eventMeta.court_id) {
+              court_id = eventMeta.court_id;
+            } else if (eventMeta.court_name && eventPost.venue_id) {
+              const AvailabilityService = require('./availability.service');
+              const venueCourts = await Court.findAll({
+                include: [{ model: Branch, as: 'branch', where: { venue_id: eventPost.venue_id } }],
+                transaction
+              });
+              const matched = venueCourts.find(c => 
+                AvailabilityService.normalizeCourtName(c.court_name) === AvailabilityService.normalizeCourtName(eventMeta.court_name)
+              );
+              if (matched) {
+                court_id = matched.court_id;
+              }
+            }
           }
         }
 
-        // Count existing active ticket bookings for this court, booking_date & time
-        const activeBookingsCount = await Booking.count({
+        // Sum existing active ticket slots for this court, booking_date & time
+        const activeBookings = await Booking.findAll({
           where: {
             court_id,
             booking_date,
@@ -88,10 +109,27 @@ class BookingService {
               { booking_status: { [Op.ne]: 'HOLDING' } }
             ]
           },
+          attributes: ['booking_id', 'total_amount'],
           transaction
         });
 
-        const availableSlots = Math.max(0, maxParticipants - activeBookingsCount);
+        let ticketUnitPrice = 70000;
+        if (eventPost) {
+          let eventMeta = {};
+          if (eventPost.excerpt && typeof eventPost.excerpt === 'string' && eventPost.excerpt.trim().startsWith('{')) {
+            try { eventMeta = JSON.parse(eventPost.excerpt); } catch (_) {}
+          }
+          ticketUnitPrice = Number(eventMeta.ticket_price || eventPost.fee_amount || 70000);
+        }
+
+        const activeBookedSlotsCount = activeBookings.reduce((sum, b) => {
+          const slots = (ticketUnitPrice > 0 && b.total_amount)
+            ? Math.max(1, Math.round(Number(b.total_amount) / ticketUnitPrice))
+            : 1;
+          return sum + slots;
+        }, 0);
+
+        const availableSlots = Math.max(0, maxParticipants - activeBookedSlotsCount);
         const reqQty = Math.max(1, Number(quantity) || 1);
 
         if (reqQty > availableSlots) {
@@ -165,16 +203,77 @@ class BookingService {
           throw error;
         }
 
+        // 3c. Double Booking Guard against Active Published Event Posts
+        const targetCourtWithBranch = await Court.findByPk(court_id, {
+          include: [{ model: Branch, as: 'branch' }],
+          transaction
+        });
+        const venueIdForCourt = targetCourtWithBranch?.branch?.venue_id;
+        if (venueIdForCourt) {
+          const activeEvents = await VenuePost.findAll({
+            where: {
+              venue_id: venueIdForCourt,
+              content_type: 'EVENT',
+              status: 'PUBLISHED'
+            },
+            transaction
+          });
+
+          const normStart = start_time.length === 5 ? `${start_time}:00` : start_time;
+          const normEnd = end_time.length === 5 ? `${end_time}:00` : end_time;
+
+          const matchedEvent = activeEvents.find(ep => {
+            let meta = {};
+            if (ep.excerpt && typeof ep.excerpt === 'string' && ep.excerpt.startsWith('{')) {
+              try { meta = JSON.parse(ep.excerpt); } catch (_) {}
+            }
+            let epDate = meta.play_date;
+            if (!epDate && ep.start_at) {
+              epDate = typeof ep.start_at === 'string' ? ep.start_at.split('T')[0] : new Date(ep.start_at).toISOString().split('T')[0];
+            }
+            if (epDate !== booking_date) return false;
+
+            if (!AvailabilityService.isCourtMatching(targetCourtWithBranch || court, meta, ep)) return false;
+
+            let epStart = meta.start_time || (ep.start_at ? (typeof ep.start_at === 'string' ? ep.start_at.split('T')[1]?.substring(0, 5) : ep.start_at.toISOString().split('T')[1]?.substring(0, 5)) : '00:00');
+            let epEnd = meta.end_time || (ep.end_at ? (typeof ep.end_at === 'string' ? ep.end_at.split('T')[1]?.substring(0, 5) : ep.end_at.toISOString().split('T')[1]?.substring(0, 5)) : '23:59');
+            const epStartFull = epStart.length === 5 ? `${epStart}:00` : epStart;
+            const epEndFull = epEnd.length === 5 ? `${epEnd}:00` : epEnd;
+
+            return epStartFull < normEnd && epEndFull > normStart;
+          });
+
+          if (matchedEvent) {
+            const error = new Error(`Khung giờ này đã được dành riêng cho Tổ chức giải đấu/sự kiện: ${matchedEvent.title}`);
+            error.statusCode = 409;
+            error.code = 'SLOT_RESERVED_FOR_EVENT';
+            throw error;
+          }
+        }
+
         // 4. Double Booking Guard (Conflict Detection against Bookings)
         const conflict = await Booking.findOne({
           where: {
             court_id,
             booking_date,
-            booking_status: {
-              [Op.in]: ['HOLDING', 'PAYMENT_PENDING', 'CONFIRMED', 'COMPLETED']
-            },
             start_time: { [Op.lt]: end_time },
-            end_time: { [Op.gt]: start_time }
+            end_time: { [Op.gt]: start_time },
+            [Op.or]: [
+              {
+                booking_status: {
+                  [Op.in]: ['PAYMENT_SUCCESS', 'WAITING_OWNER_CONFIRMATION', 'CONFIRMED', 'COMPLETED', 'CANCEL_REQUESTED']
+                }
+              },
+              {
+                booking_status: {
+                  [Op.in]: ['HOLDING', 'PAYMENT_PENDING']
+                },
+                [Op.or]: [
+                  { hold_expiry_at: null },
+                  { hold_expiry_at: { [Op.gt]: new Date() } }
+                ]
+              }
+            ]
           },
           transaction
         });
@@ -217,7 +316,7 @@ class BookingService {
 
       await transaction.commit();
 
-      // Notify customer on booking creation
+      // Notify customer and owner on booking creation
       try {
         const NotificationService = require('./notification.service');
         await NotificationService.createNotification({
@@ -228,8 +327,33 @@ class BookingService {
           entityType: 'BOOKING',
           entityId: booking.booking_id
         });
+
+        // Notify Venue Owner of new booking
+        const { Court: CourtModel, Branch: BranchModel, Venue: VenueModel } = require('../models');
+        const courtDetails = await CourtModel.findOne({
+          where: { court_id: booking.court_id },
+          include: [{
+            model: BranchModel,
+            as: 'branch',
+            include: [{ model: VenueModel, as: 'venue' }]
+          }]
+        });
+        const ownerId = courtDetails?.branch?.venue?.owner_user_id;
+        const courtName = courtDetails?.court_name || 'Sân';
+        const venueName = courtDetails?.branch?.venue?.venue_name || 'Cụm sân';
+
+        if (ownerId && ownerId !== userId) {
+          await NotificationService.createNotification({
+            recipientUserId: ownerId,
+            type: 'BOOKING_NEW',
+            title: 'Đơn đặt sân mới – Chờ xác nhận',
+            message: `Khách hàng vừa đặt sân ${courtName} (${venueName}) ngày ${booking.booking_date} lúc ${String(booking.start_time).substring(0, 5)} - ${String(booking.end_time).substring(0, 5)}. Đơn đang chờ thanh toán / duyệt.`,
+            entityType: 'BOOKING',
+            entityId: booking.booking_id
+          });
+        }
       } catch (e) {
-        console.error('Failed to notify customer on booking creation:', e.message);
+        console.error('Failed to notify on booking creation:', e.message);
       }
 
       return booking;
@@ -351,11 +475,24 @@ class BookingService {
             where: {
               court_id,
               booking_date,
-              booking_status: {
-                [Op.in]: ['HOLDING', 'PAYMENT_PENDING', 'CONFIRMED', 'COMPLETED']
-              },
               start_time: { [Op.lt]: end_time },
-              end_time: { [Op.gt]: start_time }
+              end_time: { [Op.gt]: start_time },
+              [Op.or]: [
+                {
+                  booking_status: {
+                    [Op.in]: ['PAYMENT_SUCCESS', 'WAITING_OWNER_CONFIRMATION', 'CONFIRMED', 'COMPLETED', 'CANCEL_REQUESTED']
+                  }
+                },
+                {
+                  booking_status: {
+                    [Op.in]: ['HOLDING', 'PAYMENT_PENDING']
+                  },
+                  [Op.or]: [
+                    { hold_expiry_at: null },
+                    { hold_expiry_at: { [Op.gt]: new Date() } }
+                  ]
+                }
+              ]
             },
             transaction
           });
@@ -396,6 +533,50 @@ class BookingService {
       }
 
       await transaction.commit();
+
+      // Notify venue owners of batch bookings
+      try {
+        const NotificationService = require('./notification.service');
+        const { Court: CourtModel, Branch: BranchModel, Venue: VenueModel } = require('../models');
+        for (const b of createdBookings) {
+          const courtDetails = await CourtModel.findOne({
+            where: { court_id: b.court_id },
+            include: [{
+              model: BranchModel,
+              as: 'branch',
+              include: [{ model: VenueModel, as: 'venue' }]
+            }]
+          });
+          const ownerId = courtDetails?.branch?.venue?.owner_user_id;
+          const courtName = courtDetails?.court_name || 'Sân';
+          const venueName = courtDetails?.branch?.venue?.venue_name || 'Cụm sân';
+
+          if (ownerId && ownerId !== userId) {
+            await NotificationService.createNotification({
+              recipientUserId: ownerId,
+              type: 'BOOKING_NEW',
+              title: 'Đơn đặt sân mới – Chờ xác nhận',
+              message: `Khách hàng vừa đặt sân ${courtName} (${venueName}) ngày ${b.booking_date} lúc ${String(b.start_time).substring(0, 5)} - ${String(b.end_time).substring(0, 5)}. Đơn đang chờ thanh toán / duyệt.`,
+              entityType: 'BOOKING',
+              entityId: b.booking_id
+            });
+          }
+        }
+
+        if (createdBookings.length > 0) {
+          await NotificationService.createNotification({
+            recipientUserId: userId,
+            type: 'BOOKING_CREATED',
+            title: 'Đặt giữ sân thành công',
+            message: `Bạn đã đặt giữ chỗ thành công ${createdBookings.length} khung giờ. Vui lòng hoàn tất thanh toán trong 10 phút.`,
+            entityType: 'BOOKING',
+            entityId: createdBookings[0].booking_id
+          });
+        }
+      } catch (e) {
+        console.error('Failed to notify on batch booking creation:', e.message);
+      }
+
       return createdBookings;
 
     } catch (error) {
@@ -675,8 +856,31 @@ class BookingService {
             entityType: 'BOOKING',
             entityId: booking.booking_id
           });
+
+          // Notify Venue Owner
+          const { Court: CourtModel, Branch: BranchModel, Venue: VenueModel } = require('../models');
+          const courtDetails = await CourtModel.findOne({
+            where: { court_id: booking.court_id },
+            include: [{
+              model: BranchModel,
+              as: 'branch',
+              include: [{ model: VenueModel, as: 'venue' }]
+            }]
+          });
+          const ownerId = courtDetails?.branch?.venue?.owner_user_id;
+          const courtName = courtDetails?.court_name || 'Sân';
+          if (ownerId && ownerId !== userId) {
+            await NotificationService.createNotification({
+              recipientUserId: ownerId,
+              type: 'BOOKING_CANCELLED',
+              title: 'Khách hàng đã hủy đơn',
+              message: `Đơn #${booking.booking_id.substring(0, 8)} (${courtName}) ngày ${booking.booking_date} (${String(booking.start_time).substring(0, 5)} - ${String(booking.end_time).substring(0, 5)}) đã được khách hàng hủy.`,
+              entityType: 'BOOKING',
+              entityId: booking.booking_id
+            });
+          }
         } catch (e) {
-          console.error('Failed to notify customer on cancel:', e.message);
+          console.error('Failed to notify on cancel:', e.message);
         }
 
         return booking;
@@ -716,8 +920,31 @@ class BookingService {
           entityType: 'BOOKING',
           entityId: booking.booking_id
         });
+
+        // Notify Venue Owner
+        const { Court: CourtModel, Branch: BranchModel, Venue: VenueModel } = require('../models');
+        const courtDetails = await CourtModel.findOne({
+          where: { court_id: booking.court_id },
+          include: [{
+            model: BranchModel,
+            as: 'branch',
+            include: [{ model: VenueModel, as: 'venue' }]
+          }]
+        });
+        const ownerId = courtDetails?.branch?.venue?.owner_user_id;
+        const courtName = courtDetails?.court_name || 'Sân';
+        if (ownerId && ownerId !== userId) {
+          await NotificationService.createNotification({
+            recipientUserId: ownerId,
+            type: 'BOOKING_CANCEL_REQUESTED',
+            title: 'Yêu cầu hủy đơn đặt sân',
+            message: `Khách hàng đã gửi yêu cầu hủy đơn #${booking.booking_id.substring(0, 8)} (${courtName}) ngày ${booking.booking_date}. Lý do: ${reason.trim()} (${policy.policy_description}).`,
+            entityType: 'BOOKING',
+            entityId: booking.booking_id
+          });
+        }
       } catch (e) {
-        console.error('Failed to notify customer on cancel request:', e.message);
+        console.error('Failed to notify on cancel request:', e.message);
       }
 
       return booking;

@@ -245,43 +245,33 @@ export default function ExplorePage() {
   const bannerBgImage = banner?.image_url;
 
   return (
-    <div className="min-h-screen bg-slate-60/60 pb-16">
+    <div className="min-h-screen bg-slate-60/60 pb-24 md:pb-16">
       {/* Hero Banner Header */}
       <div 
-        className="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 text-white py-16 px-32 shadow-inner relative overflow-hidden bg-cover bg-center transition-all duration-500"
+        className="bg-gradient-to-r from-emerald-800 via-teal-800 to-emerald-900 text-white py-8 sm:py-12 md:py-16 px-4 sm:px-8 md:px-16 lg:px-24 shadow-inner relative overflow-hidden bg-cover bg-center transition-all duration-500"
         style={bannerBgImage ? { backgroundImage: `linear-gradient(to right, rgba(21, 54, 47, 0.75) 0%, rgba(31, 110, 105, 0.35) 60%, rgba(6, 78, 59, 0.2) 100%), url(${bannerBgImage})` } : {}}
       >
         <div className="absolute -right-10 -bottom-10 w-80 h-80 bg-white/5 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6 relative z-10">
-          <div className="text-center md:text-left space-y-2">
-            <div className="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-white/10 text-emerald-200 text-xs font-semibold backdrop-blur-md border border-white/10 mb-2">
-              <Sparkles className="w-4 h-4 text-emerald-300" />
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-5 sm:gap-6 relative z-10">
+          <div className="text-center md:text-left space-y-2 max-w-2xl">
+            <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/10 text-emerald-200 text-xs font-semibold backdrop-blur-md border border-white/10 mb-1">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
               <span>{bannerSubtitle}</span>
             </div>
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight leading-snug">
               {bannerTitle}
             </h1>
-            <p className="text-emerald-100 text-sm max-w-2xl leading-relaxed">
+            <p className="text-emerald-100 text-xs sm:text-sm leading-relaxed">
               {bannerDesc}
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
-            {/* {isAuthenticated && (
-              <button
-                onClick={() => setActiveTab('MY_POSTS')}
-                className="px-5 py-3.5 bg-white/15 hover:bg-white/25 text-white font-bold rounded-2xl border border-white/20 backdrop-blur-md transition-all flex items-center space-x-2"
-              >
-                <UserCheck className="w-4 h-4" />
-                <span>Bài đăng của tôi</span>
-              </button>
-            )} */}
-
+          <div className="flex items-center justify-center w-full sm:w-auto shrink-0">
             <button
               onClick={handleOpenCreateModal}
-              className="px-6 py-3.5 bg-brand-orange hover:bg-orange-400 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center space-x-2 shrink-0"
+              className="w-full sm:w-auto justify-center px-6 py-3 bg-brand-orange hover:bg-orange-400 text-white font-bold rounded-2xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center space-x-2 shrink-0 text-sm"
             >
-              <Plus className="w-5 h-5 stroke-[2.5]" />
+              <Plus className="w-4 h-4 stroke-[2.5]" />
               <span>{bannerBtnText}</span>
             </button>
           </div>
@@ -291,7 +281,7 @@ export default function ExplorePage() {
       {/* Main Container */}
       <div className="max-w-7xl mx-auto px-4 mt-6">
         {/* Search & Sport Filters Bar */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 mb-6 flex flex-col lg:flex-row items-center justify-between gap-4">
+        <div className="bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-gray-100 mb-6 flex flex-col lg:flex-row items-center justify-between gap-3 sm:gap-4">
           {/* Search Form */}
           <form onSubmit={handleSearchSubmit} className="w-full lg:w-96 relative">
             <input

@@ -229,7 +229,7 @@ export default function OwnerProfile() {
             <h2 className="text-lg font-bold text-gray-900">{profileData.full_name}</h2>
             <p className="text-xs text-text-muted">{profileData.email}</p>
             <div className="mt-2 inline-block">
-              <Badge variant="warning" size="sm">CHỦ SÂN (OWNER)</Badge>
+              <Badge variant="warning" size="sm">CHỦ SÂN</Badge>
             </div>
           </div>
 
@@ -329,11 +329,11 @@ export default function OwnerProfile() {
 
               <div className="flex justify-between py-2 border-b border-border-subtle">
                 <span className="text-text-muted">Trạng thái tài khoản:</span>
-                <Badge variant="success" size="xs">ACTIVE (Đang hoạt động)</Badge>
+                <Badge variant="success" size="sm">Đang hoạt động</Badge>
               </div>
 
               <div className="flex justify-between py-2">
-                <span className="text-text-muted">Mã định danh User ID:</span>
+                <span className="text-text-muted">Mã định danh:</span>
                 <span className="font-mono text-[11px] text-gray-600">{profileData.user_id}</span>
               </div>
             </div>
@@ -347,7 +347,7 @@ export default function OwnerProfile() {
         <div className="border-b border-border-subtle pb-3">
           <h2 className="font-bold text-gray-900 text-sm flex items-center gap-2">
             <Lock size={16} className="text-brand-orange" />
-            Đổi mật khẩu tài khoản
+            Đổi mật khẩu 
           </h2>
         </div>
 
@@ -397,7 +397,7 @@ export default function OwnerProfile() {
             loading={changePasswordLoading}
             leftIcon={<Key size={14} />}
           >
-            Đổi mật khẩu ngay
+            Xác nhận
           </Button>
         </form>
       </Card>
@@ -410,7 +410,7 @@ export default function OwnerProfile() {
           <div className="border-b border-border-subtle pb-3">
             <h2 className="font-bold text-gray-900 text-sm flex items-center gap-2">
               <Bell size={16} className="text-brand-orange" />
-              Cài đặt Nhận thông báo
+              Cài đặt thông báo
             </h2>
           </div>
 
@@ -469,7 +469,7 @@ export default function OwnerProfile() {
               onClick={handleLogout}
               className="w-full justify-center"
             >
-              Đăng xuất khỏi hệ thống
+              Đăng xuất 
             </Button>
           </div>
         </Card>

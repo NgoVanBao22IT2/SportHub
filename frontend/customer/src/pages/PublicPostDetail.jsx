@@ -163,12 +163,19 @@ export default function PublicPostDetail() {
     // Resolve real DB court_id for this venue
     const allVenueCourts = venue?.branches?.flatMap(b => b.courts || []) || [];
     const targetCourtName = courtName;
+    const normalizeName = (name) => {
+      if (!name) return '';
+      return name.trim().toLowerCase().replace(/\s+/g, '').replace(/sân0*(\d+)/i, 'sân$1');
+    };
     const matchedCourt = allVenueCourts.find(c =>
-      c.court_name && targetCourtName && c.court_name.trim().toLowerCase() === targetCourtName.trim().toLowerCase()
-    ) || allVenueCourts[0];
+      c.court_name && targetCourtName && (
+        c.court_name.trim().toLowerCase() === targetCourtName.trim().toLowerCase() ||
+        normalizeName(c.court_name) === normalizeName(targetCourtName)
+      )
+    ) || (allVenueCourts.length === 1 ? allVenueCourts[0] : null);
 
     const courtIdToUse = eventMeta.court_id || matchedCourt?.court_id || matchedCourt?.id || '';
-    const courtNameToUse = targetCourtName || matchedCourt?.court_name || 'Sân 1';
+    const courtNameToUse = matchedCourt?.court_name || targetCourtName || 'Sân 1';
 
     const params = new URLSearchParams();
     params.set('venueId', venueIdToUse);
@@ -181,7 +188,7 @@ export default function PublicPostDetail() {
     params.set('bookingType', 'EVENT_TICKET');
     if (post.post_id || post.id) params.set('postId', post.post_id || post.id);
 
-    // Direct navigation to Checkout Page with Bank Transfer as default payment method
+    // Direct navigation to Checkout Page with BANK_TRANSFER Transfer as default payment method
     navigate(`/checkout?${params.toString()}`, {
       state: {
         venueId: venueIdToUse,
@@ -192,7 +199,7 @@ export default function PublicPostDetail() {
         ticketPrice: unitPrice,
         quantity: ticketCount,
         eventTitle: post.title,
-        paymentMethod: 'banking',
+        paymentMethod: 'BANK_TRANSFERing',
         isEventTicket: true,
         bookingType: 'EVENT_TICKET',
         postId: post.post_id || post.id,
@@ -410,7 +417,7 @@ export default function PublicPostDetail() {
                   Ngân hàng (Mặc định)
                 </span> */}
               </div>
-              <p className="text-xs text-gray-500 font-medium">Chuyển khoản ngân hàng (QR Code / Banking)</p>
+              <p className="text-xs text-gray-500 font-medium">Chuyển khoản ngân hàng (QR Code / BANK_TRANSFERing)</p>
             </div>
           </div>
           {/* <span className="text-xs font-semibold text-gray-500 flex items-center gap-0.5 hover:text-accent-primary cursor-pointer">

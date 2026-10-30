@@ -9,11 +9,12 @@ export default function AdminCourts() {
   const [sportFilter, setSportFilter] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchCourts = async (page = 1) => {
+  const fetchCourts = async (page = 1, search = searchQuery, sport = sportFilter) => {
     try {
       setLoading(true);
       const params = { page, limit: 10 };
-      if (sportFilter) params.sport_category = sportFilter;
+      if (sport) params.sport_category = sport;
+      if (search && search.trim()) params.search = search.trim();
       const res = await getAdminCourts(params);
       setCourts(res.data || []);
       setMeta(res.meta || { total: 0, page: 1, limit: 10 });
@@ -25,18 +26,11 @@ export default function AdminCourts() {
   };
 
   useEffect(() => {
-    fetchCourts(1);
-  }, [sportFilter]);
-
-  const filteredCourts = courts.filter((c) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (c.court_name && c.court_name.toLowerCase().includes(q)) ||
-      (c.branch?.venue?.venue_name && c.branch.venue.venue_name.toLowerCase().includes(q)) ||
-      (c.sport_category && c.sport_category.toLowerCase().includes(q))
-    );
-  });
+    const handler = setTimeout(() => {
+      fetchCourts(1, searchQuery, sportFilter);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery, sportFilter]);
 
   return (
     <div className="space-y-6">
@@ -44,10 +38,12 @@ export default function AdminCourts() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Danh Mục Sân Con</h1>
-          <p className="text-xs text-slate-400 mt-1">Danh sách 13,960 sân con thể thao trên toàn quốc ({meta.total} sân con theo bộ lọc DB).</p>
+          <p className="text-xs text-slate-400 mt-1">
+            Theo dõi dữ liệu ({meta.total.toLocaleString('vi-VN')} sân con thể thao trên toàn quốc).
+          </p>
         </div>
         <button
-          onClick={() => fetchCourts(meta.page)}
+          onClick={() => fetchCourts(meta.page, searchQuery, sportFilter)}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
         >
           <RefreshCw size={14} /> Làm mới
@@ -104,14 +100,14 @@ export default function AdminCourts() {
                     Đang nạp danh sách Sân con từ DB...
                   </td>
                 </tr>
-              ) : filteredCourts.length === 0 ? (
+              ) : courts.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-slate-400">
                     Không tìm thấy sân con phù hợp.
                   </td>
                 </tr>
               ) : (
-                filteredCourts.map((court) => (
+                courts.map((court) => (
                   <tr key={court.court_id} className="hover:bg-slate-700/30 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-white">
                       <div className="flex items-center gap-2.5">
@@ -155,14 +151,14 @@ export default function AdminCourts() {
           <div className="flex items-center gap-2">
             <button
               disabled={meta.page <= 1}
-              onClick={() => fetchCourts(meta.page - 1)}
+              onClick={() => fetchCourts(meta.page - 1, searchQuery, sportFilter)}
               className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40"
             >
               Trang trước
             </button>
             <button
               disabled={meta.page >= Math.ceil(meta.total / meta.limit)}
-              onClick={() => fetchCourts(meta.page + 1)}
+              onClick={() => fetchCourts(meta.page + 1, searchQuery, sportFilter)}
               className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40"
             >
               Trang sau

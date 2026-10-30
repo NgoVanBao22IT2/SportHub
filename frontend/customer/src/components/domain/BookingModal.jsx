@@ -43,12 +43,12 @@ export default function BookingModal({ isOpen, onClose, onSelectVisualBooking, o
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/60 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-lg bg-surface rounded-2xl shadow-2xl border border-border-subtle-medium overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-dark/60 backdrop-blur-sm animate-fade-in">
+      <div className="relative w-full max-w-lg bg-surface rounded-2xl shadow-2xl border border-border-subtle-medium overflow-hidden max-h-[90vh] flex flex-col">
         
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-border-subtle-medium bg-surface-subtle">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-5 border-b border-border-subtle-medium bg-surface-subtle shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3">
             {step === 2 && (
               <button
                 onClick={() => setStep(1)}
@@ -59,15 +59,14 @@ export default function BookingModal({ isOpen, onClose, onSelectVisualBooking, o
               </button>
             )}
             <div>
-              
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-base sm:text-xl font-bold text-gray-900">
                 {step === 1 ? 'CHỌN HÌNH THỨC ĐẶT' : 'CHỌN ĐỐI TƯỢNG ĐẶT'}
               </h2>
             </div>
           </div>
           <button
             onClick={handleClose}
-            className="p-2 text-text-muted hover:text-gray-900 rounded-full hover:bg-surface transition-colors"
+            className="p-1.5 sm:p-2 text-text-muted hover:text-gray-900 rounded-full hover:bg-surface transition-colors"
             aria-label="Đóng modal"
           >
             <X size={20} />
@@ -75,7 +74,7 @@ export default function BookingModal({ isOpen, onClose, onSelectVisualBooking, o
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 space-y-4">
+        <div className="p-4 sm:p-6 space-y-3 sm:space-y-4 overflow-y-auto">
           
           {/* STEP 1: HÌNH THỨC ĐẶT */}
           {step === 1 && (

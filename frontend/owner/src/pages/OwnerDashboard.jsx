@@ -102,7 +102,8 @@ export default function OwnerDashboard() {
   const pendingPayments = dashboardData?.pendingPayments || [];
   const recentReviews = dashboardData?.recentReviews || [];
 
-  const maxChartValue = Math.max(...(revenueTrend.values || []), 100000);
+  const actualMaxChartValue = revenueTrend.values?.length ? Math.max(...revenueTrend.values, 0) : 0;
+  const chartCeiling = actualMaxChartValue > 0 ? Math.ceil(actualMaxChartValue / 200000) * 200000 : 500000;
 
   return (
     <div className="space-y-6">
@@ -221,24 +222,41 @@ export default function OwnerDashboard() {
         {loading ? (
           <Skeleton width="100%" height="180px" radius="xl" />
         ) : revenueTrend.values && revenueTrend.values.length > 0 ? (
-          <div className="space-y-2">
-            <div className="h-40 flex items-end gap-2 pt-6 pb-2 border-b border-border-subtle">
+          <div className="space-y-2 pt-2">
+            <div className="h-44 w-full flex items-end gap-2 sm:gap-3 pt-6 pb-2 border-b border-border-subtle relative">
               {revenueTrend.values.map((val, idx) => {
-                const heightPercent = maxChartValue > 0 ? Math.max(8, Math.round((val / maxChartValue) * 100)) : 8;
+                const heightPercent = chartCeiling > 0 ? Math.min(100, Math.max(8, Math.round((val / chartCeiling) * 100))) : 8;
+                const isZero = val <= 0;
                 return (
-                  <div key={idx} className="flex-1 flex flex-col items-center group relative">
-                    <div className="absolute -top-8 opacity-0 group-hover:opacity-100 transition-opacity bg-dark text-white text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap z-20">
-                      {val.toLocaleString('vi-VN')}đ
+                  <div key={idx} className="flex-1 h-full flex flex-col justify-end items-center group relative cursor-pointer">
+                    {/* Tooltip */}
+                    <div className="absolute -top-12 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-30 flex flex-col items-center -translate-y-1 group-hover:translate-y-0">
+                      <div className="bg-gray-900/95 backdrop-blur-md text-white text-[11px] font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap shadow-lg border border-gray-700/50">
+                        <div className="text-[10px] text-gray-400 font-normal">{revenueTrend.labels[idx]}</div>
+                        <div className="text-amber-300 font-bold">{val.toLocaleString('vi-VN')}đ</div>
+                      </div>
+                      <div className="w-2 h-2 bg-gray-900 rotate-45 -mt-1" />
                     </div>
-                    <div
-                      style={{ height: `${heightPercent}%` }}
-                      className="w-full bg-brand-orange/80 group-hover:bg-brand-orange rounded-t-sm transition-all duration-300"
-                    />
+
+                    {/* Column hover background */}
+                    <div className="absolute inset-0 group-hover:bg-orange-50/50 rounded-t-lg transition-colors pointer-events-none" />
+
+                    {/* Bar */}
+                    {!isZero ? (
+                      <div
+                        style={{ height: `${heightPercent}%` }}
+                        className="w-full max-w-[48px] bg-gradient-to-t from-orange-500 via-amber-500 to-amber-400 group-hover:from-orange-600 group-hover:to-amber-300 rounded-t-md shadow-xs transition-all duration-300 relative z-10 flex flex-col justify-between"
+                      >
+                        <div className="w-full h-0.5 bg-white/40 rounded-t-md" />
+                      </div>
+                    ) : (
+                      <div className="w-full max-w-[48px] h-1.5 bg-gray-200 group-hover:bg-gray-300 rounded-full transition-colors z-10 my-0.5" />
+                    )}
                   </div>
                 );
               })}
             </div>
-            <div className="flex text-[10px] text-text-muted justify-between">
+            <div className="flex text-[11px] text-text-muted justify-between pt-1">
               {revenueTrend.labels.map((lbl, idx) => (
                 <span key={idx} className="flex-1 text-center font-semibold">{lbl}</span>
               ))}

@@ -43,6 +43,16 @@ class PostService {
     return slug;
   }
 
+  static normalizeCourtName(name) {
+    if (!name) return '';
+    return name
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .replace(/sân\s*0*(\d+)/i, 'san $1')
+      .replace(/san\s*0*(\d+)/i, 'san $1')
+      .trim();
+  }
+
   /**
    * Helper: Verify ownership of venue by ownerUserId
    */
@@ -106,6 +116,10 @@ class PostService {
       attributes: ['court_id', 'court_name']
     });
     const courtIds = venueCourts.map(c => c.court_id);
+    const courtMapByName = {};
+    venueCourts.forEach(c => {
+      courtMapByName[this.normalizeCourtName(c.court_name)] = c.court_id;
+    });
 
     // Fetch confirmed bookings for these courts
     let confirmedBookings = [];
@@ -115,7 +129,7 @@ class PostService {
           court_id: { [Op.in]: courtIds },
           booking_status: { [Op.in]: ['CONFIRMED', 'COMPLETED'] }
         },
-        attributes: ['booking_id', 'court_id', 'booking_date', 'start_time', 'end_time']
+        attributes: ['booking_id', 'court_id', 'booking_date', 'start_time', 'end_time', 'total_amount']
       });
     }
 
@@ -130,10 +144,15 @@ class PostService {
       const playDate = meta.play_date || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[0] : '');
       const startTime = meta.start_time || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[1]?.substring(0, 5) : '');
       const endTime = meta.end_time || (pObj.end_at ? new Date(pObj.end_at).toISOString().split('T')[1]?.substring(0, 5) : '');
+      const unitTicketPrice = Number(meta.ticket_price || pObj.fee_amount || 70000);
+      let targetCourtId = meta.court_id;
+      if (!targetCourtId && meta.court_name) {
+        targetCourtId = courtMapByName[this.normalizeCourtName(meta.court_name)];
+      }
 
       let joinedCount = 0;
       if (playDate) {
-        // Count confirmed bookings matching playDate and time interval
+        // Sum confirmed booking slots matching playDate, time interval AND court
         joinedCount = confirmedBookings.filter(b => {
           const bDate = b.booking_date;
           const bStart = (b.start_time || '').substring(0, 5);
@@ -141,9 +160,15 @@ class PostService {
 
           const dateMatches = bDate === playDate;
           const timeMatches = (!startTime || bStart === startTime) && (!endTime || bEnd === endTime);
+          const courtMatches = !targetCourtId || b.court_id === targetCourtId;
 
-          return dateMatches && timeMatches;
-        }).length;
+          return dateMatches && timeMatches && courtMatches;
+        }).reduce((sum, b) => {
+          const slots = (unitTicketPrice > 0 && b.total_amount)
+            ? Math.max(1, Math.round(Number(b.total_amount) / unitTicketPrice))
+            : 1;
+          return sum + slots;
+        }, 0);
       }
 
       pObj.joined_count = Math.max(joinedCount, meta.joined_count || 0);
@@ -455,6 +480,10 @@ class PostService {
       attributes: ['court_id', 'court_name']
     });
     const courtIds = venueCourts.map(c => c.court_id);
+    const courtMapByName = {};
+    venueCourts.forEach(c => {
+      courtMapByName[this.normalizeCourtName(c.court_name)] = c.court_id;
+    });
 
     // Fetch active bookings for these courts to compute joined_count
     let confirmedBookings = [];
@@ -469,7 +498,7 @@ class PostService {
             { booking_status: { [Op.ne]: 'HOLDING' } }
           ]
         },
-        attributes: ['booking_id', 'court_id', 'booking_date', 'start_time', 'end_time']
+        attributes: ['booking_id', 'court_id', 'booking_date', 'start_time', 'end_time', 'total_amount']
       });
     }
 
@@ -484,10 +513,15 @@ class PostService {
       const playDate = meta.play_date || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[0] : '');
       const startTime = meta.start_time || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[1]?.substring(0, 5) : '');
       const endTime = meta.end_time || (pObj.end_at ? new Date(pObj.end_at).toISOString().split('T')[1]?.substring(0, 5) : '');
+      const unitTicketPrice = Number(meta.ticket_price || pObj.fee_amount || 70000);
+      let targetCourtId = meta.court_id;
+      if (!targetCourtId && meta.court_name) {
+        targetCourtId = courtMapByName[this.normalizeCourtName(meta.court_name)];
+      }
 
       let joinedCount = 0;
       if (playDate) {
-        // Count confirmed bookings matching playDate and time interval
+        // Sum confirmed booking slots matching playDate, time interval AND court
         joinedCount = confirmedBookings.filter(b => {
           const bDate = b.booking_date;
           const bStart = (b.start_time || '').substring(0, 5);
@@ -495,9 +529,15 @@ class PostService {
 
           const dateMatches = bDate === playDate;
           const timeMatches = (!startTime || bStart === startTime) && (!endTime || bEnd === endTime);
+          const courtMatches = !targetCourtId || b.court_id === targetCourtId;
 
-          return dateMatches && timeMatches;
-        }).length;
+          return dateMatches && timeMatches && courtMatches;
+        }).reduce((sum, b) => {
+          const slots = (unitTicketPrice > 0 && b.total_amount)
+            ? Math.max(1, Math.round(Number(b.total_amount) / unitTicketPrice))
+            : 1;
+          return sum + slots;
+        }, 0);
       }
 
       pObj.joined_count = Math.max(joinedCount, meta.joined_count || 0);
@@ -559,7 +599,13 @@ class PostService {
     const pObj = postModel.toJSON();
 
     // Calculate real joined count from database bookings
-    const courtIds = pObj.venue?.branches?.flatMap(b => b.courts?.map(c => c.court_id)) || [];
+    const allCourts = pObj.venue?.branches?.flatMap(b => b.courts || []) || [];
+    const courtIds = allCourts.map(c => c.court_id);
+    const courtMapByName = {};
+    allCourts.forEach(c => {
+      if (c.court_name) courtMapByName[this.normalizeCourtName(c.court_name)] = c.court_id;
+    });
+
     let confirmedBookings = [];
     if (courtIds.length > 0) {
       confirmedBookings = await Booking.findAll({
@@ -572,7 +618,7 @@ class PostService {
             { booking_status: { [Op.ne]: 'HOLDING' } }
           ]
         },
-        attributes: ['booking_id', 'court_id', 'booking_date', 'start_time', 'end_time']
+        attributes: ['booking_id', 'court_id', 'booking_date', 'start_time', 'end_time', 'total_amount']
       });
     }
 
@@ -584,6 +630,11 @@ class PostService {
     const playDate = meta.play_date || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[0] : '');
     const startTime = meta.start_time || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[1]?.substring(0, 5) : '');
     const endTime = meta.end_time || (pObj.end_at ? new Date(pObj.end_at).toISOString().split('T')[1]?.substring(0, 5) : '');
+    const unitTicketPrice = Number(meta.ticket_price || pObj.fee_amount || 70000);
+    let targetCourtId = meta.court_id;
+    if (!targetCourtId && meta.court_name) {
+      targetCourtId = courtMapByName[this.normalizeCourtName(meta.court_name)];
+    }
 
     let joinedCount = 0;
     if (playDate) {
@@ -594,9 +645,15 @@ class PostService {
 
         const dateMatches = bDate === playDate;
         const timeMatches = (!startTime || bStart === startTime) && (!endTime || bEnd === endTime);
+        const courtMatches = !targetCourtId || b.court_id === targetCourtId;
 
-        return dateMatches && timeMatches;
-      }).length;
+        return dateMatches && timeMatches && courtMatches;
+      }).reduce((sum, b) => {
+        const slots = (unitTicketPrice > 0 && b.total_amount)
+          ? Math.max(1, Math.round(Number(b.total_amount) / unitTicketPrice))
+          : 1;
+        return sum + slots;
+      }, 0);
     }
 
     pObj.joined_count = Math.max(joinedCount, meta.joined_count || 0);
@@ -677,13 +734,19 @@ class PostService {
               { booking_status: { [Op.ne]: 'HOLDING' } }
             ]
           },
-          attributes: ['booking_id', 'court_id', 'booking_date', 'start_time', 'end_time']
+          attributes: ['booking_id', 'court_id', 'booking_date', 'start_time', 'end_time', 'total_amount']
         });
       }
     }
 
     return events.map(post => {
       const pObj = post.toJSON();
+      const allCourts = pObj.venue?.branches?.flatMap(b => b.courts || []) || [];
+      const courtMapByName = {};
+      allCourts.forEach(c => {
+        if (c.court_name) courtMapByName[this.normalizeCourtName(c.court_name)] = c.court_id;
+      });
+
       let meta = {};
       if (pObj.excerpt && typeof pObj.excerpt === 'string' && pObj.excerpt.trim().startsWith('{')) {
         try { meta = JSON.parse(pObj.excerpt); } catch (_) {}
@@ -692,6 +755,11 @@ class PostService {
       const playDate = meta.play_date || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[0] : '');
       const startTime = meta.start_time || (pObj.start_at ? new Date(pObj.start_at).toISOString().split('T')[1]?.substring(0, 5) : '');
       const endTime = meta.end_time || (pObj.end_at ? new Date(pObj.end_at).toISOString().split('T')[1]?.substring(0, 5) : '');
+      const unitTicketPrice = Number(meta.ticket_price || pObj.fee_amount || 70000);
+      let targetCourtId = meta.court_id;
+      if (!targetCourtId && meta.court_name) {
+        targetCourtId = courtMapByName[this.normalizeCourtName(meta.court_name)];
+      }
 
       let joinedCount = 0;
       if (playDate) {
@@ -699,8 +767,17 @@ class PostService {
           const bDate = b.booking_date;
           const bStart = (b.start_time || '').substring(0, 5);
           const bEnd = (b.end_time || '').substring(0, 5);
-          return bDate === playDate && (!startTime || bStart === startTime) && (!endTime || bEnd === endTime);
-        }).length;
+          const dateMatches = bDate === playDate;
+          const timeMatches = (!startTime || bStart === startTime) && (!endTime || bEnd === endTime);
+          const courtMatches = !targetCourtId || b.court_id === targetCourtId;
+
+          return dateMatches && timeMatches && courtMatches;
+        }).reduce((sum, b) => {
+          const slots = (unitTicketPrice > 0 && b.total_amount)
+            ? Math.max(1, Math.round(Number(b.total_amount) / unitTicketPrice))
+            : 1;
+          return sum + slots;
+        }, 0);
       }
 
       pObj.joined_count = Math.max(joinedCount, meta.joined_count || 0);

@@ -20,6 +20,7 @@ import { getOwnerReviews, getOwnerVenues, replyOwnerReview, requestHideReview } 
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
+import Pagination from '../components/ui/Pagination';
 import Input from '../components/ui/Input';
 import Skeleton from '../components/ui/Skeleton';
 import ErrorState from '../components/ui/ErrorState';
@@ -421,29 +422,13 @@ export default function OwnerReviews() {
             })}
 
             {/* Pagination */}
-            {meta.totalPages > 1 && (
-              <div className="flex items-center justify-between p-4 bg-surface rounded-2xl border border-border-subtle-medium text-xs">
-                <span className="text-text-muted">Trang {meta.page} / {meta.totalPages}</span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={meta.page <= 1}
-                    onClick={() => setMeta((m) => ({ ...m, page: Math.max(1, m.page - 1) }))}
-                  >
-                    Trang trước
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={meta.page >= meta.totalPages}
-                    onClick={() => setMeta((m) => ({ ...m, page: Math.min(meta.totalPages, m.page + 1) }))}
-                  >
-                    Trang sau
-                  </Button>
-                </div>
-              </div>
-            )}
+            <Pagination
+              currentPage={meta.page}
+              totalPages={meta.totalPages}
+              totalItems={meta.total}
+              itemLabel="đánh giá"
+              onPageChange={(p) => setMeta((m) => ({ ...m, page: p }))}
+            />
           </div>
         ) : (
           <Card padding="lg" radius="2xl" className="text-center py-12 text-text-muted space-y-2">

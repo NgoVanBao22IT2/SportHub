@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -11,7 +12,8 @@ import {
   Info,
   ChevronRight,
   User,
-  DollarSign
+  DollarSign,
+  Sparkles
 } from 'lucide-react';
 import {
   getOwnerVenues,
@@ -27,6 +29,7 @@ import ErrorState from '../components/ui/ErrorState';
 import BlockSlotModal from '../components/domain/BlockSlotModal';
 
 export default function OwnerSchedules() {
+  const navigate = useNavigate();
   const [venues, setVenues] = useState([]);
   const [selectedVenueId, setSelectedVenueId] = useState('');
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -41,6 +44,7 @@ export default function OwnerSchedules() {
   const [selectedCourtToBlock, setSelectedCourtToBlock] = useState(null);
 
   const [unblockConfirm, setUnblockConfirm] = useState(null);
+  const [eventSlotModal, setEventSlotModal] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
 
@@ -210,7 +214,7 @@ export default function OwnerSchedules() {
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-blue-600"></span>
-            <span className="font-semibold text-gray-800">Sân sự kiện</span>
+            <span className="font-semibold text-gray-800">Tổ chức giải đấu / Sự kiện</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-red-500"></span>
@@ -280,7 +284,7 @@ export default function OwnerSchedules() {
                         isClickable = false;
                       } else if (st === 'EVENT') {
                         cellBg = 'bg-blue-50 hover:bg-blue-100 text-blue-900 border-blue-300';
-                        labelText = courtSlot.reason ? `✨ ${courtSlot.reason}` : '✨ Sân sự kiện';
+                        labelText = courtSlot.reason || 'Tổ chức giải đấu/sự kiện';
                         isClickable = true;
                       } else if (st === 'BLOCKED' || st === 'LOCKED') {
                         const isLongTerm = courtSlot.is_long_term;
@@ -308,7 +312,9 @@ export default function OwnerSchedules() {
                             onClick={() => {
                               if (st === 'AVAILABLE') {
                                 handleOpenBlockModal(court, courtSlot);
-                              } else if (st === 'BLOCKED' || st === 'LOCKED' || st === 'EVENT') {
+                              } else if (st === 'EVENT') {
+                                setEventSlotModal({ court, slot: courtSlot });
+                              } else if (st === 'BLOCKED' || st === 'LOCKED') {
                                 setUnblockConfirm({ court, slot: courtSlot });
                               }
                             }}
@@ -317,7 +323,7 @@ export default function OwnerSchedules() {
                               cellBg,
                               isClickable ? 'cursor-pointer shadow-2xs hover:scale-98' : ''
                             ].join(' ')}
-                            title={courtSlot.is_long_term ? `Khóa dài hạn: ${courtSlot.reason || 'Cho tới khi Owner mở lại'}` : (courtSlot.reason || labelText)}
+                            title={courtSlot.event_title ? `Tổ chức giải đấu / Sự kiện: ${courtSlot.event_title}` : (courtSlot.is_long_term ? `Khóa dài hạn: ${courtSlot.reason || 'Cho tới khi Owner mở lại'}` : (courtSlot.reason || labelText))}
                           >
                             <span className="font-bold">{labelText}</span>
                             {courtSlot.price && (
@@ -388,6 +394,62 @@ export default function OwnerSchedules() {
                 onClick={() => handleConfirmUnblock(unblockConfirm.slot?.block_id || unblockConfirm.slot?.id)}
               >
                 Mở khóa ngay
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EVENT SLOT INFO MODAL */}
+      {eventSlotModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <div className="bg-surface w-full max-w-md rounded-2xl border border-border-subtle-medium shadow-2xl p-6 space-y-4 text-xs">
+            <div className="flex items-center gap-3 text-blue-600">
+              <Sparkles size={24} />
+              <h3 className="font-bold text-gray-900 text-base">
+                Tổ chức giải đấu / Sự kiện
+              </h3>
+            </div>
+            
+            <div className="p-3.5 bg-blue-50/70 border border-blue-200/80 rounded-xl space-y-2 text-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-text-muted">Tên vé / Sự kiện:</span>
+                <span className="font-bold text-blue-900 text-right max-w-[220px] truncate">{eventSlotModal.slot?.event_title || eventSlotModal.slot?.reason || 'Vé Social / Sân sự kiện'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-text-muted">Sân áp dụng:</span>
+                <span className="font-bold text-gray-900">{eventSlotModal.court?.court_name}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-text-muted">Khung giờ:</span>
+                <span className="font-bold text-blue-700 font-mono">{eventSlotModal.slot?.start_time?.substring(0, 5)} - {eventSlotModal.slot?.end_time?.substring(0, 5)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-text-muted">Ngày:</span>
+                <span className="font-bold text-gray-900">{selectedDate.split('-').reverse().join('/')}</span>
+              </div>
+            </div>
+
+            <p className="text-gray-700 leading-relaxed text-xs">
+              Khung giờ này đã được hệ thống tự động khóa và cập nhật trạng thái <strong>"Tổ chức giải đấu/sự kiện"</strong> do bạn đang mở bán vé sự kiện. 
+              <br /><br />
+              Khi hết thời gian sự kiện, hoặc khi bạn đóng vé trong mục <strong>Sân sự kiện / Vé Social</strong>, hệ thống sẽ tự động cập nhật và mở lại sân cho khách đặt bình thường.
+            </p>
+
+            <div className="flex justify-end gap-3 pt-2 border-t border-border-subtle">
+              <Button variant="outline" size="sm" onClick={() => setEventSlotModal(null)}>
+                Đóng
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setEventSlotModal(null);
+                  navigate('/owner/bookings?tab=EVENT_COURTS');
+                }}
+                className="bg-accent-primary hover:bg-emerald-600 font-bold text-xs"
+              >
+                Quản lý vé sự kiện
               </Button>
             </div>
           </div>

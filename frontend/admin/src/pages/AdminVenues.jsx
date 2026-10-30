@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, Building2, CheckCircle, XCircle, AlertTriangle, RefreshCw, Eye } from 'lucide-react';
 import { getAdminVenues, updateAdminVenueStatus } from '../api/admin';
+import Pagination from '../components/ui/Pagination';
 
 export default function AdminVenues() {
   const [venues, setVenues] = useState([]);
@@ -11,11 +12,12 @@ export default function AdminVenues() {
   const [selectedVenue, setSelectedVenue] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const fetchVenues = async (page = 1) => {
+  const fetchVenues = async (page = 1, status = statusFilter, search = searchQuery) => {
     try {
       setLoading(true);
       const params = { page, limit: 10 };
-      if (statusFilter) params.status = statusFilter;
+      if (status) params.status = status;
+      if (search && search.trim()) params.search = search.trim();
       const res = await getAdminVenues(params);
       setVenues(res.data || []);
       setMeta(res.meta || { total: 0, page: 1, limit: 10 });
@@ -27,27 +29,12 @@ export default function AdminVenues() {
   };
 
   useEffect(() => {
-    fetchVenues(1);
-  }, [statusFilter]);
+    const handler = setTimeout(() => {
+      fetchVenues(1, statusFilter, searchQuery);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery, statusFilter]);
 
-  const getPageNumbers = () => {
-    const totalPages = Math.ceil(meta.total / meta.limit) || 1;
-    const current = meta.page;
-    const pages = [];
-
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      if (current <= 2) {
-        pages.push(1, 2, 3, '...', totalPages);
-      } else if (current >= totalPages - 1) {
-        pages.push(1, '...', totalPages - 2, totalPages - 1, totalPages);
-      } else {
-        pages.push(1, '...', current - 1, current, current + 1, '...', totalPages);
-      }
-    }
-    return pages;
-  };
 
   const [noticeModal, setNoticeModal] = useState({ open: false, title: '', message: '', type: 'error' });
 
@@ -56,7 +43,7 @@ export default function AdminVenues() {
       setActionLoading(true);
       await updateAdminVenueStatus(venueId, newStatus);
       setNoticeModal({ open: true, title: 'Thành công', message: 'Đã cập nhật trạng thái cụm sân thành công.', type: 'success' });
-      fetchVenues(meta.page);
+      fetchVenues(meta.page, statusFilter, searchQuery);
       setSelectedVenue(null);
     } catch (err) {
       console.error('Failed to update venue status:', err);
@@ -65,16 +52,6 @@ export default function AdminVenues() {
       setActionLoading(false);
     }
   };
-
-  const filteredVenues = venues.filter((v) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (v.venue_name && v.venue_name.toLowerCase().includes(q)) ||
-      (v.owner?.full_name && v.owner.full_name.toLowerCase().includes(q)) ||
-      (v.owner?.email && v.owner.email.toLowerCase().includes(q))
-    );
-  });
 
   return (
     <div className="space-y-6">
@@ -85,7 +62,7 @@ export default function AdminVenues() {
           {/* <p className="text-xs text-slate-400 mt-1">Danh sách 2,792 Cụm sân trên toàn hệ thống ({meta.total} sân theo bộ lọc DB).</p> */}
         </div>
         <button
-          onClick={() => fetchVenues(meta.page)}
+          onClick={() => fetchVenues(meta.page, statusFilter, searchQuery)}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
         >
           <RefreshCw size={14} /> Làm mới
@@ -142,14 +119,14 @@ export default function AdminVenues() {
                     Đang nạp danh sách Cụm sân từ DB...
                   </td>
                 </tr>
-              ) : filteredVenues.length === 0 ? (
+              ) : venues.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400">
                     Không tìm thấy cụm sân phù hợp.
                   </td>
                 </tr>
               ) : (
-                filteredVenues.map((venue) => (
+                venues.map((venue) => (
                   <tr key={venue.venue_id} className="hover:bg-slate-700/30 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-white">
                       <div className="flex items-center gap-2.5">
@@ -200,56 +177,15 @@ export default function AdminVenues() {
           </table>
         </div>
 
-        {/* NUMERIC PAGINATION */}
-        <div className="p-4 border-t border-slate-700/80 bg-slate-900/40 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-slate-400">
-            Hiển thị trang <span className="font-bold text-white">{meta.page}</span> / <span className="font-bold text-white">{Math.ceil(meta.total / meta.limit) || 1}</span> (Tổng <span className="font-bold text-indigo-400">{meta.total}</span> cụm sân)
-          </p>
-
-          <div className="flex items-center gap-1.5 flex-wrap justify-center">
-            {/* Previous Page Button */}
-            <button
-              disabled={meta.page <= 1}
-              onClick={() => fetchVenues(meta.page - 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors"
-            >
-              Trang trước
-            </button>
-
-            {/* Numeric Page Buttons */}
-            {getPageNumbers().map((p, idx) => {
-              if (p === '...') {
-                return (
-                  <span key={`ellipsis-${idx}`} className="px-2 py-1 text-xs text-slate-500 font-bold select-none">
-                    ...
-                  </span>
-                );
-              }
-              return (
-                <button
-                  key={`page-${p}`}
-                  onClick={() => fetchVenues(p)}
-                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${
-                    meta.page === p
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                  }`}
-                >
-                  {p}
-                </button>
-              );
-            })}
-
-            {/* Next Page Button */}
-            <button
-              disabled={meta.page >= Math.ceil(meta.total / meta.limit)}
-              onClick={() => fetchVenues(meta.page + 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors"
-            >
-              Trang sau
-            </button>
-          </div>
-        </div>
+        {/* UNIFIED PAGINATION */}
+        <Pagination
+          currentPage={meta.page}
+          totalPages={Math.ceil(meta.total / meta.limit) || 1}
+          totalItems={meta.total}
+          itemLabel="cụm sân"
+          onPageChange={(p) => fetchVenues(p, statusFilter, searchQuery)}
+          className="p-4 border-t border-slate-700/80 bg-slate-900/40 rounded-none border-x-0 border-b-0"
+        />
       </div>
 
       {/* VENUE ACTION MODAL */}

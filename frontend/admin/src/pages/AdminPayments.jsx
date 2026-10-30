@@ -8,10 +8,12 @@ export default function AdminPayments() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchPayments = async (page = 1) => {
+  const fetchPayments = async (page = 1, search = searchQuery) => {
     try {
       setLoading(true);
-      const res = await getAdminPayments({ page, limit: 10 });
+      const params = { page, limit: 10 };
+      if (search && search.trim()) params.search = search.trim();
+      const res = await getAdminPayments(params);
       setPayments(res.data || []);
       setMeta(res.meta || { total: 0, page: 1, limit: 10 });
     } catch (err) {
@@ -22,18 +24,11 @@ export default function AdminPayments() {
   };
 
   useEffect(() => {
-    fetchPayments(1);
-  }, []);
-
-  const filteredPayments = payments.filter((p) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (p.payment_id && p.payment_id.toLowerCase().includes(q)) ||
-      (p.user?.full_name && p.user.full_name.toLowerCase().includes(q)) ||
-      (p.payment_method && p.payment_method.toLowerCase().includes(q))
-    );
-  });
+    const handler = setTimeout(() => {
+      fetchPayments(1, searchQuery);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
   return (
     <div className="space-y-6">
@@ -41,10 +36,12 @@ export default function AdminPayments() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Quản lý Giao Dịch Thanh Toán</h1>
-          <p className="text-xs text-slate-400 mt-1">Kiểm soát toàn bộ dòng tiền thanh toán trên hệ thống ({meta.total} giao dịch trong DB).</p>
+          <p className="text-xs text-slate-400 mt-1">
+            Kiểm soát toàn bộ dòng tiền thanh toán trên hệ thống ({meta.total.toLocaleString('vi-VN')} giao dịch).
+          </p>
         </div>
         <button
-          onClick={() => fetchPayments(meta.page)}
+          onClick={() => fetchPayments(meta.page, searchQuery)}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
         >
           <RefreshCw size={14} /> Làm mới
@@ -86,14 +83,14 @@ export default function AdminPayments() {
                     Đang nạp danh sách giao dịch từ DB...
                   </td>
                 </tr>
-              ) : filteredPayments.length === 0 ? (
+              ) : payments.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400">
                     Không tìm thấy giao dịch phù hợp.
                   </td>
                 </tr>
               ) : (
-                filteredPayments.map((p) => (
+                payments.map((p) => (
                   <tr key={p.payment_id} className="hover:bg-slate-700/30 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-white">
                       <div className="flex items-center gap-2">
@@ -115,13 +112,12 @@ export default function AdminPayments() {
                     </td>
                     <td className="py-3.5 px-4">
                       <span
-                        className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-extrabold ${
-                          p.payment_status === 'PAID'
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                            : p.payment_status === 'FAILED'
+                        className={`inline-block px-2.5 py-0.5 rounded text-[10px] font-extrabold ${p.payment_status === 'SUCCESS' || p.payment_status === 'PAID'
+                          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                          : p.payment_status === 'FAILED'
                             ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                             : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                        }`}
+                          }`}
                       >
                         {p.payment_status}
                       </span>
@@ -144,14 +140,14 @@ export default function AdminPayments() {
           <div className="flex items-center gap-2">
             <button
               disabled={meta.page <= 1}
-              onClick={() => fetchPayments(meta.page - 1)}
+              onClick={() => fetchPayments(meta.page - 1, searchQuery)}
               className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40"
             >
               Trang trước
             </button>
             <button
               disabled={meta.page >= Math.ceil(meta.total / meta.limit)}
-              onClick={() => fetchPayments(meta.page + 1)}
+              onClick={() => fetchPayments(meta.page + 1, searchQuery)}
               className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40"
             >
               Trang sau

@@ -4,7 +4,7 @@ import apiClient from './apiClient';
  * Initiate or record payment transaction for a booking.
  * @param {Object} paymentData
  * @param {string} paymentData.booking_id
- * @param {string} paymentData.payment_method - 'momo' | 'banking' | 'onsite'
+ * @param {string} paymentData.payment_method - 'momo' | 'BANK_TRANSFERing' | 'onsite'
  * @param {number} paymentData.amount
  */
 export const createPayment = async (paymentData) => {

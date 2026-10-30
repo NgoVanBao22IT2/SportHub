@@ -21,6 +21,7 @@ import * as XLSX from 'xlsx';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import Badge from '../components/ui/Badge';
+import Pagination from '../components/ui/Pagination';
 import Input from '../components/ui/Input';
 import Skeleton from '../components/ui/Skeleton';
 import ErrorState from '../components/ui/ErrorState';
@@ -193,7 +194,19 @@ export default function OwnerRevenue() {
   const transactions = revenueData?.transactions || [];
   const meta = revenueData?.meta || { page: 1, limit: 10, totalPages: 1 };
 
-  const maxChartValue = Math.max(...chart.values, 100000);
+  const actualMaxChartValue = chart.values?.length ? Math.max(...chart.values, 0) : 0;
+  const getNiceChartCeiling = (val) => {
+    if (val <= 0) return 500000;
+    if (val <= 100000) return 100000;
+    if (val <= 250000) return 250000;
+    if (val <= 500000) return 500000;
+    if (val <= 1000000) return 1000000;
+    if (val <= 1500000) return 1500000;
+    if (val <= 2000000) return 2000000;
+    return Math.ceil(val / 500000) * 500000;
+  };
+  const chartCeiling = getNiceChartCeiling(actualMaxChartValue);
+  const activeRevenueDaysCount = chart.values ? chart.values.filter(v => v > 0).length : 0;
 
   return (
     <div className="space-y-6">
@@ -234,7 +247,7 @@ export default function OwnerRevenue() {
       {/* FILTERS BAR */}
       <div className="bg-surface p-4 rounded-2xl border border-border-subtle-medium space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          
+
           {/* Preset Buttons */}
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
             {[
@@ -265,7 +278,7 @@ export default function OwnerRevenue() {
             <input
               type="date"
               value={fromDate}
-              onClick={(e) => { try { e.currentTarget.showPicker(); } catch (_) {} }}
+              onClick={(e) => { try { e.currentTarget.showPicker(); } catch (_) { } }}
               onChange={(e) => {
                 setPeriodPreset('CUSTOM');
                 setFromDate(e.target.value);
@@ -276,7 +289,7 @@ export default function OwnerRevenue() {
             <input
               type="date"
               value={toDate}
-              onClick={(e) => { try { e.currentTarget.showPicker(); } catch (_) {} }}
+              onClick={(e) => { try { e.currentTarget.showPicker(); } catch (_) { } }}
               onChange={(e) => {
                 setPeriodPreset('CUSTOM');
                 setToDate(e.target.value);
@@ -320,7 +333,7 @@ export default function OwnerRevenue() {
 
       {/* KPI SUMMARY CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
+
         {/* KPI 1 */}
         <Card padding="md" radius="xl" className="border border-border-subtle-medium bg-surface">
           <span className="text-text-muted text-[11px] font-bold block uppercase">Tổng doanh thu thực nhận</span>
@@ -366,41 +379,112 @@ export default function OwnerRevenue() {
       </div>
 
       {/* REVENUE VISUAL CHART */}
-      <Card padding="lg" radius="2xl" className="border border-border-subtle-medium bg-surface space-y-4">
-        <div className="flex items-center justify-between border-b border-border-subtle pb-3">
-          <h2 className="font-bold text-gray-900 text-sm flex items-center gap-2">
-            <BarChart3 size={16} className="text-brand-orange" />
-            Biểu đồ xu hướng doanh thu ({fromDate} đến {toDate})
-          </h2>
+      <Card padding="lg" radius="2xl" className="border border-border-subtle-medium bg-surface space-y-4 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border-subtle pb-3 gap-2">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 rounded-lg bg-orange-50 text-brand-orange">
+              <BarChart3 size={18} />
+            </div>
+            <div>
+              <h2 className="font-bold text-gray-900 text-sm">
+                Biểu đồ xu hướng doanh thu
+              </h2>
+              <p className="text-[11px] text-text-muted">
+                Từ {fromDate} đến {toDate} • {chart.labels.length} mốc theo dõi
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 text-xs">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-subtle border border-border-subtle rounded-lg">
+              <span className="text-text-muted text-[11px]">Cao nhất:</span>
+              <span className="font-bold text-gray-900">{actualMaxChartValue.toLocaleString('vi-VN')}đ</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-surface-subtle border border-border-subtle rounded-lg">
+              <span className="text-text-muted text-[11px]">Ngày có doanh thu:</span>
+              <span className="font-bold text-brand-orange">{activeRevenueDaysCount} ngày</span>
+            </div>
+          </div>
         </div>
 
         {loading ? (
-          <Skeleton width="100%" height="200px" radius="xl" />
+          <Skeleton width="100%" height="220px" radius="xl" />
         ) : chart.values && chart.values.length > 0 ? (
-          <div className="space-y-2">
-            <div className="h-48 flex items-end gap-1 sm:gap-2 pt-6 pb-2 border-b border-border-subtle">
-              {chart.values.map((val, idx) => {
-                const heightPercent = maxChartValue > 0 ? Math.max(5, Math.round((val / maxChartValue) * 100)) : 5;
+          <div className="space-y-2 pt-2">
+            {/* Visual Chart with Grid Lines & Y-axis */}
+            <div className="relative h-56 w-full flex">
+              {/* Left Y-Axis labels */}
+              <div className="w-14 sm:w-16 h-full flex flex-col justify-between text-[10px] text-text-muted font-medium pr-2 border-r border-border-subtle select-none">
+                <span className="truncate">{chartCeiling >= 1000000 ? `${(chartCeiling / 1000000).toFixed(1)}Tr` : `${Math.round(chartCeiling / 1000)}k`}</span>
+                <span className="truncate">{chartCeiling * 0.66 >= 1000000 ? `${(chartCeiling * 0.66 / 1000000).toFixed(1)}Tr` : `${Math.round(chartCeiling * 0.66 / 1000)}k`}</span>
+                <span className="truncate">{chartCeiling * 0.33 >= 1000000 ? `${(chartCeiling * 0.33 / 1000000).toFixed(1)}Tr` : `${Math.round(chartCeiling * 0.33 / 1000)}k`}</span>
+                <span className="text-gray-400">0đ</span>
+              </div>
+
+              {/* Chart Plot Area with Grid Lines */}
+              <div className="relative flex-1 h-full pl-2 sm:pl-3">
+                {/* Horizontal Guide Lines */}
+                <div className="absolute inset-x-2 top-0 border-b border-dashed border-gray-100 pointer-events-none" />
+                <div className="absolute inset-x-2 top-[33%] border-b border-dashed border-gray-100 pointer-events-none" />
+                <div className="absolute inset-x-2 top-[66%] border-b border-dashed border-gray-100 pointer-events-none" />
+                <div className="absolute inset-x-2 bottom-0 border-b border-border-subtle pointer-events-none" />
+
+                {/* Bars Container */}
+                <div className="h-full w-full flex items-end gap-1 sm:gap-1.5 z-10 relative pb-0.5">
+                  {chart.values.map((val, idx) => {
+                    const heightPercent = chartCeiling > 0 ? Math.min(100, Math.max(6, Math.round((val / chartCeiling) * 100))) : 6;
+                    const isZero = val <= 0;
+                    return (
+                      <div
+                        key={idx}
+                        className="flex-1 h-full flex flex-col justify-end items-center group relative cursor-pointer"
+                      >
+                        {/* Interactive Floating Tooltip */}
+                        <div className="absolute -top-14 opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none z-30 flex flex-col items-center -translate-y-1 group-hover:translate-y-0">
+                          <div className="bg-gray-900/95 backdrop-blur-md text-white text-[11px] px-2.5 py-1.5 rounded-lg whitespace-nowrap text-center shadow-xl border border-gray-700/50">
+                            <div className="text-[10px] text-gray-400 font-medium">Ngày {chart.labels[idx]}</div>
+                            <div className="font-bold text-amber-300 text-xs">{val.toLocaleString('vi-VN')}đ</div>
+                            <div className="text-[9px] text-gray-300">{isZero ? 'Không có giao dịch' : 'Doanh thu thực nhận'}</div>
+                          </div>
+                          <div className="w-2 h-2 bg-gray-900 rotate-45 -mt-1" />
+                        </div>
+
+                        {/* Hover Column Highlight */}
+                        <div className="absolute inset-0 group-hover:bg-orange-50/60 rounded-t-sm transition-colors pointer-events-none" />
+
+                        {/* Bar Body */}
+                        {!isZero ? (
+                          <div
+                            style={{ height: `${heightPercent}%` }}
+                            className="w-full max-w-[28px] bg-gradient-to-t from-orange-500 via-amber-500 to-amber-400 group-hover:from-orange-600 group-hover:to-amber-300 rounded-t-sm shadow-xs transition-all duration-300 relative z-10 flex flex-col justify-between"
+                          >
+                            <div className="w-full h-0.5 bg-white/50 rounded-t-sm" />
+                          </div>
+                        ) : (
+                          <div className="w-full max-w-[28px] h-1 bg-gray-200 group-hover:bg-gray-300 rounded-full transition-colors z-10 my-0.5" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Chart X Labels */}
+            <div className="flex pl-14 sm:pl-16 text-[10px] text-text-muted justify-between pt-1 overflow-x-auto no-scrollbar">
+              {chart.labels.map((lbl, idx) => {
+                const total = chart.labels.length;
+                const showLabel = total <= 14 || idx === 0 || idx === total - 1 || idx % Math.ceil(total / 10) === 0;
                 return (
-                  <div key={idx} className="flex-1 flex flex-col items-center group relative">
-                    {/* Tooltip */}
-                    <div className="absolute -top-9 opacity-0 group-hover:opacity-100 transition-opacity bg-dark text-white text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap z-20 pointer-events-none">
-                      {val.toLocaleString('vi-VN')}đ
-                    </div>
-                    {/* Bar */}
-                    <div
-                      style={{ height: `${heightPercent}%` }}
-                      className="w-full bg-brand-orange/80 group-hover:bg-brand-orange rounded-t-sm transition-all duration-300"
-                    />
-                  </div>
+                  <span
+                    key={idx}
+                    className={`flex-1 text-center truncate ${showLabel ? 'opacity-100 font-medium' : 'opacity-0 sm:opacity-50 text-[9px]'}`}
+                    title={lbl}
+                  >
+                    {lbl}
+                  </span>
                 );
               })}
-            </div>
-            {/* Chart X Labels */}
-            <div className="flex gap-1 sm:gap-2 text-[10px] text-text-muted justify-between overflow-x-auto no-scrollbar">
-              {chart.labels.map((lbl, idx) => (
-                <span key={idx} className="flex-1 text-center truncate">{lbl}</span>
-              ))}
             </div>
           </div>
         ) : (
@@ -467,7 +551,7 @@ export default function OwnerRevenue() {
 
       {/* TRANSACTIONS TABLE SECTION */}
       <Card padding="none" radius="2xl" className="border border-border-subtle-medium overflow-hidden shadow-xs space-y-4">
-        
+
         {/* Table Search Header */}
         <div className="p-4 bg-surface-subtle border-b border-border-subtle flex flex-col sm:flex-row items-center justify-between gap-3">
           <h3 className="font-bold text-gray-900 text-sm">Danh sách Giao dịch tạo doanh thu ({meta.total || 0})</h3>
@@ -533,29 +617,16 @@ export default function OwnerRevenue() {
             </div>
 
             {/* Pagination Controls */}
-            {meta.totalPages > 1 && (
-              <div className="flex items-center justify-between p-4 border-t border-border-subtle bg-surface-subtle text-xs">
-                <span className="text-text-muted">Trang {meta.page} / {meta.totalPages}</span>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    Trang trước
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={page >= meta.totalPages}
-                    onClick={() => setPage((p) => Math.min(meta.totalPages, p + 1))}
-                  >
-                    Trang sau
-                  </Button>
-                </div>
-              </div>
-            )}
+            <div className="p-4 border-t border-border-subtle bg-surface-subtle">
+              <Pagination
+                currentPage={page}
+                totalPages={meta.totalPages}
+                totalItems={meta.total}
+                itemLabel="giao dịch"
+                onPageChange={(p) => setPage(p)}
+                className="bg-transparent border-0 p-0 shadow-none"
+              />
+            </div>
           </div>
         ) : (
           <div className="p-8 text-center text-text-muted text-xs">

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Building2, Search, Filter, RefreshCw, CheckCircle, XCircle, Clock, AlertTriangle, Eye, Edit2, Trash2, User, Phone, Mail, MapPin, ShieldCheck, Info } from 'lucide-react';
 import { getAdminOwnerRegistrations, approveAdminOwnerRegistration, rejectAdminOwnerRegistration, updateAdminOwnerRegistration, deleteAdminOwnerRegistration } from '../api/admin';
+import Pagination from '../components/ui/Pagination';
 
 export default function AdminOwnerRegistrations() {
   const [registrations, setRegistrations] = useState([]);
@@ -43,11 +44,12 @@ export default function AdminOwnerRegistrations() {
   // System Notice Modal State
   const [noticeModal, setNoticeModal] = useState({ open: false, title: '', message: '', type: 'success' });
 
-  const fetchRegistrations = async (page = 1) => {
+  const fetchRegistrations = async (page = 1, status = statusFilter, search = searchQuery) => {
     try {
       setLoading(true);
       const params = { page, limit: 10 };
-      if (statusFilter) params.status = statusFilter;
+      if (status) params.status = status;
+      if (search && search.trim()) params.search = search.trim();
       const res = await getAdminOwnerRegistrations(params);
       setRegistrations(res.data || []);
       setMeta(res.meta || { total: 0, page: 1, limit: 10 });
@@ -59,8 +61,11 @@ export default function AdminOwnerRegistrations() {
   };
 
   useEffect(() => {
-    fetchRegistrations(1);
-  }, [statusFilter]);
+    const handler = setTimeout(() => {
+      fetchRegistrations(1, statusFilter, searchQuery);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery, statusFilter]);
 
   const handleOpenApproveModal = () => {
     setApproveConfirmOpen(true);
@@ -222,24 +227,6 @@ export default function AdminOwnerRegistrations() {
     }
   };
 
-  const getPageNumbers = () => {
-    const totalPages = Math.ceil(meta.total / meta.limit) || 1;
-    const current = meta.page;
-    const pages = [];
-
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      if (current <= 2) {
-        pages.push(1, 2, 3, '...', totalPages);
-      } else if (current >= totalPages - 1) {
-        pages.push(1, '...', totalPages - 2, totalPages - 1, totalPages);
-      } else {
-        pages.push(1, '...', current - 1, current, current + 1, '...', totalPages);
-      }
-    }
-    return pages;
-  };
 
   const filtered = registrations.filter((r) => {
     if (!searchQuery) return true;
@@ -261,7 +248,7 @@ export default function AdminOwnerRegistrations() {
           <p className="text-xs text-slate-400 mt-1">Xét duyệt & quản lý chỉnh sửa hồ sơ đăng ký kinh doanh.</p>
         </div>
         <button
-          onClick={() => fetchRegistrations(meta.page)}
+          onClick={() => fetchRegistrations(meta.page, statusFilter, searchQuery)}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
         >
           <RefreshCw size={14} /> Làm mới
@@ -319,14 +306,14 @@ export default function AdminOwnerRegistrations() {
                     Đang nạp danh sách hồ sơ từ DB...
                   </td>
                 </tr>
-              ) : filtered.length === 0 ? (
+              ) : registrations.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-400">
                     Không tìm thấy hồ sơ đăng ký nào.
                   </td>
                 </tr>
               ) : (
-                filtered.map((reg) => {
+                registrations.map((reg) => {
                   const dateVal = reg.created_at || reg.createdAt;
                   const formattedDate = dateVal ? new Date(dateVal).toLocaleDateString('vi-VN') : 'Mới cập nhật';
 
@@ -400,56 +387,15 @@ export default function AdminOwnerRegistrations() {
           </table>
         </div>
 
-        {/* NUMERIC PAGINATION */}
-        <div className="p-4 border-t border-slate-700/80 bg-slate-900/40 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-slate-400">
-            Hiển thị trang <span className="font-bold text-white">{meta.page}</span> / <span className="font-bold text-white">{Math.ceil(meta.total / meta.limit) || 1}</span> (Tổng <span className="font-bold text-indigo-400">{meta.total}</span> hồ sơ)
-          </p>
-
-          <div className="flex items-center gap-1.5 flex-wrap justify-center">
-            {/* Previous Page Button */}
-            <button
-              disabled={meta.page <= 1}
-              onClick={() => fetchRegistrations(meta.page - 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors cursor-pointer"
-            >
-              Trang trước
-            </button>
-
-            {/* Numeric Page Buttons */}
-            {getPageNumbers().map((p, idx) => {
-              if (p === '...') {
-                return (
-                  <span key={`ellipsis-${idx}`} className="px-2 py-1 text-xs text-slate-500 font-bold select-none">
-                    ...
-                  </span>
-                );
-              }
-              return (
-                <button
-                  key={`page-${p}`}
-                  onClick={() => fetchRegistrations(p)}
-                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
-                    meta.page === p
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                  }`}
-                >
-                  {p}
-                </button>
-              );
-            })}
-
-            {/* Next Page Button */}
-            <button
-              disabled={meta.page >= Math.ceil(meta.total / meta.limit)}
-              onClick={() => fetchRegistrations(meta.page + 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors cursor-pointer"
-            >
-              Trang sau
-            </button>
-          </div>
-        </div>
+        {/* UNIFIED PAGINATION */}
+        <Pagination
+          currentPage={meta.page}
+          totalPages={Math.ceil(meta.total / meta.limit) || 1}
+          totalItems={meta.total}
+          itemLabel="hồ sơ"
+          onPageChange={(p) => fetchRegistrations(p, statusFilter, searchQuery)}
+          className="p-4 border-t border-slate-700/80 bg-slate-900/40 rounded-none border-x-0 border-b-0"
+        />
       </div>
 
       {/* DETAIL REVIEW MODAL CARD */}

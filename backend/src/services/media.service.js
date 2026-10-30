@@ -63,7 +63,6 @@ class MediaService {
     } = options;
 
     const offset = (Math.max(1, parseInt(page, 10)) - 1) * parseInt(limit, 10);
-
     const where = { venue_id: venueId, is_active: true };
 
     if (image_type && image_type !== 'ALL') {
@@ -99,7 +98,6 @@ class MediaService {
     const validSortFields = {
       created_at: 'created_at',
       title: 'title',
-      file_size: 'file_size',
       display_order: 'display_order'
     };
     const sortField = validSortFields[sortBy] || 'created_at';
@@ -139,7 +137,7 @@ class MediaService {
 
     const allImages = await VenueImage.findAll({
       where: { venue_id: venueId, is_active: true },
-      attributes: ['image_id', 'image_type', 'is_cover', 'is_avatar', 'status', 'file_size']
+      attributes: ['image_id', 'image_type', 'is_cover', 'is_avatar', 'status']
     });
 
     const stats = {
@@ -186,15 +184,15 @@ class MediaService {
       if (st === 'DRAFT') stats.draft++;
       else if (st === 'ARCHIVED') stats.archived++;
       else stats.published++;
-
-      stats.totalSize += (img.file_size || 0);
     });
 
     return stats;
   }
 
   /**
-   * Upload single or multiple images with metadata & variant creation
+   * Upload single or multiple images directly to Cloudinary and persist to MySQL.
+   * If Cloudinary fails: no database record created, no local files stored.
+   * If database save fails: newly uploaded Cloudinary assets are automatically rolled back/cleaned up.
    */
   static async uploadMedia(ownerUserId, venueId, files = [], base64List = [], bodyData = {}) {
     await this.verifyVenueOwnership(ownerUserId, venueId);
@@ -206,6 +204,7 @@ class MediaService {
       alt_text = '',
       is_cover = false,
       is_avatar = false,
+      is_primary = false,
       status = 'PUBLISHED',
       tags = '',
       event_id = null,
@@ -214,16 +213,19 @@ class MediaService {
       course_id = null
     } = bodyData;
 
+    const isCoverBool = (is_cover === true || is_cover === 'true' || image_type === 'COVER');
+    const isAvatarBool = (is_avatar === true || is_avatar === 'true' || image_type === 'AVATAR');
+    const isPrimaryBool = (is_primary === true || is_primary === 'true' || isCoverBool);
+
+    const uploadedCloudinaryAssets = [];
     const createdImages = [];
     const transaction = await sequelize.transaction();
 
     try {
-      const isCoverBool = (is_cover === true || is_cover === 'true' || image_type === 'COVER');
-      const isAvatarBool = (is_avatar === true || is_avatar === 'true' || image_type === 'AVATAR');
-
+      // 1. If marking as Cover or Avatar, reset previous designations
       if (isCoverBool) {
         await VenueImage.update(
-          { is_cover: false },
+          { is_cover: false, is_primary: false },
           { where: { venue_id: venueId, is_cover: true }, transaction }
         );
       }
@@ -235,11 +237,14 @@ class MediaService {
         );
       }
 
-      // 1. Process Multer Files
+      // 2. Process Multer Buffer Files via Cloudinary
       if (files && files.length > 0) {
         for (const file of files) {
           StorageService.validateImage(file);
-          const variants = await StorageService.saveImageBuffer(file.buffer, file.originalname);
+          const uploadRes = await StorageService.uploadToCloudinary(file.buffer, {
+            folder: `sporthub/venues/${venueId}`
+          });
+          uploadedCloudinaryAssets.push(uploadRes.public_id);
 
           const imgId = uuidv4();
           const rawTitle = title || file.originalname.replace(/\.[^/.]+$/, '');
@@ -248,19 +253,19 @@ class MediaService {
           const record = await VenueImage.create({
             image_id: imgId,
             venue_id: venueId,
+            uploaded_by: ownerUserId,
             target_id: venueId,
             target_type: 'VENUE',
-            avatar: isAvatarBool ? (variants.thumbnail_url || variants.medium_url) : null,
-            cover: isCoverBool ? (variants.large_url || variants.medium_url) : null,
-            thumbnail_url: variants.thumbnail_url,
-            medium_url: variants.medium_url,
-            large_url: variants.large_url,
-            original_url: variants.original_url,
+            original_url: uploadRes.secure_url,
+            cloudinary_public_id: uploadRes.public_id,
+            avatar: isAvatarBool ? uploadRes.secure_url : null,
+            cover: isCoverBool ? uploadRes.secure_url : null,
             image_type: isCoverBool ? 'COVER' : isAvatarBool ? 'AVATAR' : image_type,
             title: finalTitle,
             caption: caption || '',
             alt_text: alt_text || finalTitle,
             display_order: 0,
+            is_primary: isPrimaryBool,
             is_cover: isCoverBool,
             is_avatar: isAvatarBool,
             is_active: true,
@@ -269,19 +274,20 @@ class MediaService {
             event_id: event_id || null,
             promotion_id: promotion_id || null,
             tournament_id: tournament_id || null,
-            course_id: course_id || null,
-            file_size: variants.file_size,
-            mime_type: variants.mime_type
+            course_id: course_id || null
           }, { transaction });
 
           createdImages.push(record);
         }
       }
 
-      // 2. Process Base64 Data URLs
+      // 3. Process Base64 Data URLs via Cloudinary
       if (base64List && base64List.length > 0) {
         for (const b64 of base64List) {
-          const variants = await StorageService.saveBase64Image(b64, title || 'venue_media');
+          const uploadRes = await StorageService.uploadBase64ToCloudinary(b64, {
+            folder: `sporthub/venues/${venueId}`
+          });
+          uploadedCloudinaryAssets.push(uploadRes.public_id);
 
           const imgId = uuidv4();
           const rawTitle = title || 'Ảnh tải lên';
@@ -290,19 +296,19 @@ class MediaService {
           const record = await VenueImage.create({
             image_id: imgId,
             venue_id: venueId,
+            uploaded_by: ownerUserId,
             target_id: venueId,
             target_type: 'VENUE',
-            avatar: isAvatarBool ? (variants.thumbnail_url || variants.medium_url) : null,
-            cover: isCoverBool ? (variants.large_url || variants.medium_url) : null,
-            thumbnail_url: variants.thumbnail_url,
-            medium_url: variants.medium_url,
-            large_url: variants.large_url,
-            original_url: variants.original_url,
+            original_url: uploadRes.secure_url,
+            cloudinary_public_id: uploadRes.public_id,
+            avatar: isAvatarBool ? uploadRes.secure_url : null,
+            cover: isCoverBool ? uploadRes.secure_url : null,
             image_type: isCoverBool ? 'COVER' : isAvatarBool ? 'AVATAR' : image_type,
             title: finalTitle,
             caption: caption || '',
             alt_text: alt_text || finalTitle,
             display_order: 0,
+            is_primary: isPrimaryBool,
             is_cover: isCoverBool,
             is_avatar: isAvatarBool,
             is_active: true,
@@ -311,9 +317,7 @@ class MediaService {
             event_id: event_id || null,
             promotion_id: promotion_id || null,
             tournament_id: tournament_id || null,
-            course_id: course_id || null,
-            file_size: variants.file_size,
-            mime_type: variants.mime_type
+            course_id: course_id || null
           }, { transaction });
 
           createdImages.push(record);
@@ -324,6 +328,17 @@ class MediaService {
       return createdImages;
     } catch (err) {
       await transaction.rollback();
+
+      // Compensating Transaction: Cleanup newly uploaded Cloudinary assets
+      if (uploadedCloudinaryAssets.length > 0) {
+        console.warn(`[Cloudinary Rollback] Cleaning up ${uploadedCloudinaryAssets.length} assets due to DB transaction failure...`);
+        for (const pubId of uploadedCloudinaryAssets) {
+          await StorageService.deleteFromCloudinary(pubId).catch(cleanupErr => {
+            console.error(`[Cloudinary Cleanup Failure for ${pubId}]`, cleanupErr.message);
+          });
+        }
+      }
+
       throw err;
     }
   }
@@ -344,11 +359,13 @@ class MediaService {
     const transaction = await sequelize.transaction();
     try {
       await VenueImage.update(
-        { is_cover: false },
+        { is_cover: false, is_primary: false },
         { where: { venue_id: image.venue_id, is_cover: true }, transaction }
       );
 
       image.is_cover = true;
+      image.is_primary = true;
+      image.cover = image.original_url;
       image.image_type = 'COVER';
       await image.save({ transaction });
 
@@ -381,6 +398,7 @@ class MediaService {
       );
 
       image.is_avatar = true;
+      image.avatar = image.original_url;
       image.image_type = 'AVATAR';
       await image.save({ transaction });
 
@@ -393,7 +411,8 @@ class MediaService {
   }
 
   /**
-   * Update image metadata and optionally replace image file
+   * Update image metadata and optionally replace image file in Cloudinary.
+   * If replacing: upload new asset first -> update DB -> delete old asset from Cloudinary only after DB succeeds.
    */
   static async updateMedia(ownerUserId, imageId, payload = {}, newFile = null) {
     const image = await VenueImage.findByPk(imageId);
@@ -420,57 +439,83 @@ class MediaService {
       base64_image
     } = payload;
 
-    // Replace Image File if new file or Base64 is provided
-    if (newFile || base64_image) {
-      let variants;
-      if (newFile) {
-        StorageService.validateImage(newFile);
-        variants = await StorageService.saveImageBuffer(newFile.buffer, newFile.originalname);
-      } else if (base64_image) {
-        variants = await StorageService.saveBase64Image(base64_image, title || image.title || 'updated_image');
+    let newlyUploadedPublicId = null;
+    const oldPublicId = image.cloudinary_public_id;
+    const oldOriginalUrl = image.original_url;
+
+    try {
+      // 1. Replace Image File if new file or Base64 is provided
+      if (newFile || base64_image) {
+        let uploadRes;
+        if (newFile) {
+          StorageService.validateImage(newFile);
+          uploadRes = await StorageService.uploadToCloudinary(newFile.buffer, {
+            folder: `sporthub/venues/${image.venue_id}`
+          });
+        } else if (base64_image) {
+          uploadRes = await StorageService.uploadBase64ToCloudinary(base64_image, {
+            folder: `sporthub/venues/${image.venue_id}`
+          });
+        }
+
+        if (uploadRes) {
+          newlyUploadedPublicId = uploadRes.public_id;
+          image.original_url = uploadRes.secure_url;
+          image.cloudinary_public_id = uploadRes.public_id;
+
+          if (image.is_avatar) image.avatar = uploadRes.secure_url;
+          if (image.is_cover) image.cover = uploadRes.secure_url;
+        }
       }
 
-      if (variants) {
-        // Delete old physical files safely
-        if (image.thumbnail_url) StorageService.deleteFile(image.thumbnail_url);
-        if (image.medium_url) StorageService.deleteFile(image.medium_url);
-        if (image.large_url) StorageService.deleteFile(image.large_url);
-        if (image.original_url) StorageService.deleteFile(image.original_url);
+      // 2. Update metadata fields
+      if (title !== undefined) image.title = title;
+      if (caption !== undefined) image.caption = caption;
+      if (alt_text !== undefined) image.alt_text = alt_text;
+      if (display_order !== undefined) image.display_order = parseInt(display_order, 10);
+      if (status !== undefined) image.status = status;
+      if (tags !== undefined) image.tags = tags;
+      if (event_id !== undefined) image.event_id = event_id;
+      if (promotion_id !== undefined) image.promotion_id = promotion_id;
+      if (tournament_id !== undefined) image.tournament_id = tournament_id;
+      if (course_id !== undefined) image.course_id = course_id;
 
-        if (image.is_avatar) image.avatar = variants.thumbnail_url || variants.medium_url;
-        if (image.is_cover) image.cover = variants.large_url || variants.medium_url;
-        image.thumbnail_url = variants.thumbnail_url;
-        image.medium_url = variants.medium_url;
-        image.large_url = variants.large_url;
-        image.original_url = variants.original_url;
-        image.file_size = variants.file_size;
-        image.mime_type = variants.mime_type;
+      if (image_type) {
+        image.image_type = image_type;
+        if (image_type === 'COVER') {
+          return await this.setCoverImage(ownerUserId, imageId);
+        }
+        if (image_type === 'AVATAR') {
+          return await this.setAvatarImage(ownerUserId, imageId);
+        }
       }
+
+      await image.save();
+
+      // 3. After database save is confirmed: cleanup old Cloudinary or local asset safely
+      if (newlyUploadedPublicId && oldPublicId && oldPublicId !== newlyUploadedPublicId) {
+        await StorageService.deleteFromCloudinary(oldPublicId).catch(delErr => {
+          console.warn('[Cloudinary Old Asset Delete Warning]', delErr.message);
+        });
+      }
+      if (newlyUploadedPublicId && oldOriginalUrl && oldOriginalUrl.startsWith('/uploads/')) {
+        await StorageService.deleteFile(oldOriginalUrl);
+      }
+
+      return image;
+    } catch (err) {
+      // Compensating action: if new file was uploaded to Cloudinary but DB save failed, delete new asset
+      if (newlyUploadedPublicId) {
+        await StorageService.deleteFromCloudinary(newlyUploadedPublicId).catch(cleanupErr => {
+          console.error('[Cloudinary Cleanup Error]', cleanupErr.message);
+        });
+      }
+      throw err;
     }
-
-    if (title !== undefined) image.title = title;
-    if (caption !== undefined) image.caption = caption;
-    if (alt_text !== undefined) image.alt_text = alt_text;
-    if (display_order !== undefined) image.display_order = parseInt(display_order, 10);
-    if (status !== undefined) image.status = status;
-    if (tags !== undefined) image.tags = tags;
-    if (event_id !== undefined) image.event_id = event_id;
-    if (promotion_id !== undefined) image.promotion_id = promotion_id;
-    if (tournament_id !== undefined) image.tournament_id = tournament_id;
-    if (course_id !== undefined) image.course_id = course_id;
-
-    if (image_type) {
-      image.image_type = image_type;
-      if (image_type === 'COVER') return await this.setCoverImage(ownerUserId, imageId);
-      if (image_type === 'AVATAR') return await this.setAvatarImage(ownerUserId, imageId);
-    }
-
-    await image.save();
-    return image;
   }
 
   /**
-   * Delete media record and files
+   * Delete media record and Cloudinary asset
    */
   static async deleteMedia(ownerUserId, imageId) {
     const image = await VenueImage.findByPk(imageId);
@@ -482,10 +527,12 @@ class MediaService {
 
     await this.verifyVenueOwnership(ownerUserId, image.venue_id);
 
-    if (image.thumbnail_url) StorageService.deleteFile(image.thumbnail_url);
-    if (image.medium_url) StorageService.deleteFile(image.medium_url);
-    if (image.large_url) StorageService.deleteFile(image.large_url);
-    if (image.original_url) StorageService.deleteFile(image.original_url);
+    // Delete physical asset from Cloudinary
+    if (image.cloudinary_public_id) {
+      await StorageService.deleteFromCloudinary(image.cloudinary_public_id);
+    } else if (image.original_url) {
+      await StorageService.deleteFile(image.original_url);
+    }
 
     await image.destroy();
     return { success: true, message: 'Đã xóa hình ảnh thành công' };
@@ -510,10 +557,11 @@ class MediaService {
 
     let deletedCount = 0;
     for (const image of images) {
-      if (image.thumbnail_url) StorageService.deleteFile(image.thumbnail_url);
-      if (image.medium_url) StorageService.deleteFile(image.medium_url);
-      if (image.large_url) StorageService.deleteFile(image.large_url);
-      if (image.original_url) StorageService.deleteFile(image.original_url);
+      if (image.cloudinary_public_id) {
+        await StorageService.deleteFromCloudinary(image.cloudinary_public_id);
+      } else if (image.original_url) {
+        await StorageService.deleteFile(image.original_url);
+      }
 
       await image.destroy();
       deletedCount++;

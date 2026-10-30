@@ -37,7 +37,7 @@ class ImageService {
       image_id: imageId,
       target_type: targetType,
       target_id: targetId,
-      image_url,
+      original_url: image_url,
       display_order,
       is_primary
     }, { transaction });

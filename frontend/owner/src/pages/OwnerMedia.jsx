@@ -27,6 +27,7 @@ import Card from '../components/ui/Card';
 import Skeleton from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
 import ErrorState from '../components/ui/ErrorState';
+import Pagination from '../components/ui/Pagination';
 
 // Domain Subcomponents
 import MediaHeader from '../components/domain/media/MediaHeader';
@@ -631,66 +632,15 @@ export default function OwnerMedia() {
             )}
 
             {/* 7. PAGINATION CONTROL BAR */}
-            {pagination.totalPages > 1 && (
-              <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-surface border border-border-subtle rounded-2xl shadow-2xs">
-                <span className="text-xs text-text-muted">
-                  Hiển thị {(pagination.page - 1) * pagination.limit + 1} –{' '}
-                  {Math.min(pagination.page * pagination.limit, pagination.total)} trên tổng số{' '}
-                  <strong className="text-gray-900">{pagination.total}</strong> media
-                </span>
-
-                <div className="flex items-center gap-1.5">
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    leftIcon={<ChevronLeft size={14} />}
-                    disabled={pagination.page <= 1}
-                    onClick={() => fetchMedia(pagination.page - 1)}
-                  >
-                    Trang trước
-                  </Button>
-
-                  <div className="flex items-center gap-1 px-2">
-                    {[...Array(pagination.totalPages)].map((_, idx) => {
-                      const p = idx + 1;
-                      if (
-                        p === 1 ||
-                        p === pagination.totalPages ||
-                        (p >= pagination.page - 1 && p <= pagination.page + 1)
-                      ) {
-                        return (
-                          <button
-                            key={p}
-                            onClick={() => fetchMedia(p)}
-                            className={`w-7 h-7 rounded-lg text-xs font-semibold transition ${
-                              pagination.page === p
-                                ? 'bg-accent-primary text-white shadow-2xs'
-                                : 'text-text-muted hover:bg-gray-100'
-                            }`}
-                          >
-                            {p}
-                          </button>
-                        );
-                      }
-                      if (p === pagination.page - 2 || p === pagination.page + 2) {
-                        return <span key={p} className="text-xs text-text-muted">...</span>;
-                      }
-                      return null;
-                    })}
-                  </div>
-
-                  <Button
-                    variant="outline"
-                    size="xs"
-                    rightIcon={<ChevronRight size={14} />}
-                    disabled={pagination.page >= pagination.totalPages}
-                    onClick={() => fetchMedia(pagination.page + 1)}
-                  >
-                    Trang sau
-                  </Button>
-                </div>
-              </div>
-            )}
+            <div className="mt-6">
+              <Pagination
+                currentPage={pagination.page}
+                totalPages={pagination.totalPages}
+                totalItems={pagination.total}
+                itemLabel="media"
+                onPageChange={(p) => fetchMedia(p)}
+              />
+            </div>
           </div>
         )}
       </div>

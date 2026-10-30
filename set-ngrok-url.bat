@@ -5,7 +5,7 @@ set LAN_IP=192.168.1.99
 set LAN_BACKEND_PORT=3000
 
 if "%~1"=="" (
-  echo Missing parameter! Use: .\set-ngrok-url.bat lan OR .\set-ngrok-url.bat https://your-ngrok.ngrok-free.app
+  echo Missing parameter! Use: .\set-ngrok-url.bat lan OR .\set-ngrok-url.bat https://phrenologic-lindsy-abstractedly.ngrok-free.dev 
   pause
   exit /b 1
 )

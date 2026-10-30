@@ -5,6 +5,7 @@ import Button from '../../ui/Button';
 import EmptyState from '../../ui/EmptyState';
 import ErrorState from '../../ui/ErrorState';
 import Skeleton from '../../ui/Skeleton';
+import Pagination from '../../ui/Pagination';
 import ReviewModal from './ReviewModal';
 import { getVenueReviews, getVenueReviewEligibility } from '../../../api/reviews';
 import { useAuth } from '../../../context/AuthContext';
@@ -189,9 +190,9 @@ export default function VenueReviewsTab({ venueId, venueName, onSummaryChange })
       </Card>
 
       {/* 2. REVIEWS FILTER & SORT TOOLBAR */}
-      <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
         {/* Rating Filter Pills */}
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none flex-nowrap pb-1 sm:pb-0 max-w-full">
           <button
             onClick={() => setSelectedRatingFilter('')}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
@@ -347,31 +348,13 @@ export default function VenueReviewsTab({ venueId, venueName, onSummaryChange })
           })}
 
           {/* Pagination Controls */}
-          {pagination.totalPages > 1 && (
-            <div className="pt-4 flex items-center justify-between text-xs text-text-muted border-t border-border-subtle">
-              <span>
-                Trang {pagination.page} / {pagination.totalPages} ({pagination.totalItems} đánh giá)
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pagination.page <= 1 || loading}
-                  onClick={() => fetchReviews(pagination.page - 1)}
-                >
-                  Trang trước
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={pagination.page >= pagination.totalPages || loading}
-                  onClick={() => fetchReviews(pagination.page + 1)}
-                >
-                  Trang sau
-                </Button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            currentPage={pagination.page}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            itemLabel="đánh giá"
+            onPageChange={(p) => fetchReviews(p)}
+          />
         </div>
       )}
 

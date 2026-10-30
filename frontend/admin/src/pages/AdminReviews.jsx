@@ -15,6 +15,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { getAdminReviews, updateAdminReviewHideStatus } from '../api/admin';
+import Pagination from '../components/ui/Pagination';
 
 export default function AdminReviews() {
   const [reviews, setReviews] = useState([]);
@@ -53,24 +54,6 @@ export default function AdminReviews() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const getPageNumbers = () => {
-    const totalPages = Math.ceil(meta.total / meta.limit) || 1;
-    const current = meta.page;
-    const pages = [];
-
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      if (current <= 2) {
-        pages.push(1, 2, 3, '...', totalPages);
-      } else if (current >= totalPages - 1) {
-        pages.push(1, '...', totalPages - 2, totalPages - 1, totalPages);
-      } else {
-        pages.push(1, '...', current - 1, current, current + 1, '...', totalPages);
-      }
-    }
-    return pages;
-  };
 
   const handleUpdateHideStatus = async (reviewId, action, reviewCustName) => {
     try {
@@ -366,56 +349,15 @@ export default function AdminReviews() {
           </table>
         </div>
 
-        {/* NUMERIC PAGINATION */}
-        <div className="p-4 border-t border-slate-700/80 bg-slate-900/40 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-slate-400">
-            Hiển thị trang <span className="font-bold text-white">{meta.page}</span> / <span className="font-bold text-white">{Math.ceil(meta.total / meta.limit) || 1}</span> (Tổng <span className="font-bold text-indigo-400">{meta.total}</span> đánh giá)
-          </p>
-
-          <div className="flex items-center gap-1.5 flex-wrap justify-center">
-            {/* Previous Page Button */}
-            <button
-              disabled={meta.page <= 1}
-              onClick={() => fetchReviews(meta.page - 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors cursor-pointer"
-            >
-              Trang trước
-            </button>
-
-            {/* Numeric Page Buttons */}
-            {getPageNumbers().map((p, idx) => {
-              if (p === '...') {
-                return (
-                  <span key={`ellipsis-${idx}`} className="px-2 py-1 text-xs text-slate-500 font-bold select-none">
-                    ...
-                  </span>
-                );
-              }
-              return (
-                <button
-                  key={`page-${p}`}
-                  onClick={() => fetchReviews(p)}
-                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
-                    meta.page === p
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                  }`}
-                >
-                  {p}
-                </button>
-              );
-            })}
-
-            {/* Next Page Button */}
-            <button
-              disabled={meta.page >= Math.ceil(meta.total / meta.limit)}
-              onClick={() => fetchReviews(meta.page + 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors cursor-pointer"
-            >
-              Trang sau
-            </button>
-          </div>
-        </div>
+        {/* UNIFIED PAGINATION */}
+        <Pagination
+          currentPage={meta.page}
+          totalPages={Math.ceil(meta.total / meta.limit) || 1}
+          totalItems={meta.total}
+          itemLabel="đánh giá"
+          onPageChange={(p) => fetchReviews(p)}
+          className="p-4 border-t border-slate-700/80 bg-slate-900/40 rounded-none border-x-0 border-b-0"
+        />
       </div>
     </div>
   );

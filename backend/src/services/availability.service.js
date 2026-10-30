@@ -1,4 +1,4 @@
-const { Court, SlotBlocking, CourtBlockRule, Booking, Venue, Branch, VenuePost } = require('../models');
+const { Court, SlotBlocking, CourtBlockRule, Booking, Payment, Venue, Branch, VenuePost } = require('../models');
 const { Op } = require('sequelize');
 const PricingService = require('./pricing.service');
 
@@ -19,6 +19,38 @@ class AvailabilityService {
     const currentTimeStr = `${curH}:${curM}:${curS}`;
 
     return { todayStr, currentTimeStr };
+  }
+
+  /**
+   * Helper: Normalize court names for flexible matching (e.g. "Sân 01" <=> "Sân 1")
+   */
+  static normalizeCourtName(name) {
+    if (!name) return '';
+    return String(name)
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, ' ')
+      .replace(/\b(sân|san|court|bàn|ban)\s*0+(\d+)\b/gi, '$1 $2');
+  }
+
+  /**
+   * Helper: Check if an event post targets the given court
+   */
+  static isCourtMatching(court, epMeta, ep) {
+    const epCourtId = epMeta?.court_id || ep?.court_id;
+    if (epCourtId && epCourtId === court.court_id) return true;
+
+    const epCourtName = epMeta?.court_name || ep?.court_name || ep?.location || '';
+    const cName = court.court_name || '';
+
+    const normEp = AvailabilityService.normalizeCourtName(epCourtName);
+    const normC = AvailabilityService.normalizeCourtName(cName);
+
+    if (!normEp || !normC) return false;
+    if (normEp === normC) return true;
+    if (normC.includes(normEp) || normEp.includes(normC)) return true;
+
+    return false;
   }
 
   /**
@@ -125,16 +157,77 @@ class AvailabilityService {
       };
     }
 
+    // 5c. Check for Active Event / Social Tickets on this Court and Date
+    const targetCourtWithBranch = await Court.findByPk(courtId, {
+      include: [{ model: Branch, as: 'branch' }]
+    });
+    const venueIdForCourt = targetCourtWithBranch?.branch?.venue_id;
+    if (venueIdForCourt) {
+      const activeEvents = await VenuePost.findAll({
+        where: {
+          venue_id: venueIdForCourt,
+          content_type: 'EVENT',
+          status: 'PUBLISHED'
+        }
+      });
+      const normStart = startTime.length === 5 ? `${startTime}:00` : startTime;
+      const normEnd = endTime.length === 5 ? `${endTime}:00` : endTime;
+
+      const matchedEvent = activeEvents.find(ep => {
+        let meta = {};
+        if (ep.excerpt && typeof ep.excerpt === 'string' && ep.excerpt.startsWith('{')) {
+          try { meta = JSON.parse(ep.excerpt); } catch (_) {}
+        }
+        let epDate = meta.play_date;
+        if (!epDate && ep.start_at) {
+          epDate = typeof ep.start_at === 'string' ? ep.start_at.split('T')[0] : new Date(ep.start_at).toISOString().split('T')[0];
+        }
+        if (epDate !== date) return false;
+
+        if (!AvailabilityService.isCourtMatching(court, meta, ep)) return false;
+
+        let epStart = meta.start_time || (ep.start_at ? (typeof ep.start_at === 'string' ? ep.start_at.split('T')[1]?.substring(0, 5) : ep.start_at.toISOString().split('T')[1]?.substring(0, 5)) : '00:00');
+        let epEnd = meta.end_time || (ep.end_at ? (typeof ep.end_at === 'string' ? ep.end_at.split('T')[1]?.substring(0, 5) : ep.end_at.toISOString().split('T')[1]?.substring(0, 5)) : '23:59');
+        const epStartFull = epStart.length === 5 ? `${epStart}:00` : epStart;
+        const epEndFull = epEnd.length === 5 ? `${epEnd}:00` : epEnd;
+
+        return epStartFull < normEnd && epEndFull > normStart;
+      });
+
+      if (matchedEvent) {
+        return {
+          is_available: false,
+          status: 'EVENT',
+          reason: 'Tổ chức giải đấu/sự kiện',
+          event_title: matchedEvent.title,
+          event_id: matchedEvent.post_id
+        };
+      }
+    }
+
     // 6. Check Existing Bookings (Conflict Detection)
     const booking = await Booking.findOne({
       where: {
         court_id: courtId,
         booking_date: date,
-        booking_status: {
-          [Op.in]: ['HOLDING', 'PAYMENT_PENDING', 'CONFIRMED', 'COMPLETED']
-        },
         start_time: { [Op.lt]: endTime },
-        end_time: { [Op.gt]: startTime }
+        end_time: { [Op.gt]: startTime },
+        [Op.or]: [
+          {
+            booking_status: {
+              [Op.in]: ['PAYMENT_SUCCESS', 'WAITING_OWNER_CONFIRMATION', 'CONFIRMED', 'COMPLETED', 'CANCEL_REQUESTED']
+            }
+          },
+          {
+            booking_status: {
+              [Op.in]: ['HOLDING', 'PAYMENT_PENDING']
+            },
+            [Op.or]: [
+              { hold_expiry_at: null },
+              { hold_expiry_at: { [Op.gt]: new Date() } }
+            ]
+          }
+        ]
       }
     });
 
@@ -231,18 +324,31 @@ class AvailabilityService {
       where: {
         court_id: { [Op.in]: courtIds.length ? courtIds : ['__NONE__'] },
         booking_date: date,
-        booking_status: {
-          [Op.in]: ['HOLDING', 'PAYMENT_PENDING', 'CONFIRMED', 'COMPLETED']
-        }
+        [Op.or]: [
+          {
+            booking_status: {
+              [Op.in]: ['PAYMENT_SUCCESS', 'WAITING_OWNER_CONFIRMATION', 'CONFIRMED', 'COMPLETED', 'CANCEL_REQUESTED']
+            }
+          },
+          {
+            booking_status: {
+              [Op.in]: ['HOLDING', 'PAYMENT_PENDING']
+            },
+            [Op.or]: [
+              { hold_expiry_at: null },
+              { hold_expiry_at: { [Op.gt]: new Date() } }
+            ]
+          }
+        ]
       }
     });
 
-    // 3b. Fetch active event posts for this venue
+    // 3b. Fetch active event posts for this venue (Only PUBLISHED events occupy the matrix)
     const eventPosts = await VenuePost.findAll({
       where: {
         venue_id: venueId,
         content_type: 'EVENT',
-        status: { [Op.in]: ['PUBLISHED', 'DRAFT'] }
+        status: 'PUBLISHED'
       }
     });
 
@@ -368,17 +474,17 @@ class AvailabilityService {
                 try { epMeta = JSON.parse(ep.excerpt); } catch (_) {}
               }
 
-              const epDate = epMeta.play_date || (ep.start_at ? ep.start_at.split('T')[0] : '');
-              const epCourtName = (epMeta.court_name || ep.court_name || ep.location || '').trim().toLowerCase();
-              const cName = (court.court_name || '').trim().toLowerCase();
+              let epDate = epMeta.play_date;
+              if (!epDate && ep.start_at) {
+                epDate = typeof ep.start_at === 'string' ? ep.start_at.split('T')[0] : new Date(ep.start_at).toISOString().split('T')[0];
+              }
 
-              const isSameDate = epDate === date;
-              const isSameCourt = epCourtName && (epCourtName === cName || cName.includes(epCourtName) || epCourtName.includes(cName));
+              if (epDate !== date) return false;
 
-              if (!isSameDate || !isSameCourt) return false;
+              if (!AvailabilityService.isCourtMatching(court, epMeta, ep)) return false;
 
-              const epStart = epMeta.start_time || (ep.start_at ? ep.start_at.split('T')[1]?.substring(0, 5) : '00:00');
-              const epEnd = epMeta.end_time || (ep.end_at ? ep.end_at.split('T')[1]?.substring(0, 5) : '23:59');
+              let epStart = epMeta.start_time || (ep.start_at ? (typeof ep.start_at === 'string' ? ep.start_at.split('T')[1]?.substring(0, 5) : ep.start_at.toISOString().split('T')[1]?.substring(0, 5)) : '00:00');
+              let epEnd = epMeta.end_time || (ep.end_at ? (typeof ep.end_at === 'string' ? ep.end_at.split('T')[1]?.substring(0, 5) : ep.end_at.toISOString().split('T')[1]?.substring(0, 5)) : '23:59');
 
               const epStartFull = epStart.length === 5 ? `${epStart}:00` : epStart;
               const epEndFull = epEnd.length === 5 ? `${epEnd}:00` : epEnd;
@@ -391,7 +497,9 @@ class AvailabilityService {
                 ...slot,
                 status: 'EVENT',
                 price: pricing.total_price,
-                reason: `Sân sự kiện: ${eventPostMatch.title}`
+                reason: 'Tổ chức giải đấu/sự kiện',
+                event_title: eventPostMatch.title,
+                event_id: eventPostMatch.post_id
               };
             }
 

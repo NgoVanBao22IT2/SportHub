@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Search, Filter, Shield, ShieldAlert, CheckCircle, XCircle, RefreshCw, Edit3 } from 'lucide-react';
 import { getAdminUsers, updateAdminUser } from '../api/admin';
+import Pagination from '../components/ui/Pagination';
 
 export default function AdminUsers() {
   const [users, setUsers] = useState([]);
@@ -11,11 +12,12 @@ export default function AdminUsers() {
   const [editingUser, setEditingUser] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const fetchUsers = async (page = 1) => {
+  const fetchUsers = async (page = 1, role = roleFilter, search = searchQuery) => {
     try {
       setLoading(true);
       const params = { page, limit: 10 };
-      if (roleFilter) params.role = roleFilter;
+      if (role) params.role = role;
+      if (search && search.trim()) params.search = search.trim();
       const res = await getAdminUsers(params);
       setUsers(res.data || []);
       setMeta(res.meta || { total: 0, page: 1, limit: 10 });
@@ -28,31 +30,15 @@ export default function AdminUsers() {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    fetchUsers(1);
-  };
-
-  const getPageNumbers = () => {
-    const totalPages = Math.ceil(meta.total / meta.limit) || 1;
-    const current = meta.page;
-    const pages = [];
-
-    if (totalPages <= 7) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      if (current <= 2) {
-        pages.push(1, 2, 3, '...', totalPages);
-      } else if (current >= totalPages - 1) {
-        pages.push(1, '...',totalPages - 2, totalPages - 1, totalPages);
-      } else {
-        pages.push(1, '...', current - 1, current, current + 1, '...', totalPages);
-      }
-    }
-    return pages;
+    fetchUsers(1, roleFilter, searchQuery);
   };
 
   useEffect(() => {
-    fetchUsers(1);
-  }, [roleFilter]);
+    const handler = setTimeout(() => {
+      fetchUsers(1, roleFilter, searchQuery);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [searchQuery, roleFilter]);
 
   const [noticeModal, setNoticeModal] = useState({ open: false, title: '', message: '', type: 'error' });
 
@@ -61,7 +47,7 @@ export default function AdminUsers() {
       setActionLoading(true);
       await updateAdminUser(userId, { account_status: newStatus });
       setNoticeModal({ open: true, title: 'Thành công', message: 'Đã cập nhật trạng thái người dùng.', type: 'success' });
-      fetchUsers(meta.page);
+      fetchUsers(meta.page, roleFilter, searchQuery);
       setEditingUser(null);
     } catch (err) {
       console.error('Failed to update user status:', err);
@@ -76,7 +62,7 @@ export default function AdminUsers() {
       setActionLoading(true);
       await updateAdminUser(userId, { primary_role: newRole });
       setNoticeModal({ open: true, title: 'Thành công', message: 'Đã cập nhật vai trò người dùng thành công.', type: 'success' });
-      fetchUsers(meta.page);
+      fetchUsers(meta.page, roleFilter, searchQuery);
       setEditingUser(null);
     } catch (err) {
       console.error('Failed to update user role:', err);
@@ -85,16 +71,6 @@ export default function AdminUsers() {
       setActionLoading(false);
     }
   };
-
-  const filteredUsers = users.filter((u) => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (u.full_name && u.full_name.toLowerCase().includes(q)) ||
-      (u.email && u.email.toLowerCase().includes(q)) ||
-      (u.phone_number && u.phone_number.includes(q))
-    );
-  });
 
   return (
     <div className="space-y-6">
@@ -105,7 +81,7 @@ export default function AdminUsers() {
           {/* <p className="text-xs text-slate-400 mt-1">Danh sách tài khoản hệ thống SportHubAI ({meta.total} tài khoản trong DB).</p> */}
         </div>
         <button
-          onClick={() => fetchUsers(meta.page)}
+          onClick={() => fetchUsers(meta.page, roleFilter, searchQuery)}
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
         >
           <RefreshCw size={14} /> Làm mới
@@ -161,14 +137,14 @@ export default function AdminUsers() {
                     Đang nạp danh sách tài khoản từ DB...
                   </td>
                 </tr>
-              ) : filteredUsers.length === 0 ? (
+              ) : users.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400">
                     Không tìm thấy người dùng phù hợp.
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => (
+                users.map((user) => (
                   <tr key={user.user_id} className="hover:bg-slate-700/30 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-white">
                       <div className="flex items-center gap-2.5">
@@ -227,56 +203,15 @@ export default function AdminUsers() {
           </table>
         </div>
 
-        {/* NUMERIC PAGINATION */}
-        <div className="p-4 border-t border-slate-700/80 bg-slate-900/40 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-slate-400">
-            Hiển thị trang <span className="font-bold text-white">{meta.page}</span> / <span className="font-bold text-white">{Math.ceil(meta.total / meta.limit) || 1}</span> (Tổng <span className="font-bold text-indigo-400">{meta.total}</span> tài khoản)
-          </p>
-
-          <div className="flex items-center gap-1.5 flex-wrap justify-center">
-            {/* Previous Page Button */}
-            <button
-              disabled={meta.page <= 1}
-              onClick={() => fetchUsers(meta.page - 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors"
-            >
-              Trang trước
-            </button>
-
-            {/* Numeric Page Buttons */}
-            {getPageNumbers().map((p, idx) => {
-              if (p === '...') {
-                return (
-                  <span key={`ellipsis-${idx}`} className="px-2 py-1 text-xs text-slate-500 font-bold select-none">
-                    ...
-                  </span>
-                );
-              }
-              return (
-                <button
-                  key={`page-${p}`}
-                  onClick={() => fetchUsers(p)}
-                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all flex items-center justify-center ${
-                    meta.page === p
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
-                  }`}
-                >
-                  {p}
-                </button>
-              );
-            })}
-
-            {/* Next Page Button */}
-            <button
-              disabled={meta.page >= Math.ceil(meta.total / meta.limit)}
-              onClick={() => fetchUsers(meta.page + 1)}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300 disabled:opacity-40 disabled:hover:bg-slate-800 transition-colors"
-            >
-              Trang sau
-            </button>
-          </div>
-        </div>
+        {/* UNIFIED PAGINATION */}
+        <Pagination
+          currentPage={meta.page}
+          totalPages={Math.ceil(meta.total / meta.limit) || 1}
+          totalItems={meta.total}
+          itemLabel="tài khoản"
+          onPageChange={(p) => fetchUsers(p, roleFilter, searchQuery)}
+          className="p-4 border-t border-slate-700/80 bg-slate-900/40 rounded-none border-x-0 border-b-0"
+        />
       </div>
 
       {/* EDIT MODAL */}

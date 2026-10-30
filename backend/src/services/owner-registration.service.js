@@ -173,6 +173,24 @@ class OwnerRegistrationService {
       status: 'PENDING'
     });
 
+    // Notify all platform Admins about the new registration
+    try {
+      const NotificationService = require('./notification.service');
+      const admins = await User.findAll({ where: { primary_role: 'ADMIN' } });
+      for (const admin of admins) {
+        await NotificationService.createNotification({
+          recipientUserId: admin.user_id,
+          type: 'OWNER_REGISTRATION_SUBMITTED',
+          title: 'Hồ sơ đăng ký chủ sân mới',
+          message: `Cơ sở "${registration.business_name}" (${registration.representative_name}) vừa nộp hồ sơ đăng ký kinh doanh. Vui lòng thẩm định.`,
+          entityType: 'OWNER_REGISTRATION',
+          entityId: registration.registration_id
+        });
+      }
+    } catch (notifErr) {
+      console.error('[OwnerRegistration] Error notifying admins on creation:', notifErr.message);
+    }
+
     return registration;
   }
 
@@ -220,6 +238,16 @@ class OwnerRegistrationService {
     const where = {};
     if (status) {
       where.status = status;
+    }
+    if (search && search.trim()) {
+      const { Op } = require('sequelize');
+      const term = `%${search.trim()}%`;
+      where[Op.or] = [
+        { business_name: { [Op.like]: term } },
+        { representative_name: { [Op.like]: term } },
+        { phone_number: { [Op.like]: term } },
+        { email: { [Op.like]: term } }
+      ];
     }
 
     const { rows, count } = await OwnerRegistration.findAndCountAll({
@@ -285,6 +313,21 @@ class OwnerRegistrationService {
       // 3. Automatically create Venue, Branch, Courts, and Default Schedule in DB
       await this._createVenueForRegistration(registration, t);
 
+      // 4. Notify applicant
+      try {
+        const NotificationService = require('./notification.service');
+        await NotificationService.createNotification({
+          recipientUserId: registration.user_id,
+          type: 'OWNER_REGISTRATION_APPROVED',
+          title: 'Hồ sơ đăng ký chủ sân đã được phê duyệt 🎉',
+          message: `Chúc mừng bạn! Hồ sơ đăng ký cơ sở kinh doanh "${registration.business_name}" đã được phê duyệt thành công. Tài khoản của bạn đã được nâng cấp thành Chủ sân.`,
+          entityType: 'OWNER_REGISTRATION',
+          entityId: registration.registration_id
+        }, t);
+      } catch (notifErr) {
+        console.error('[OwnerRegistration] Error notifying applicant on approve:', notifErr.message);
+      }
+
       await t.commit();
       return registration;
     } catch (err) {
@@ -317,6 +360,21 @@ class OwnerRegistrationService {
       reviewed_by: adminUserId,
       reviewed_at: new Date()
     });
+
+    // Notify applicant
+    try {
+      const NotificationService = require('./notification.service');
+      await NotificationService.createNotification({
+        recipientUserId: registration.user_id,
+        type: 'OWNER_REGISTRATION_REJECTED',
+        title: 'Hồ sơ đăng ký chủ sân bị từ chối',
+        message: `Hồ sơ đăng ký cơ sở "${registration.business_name}" đã bị từ chối. Lý do: ${adminNote.trim()}`,
+        entityType: 'OWNER_REGISTRATION',
+        entityId: registration.registration_id
+      });
+    } catch (notifErr) {
+      console.error('[OwnerRegistration] Error notifying applicant on reject:', notifErr.message);
+    }
 
     return registration;
   }

@@ -12,8 +12,8 @@ class AdminController {
 
   static async getUsers(req, res, next) {
     try {
-      const { page, limit, role } = req.query;
-      const result = await AdminService.getUsers({ page, limit, role });
+      const { page, limit, role, search } = req.query;
+      const result = await AdminService.getUsers({ page, limit, role, search });
       res.status(200).json({ status: 'success', data: result.data, meta: result.meta });
     } catch (error) {
       next(error);
@@ -24,7 +24,8 @@ class AdminController {
     try {
       const { id } = req.params;
       const updateData = req.body;
-      const user = await AdminService.updateUser(id, updateData);
+      const currentAdminId = req.user?.userId;
+      const user = await AdminService.updateUser(id, updateData, currentAdminId);
       res.status(200).json({ status: 'success', data: user });
     } catch (error) {
       next(error);
@@ -33,8 +34,8 @@ class AdminController {
 
   static async getVenues(req, res, next) {
     try {
-      const { page, limit, status } = req.query;
-      const result = await AdminService.getVenues({ page, limit, status });
+      const { page, limit, status, search } = req.query;
+      const result = await AdminService.getVenues({ page, limit, status, search });
       res.status(200).json({ status: 'success', data: result.data, meta: result.meta });
     } catch (error) {
       next(error);
@@ -54,8 +55,8 @@ class AdminController {
 
   static async getBookings(req, res, next) {
     try {
-      const { page, limit } = req.query;
-      const result = await AdminService.getBookings({ page, limit });
+      const { page, limit, search } = req.query;
+      const result = await AdminService.getBookings({ page, limit, search });
       res.status(200).json({ status: 'success', data: result.data, meta: result.meta });
     } catch (error) {
       next(error);
@@ -64,8 +65,8 @@ class AdminController {
 
   static async getPayments(req, res, next) {
     try {
-      const { page, limit } = req.query;
-      const result = await AdminService.getPayments({ page, limit });
+      const { page, limit, search } = req.query;
+      const result = await AdminService.getPayments({ page, limit, search });
       res.status(200).json({ status: 'success', data: result.data, meta: result.meta });
     } catch (error) {
       next(error);
@@ -74,8 +75,8 @@ class AdminController {
 
   static async getCourts(req, res, next) {
     try {
-      const { page, limit, sport_category } = req.query;
-      const result = await AdminService.getCourts({ page, limit, sport_category });
+      const { page, limit, sport_category, search } = req.query;
+      const result = await AdminService.getCourts({ page, limit, sport_category, search });
       res.status(200).json({ status: 'success', data: result.data, meta: result.meta });
     } catch (error) {
       next(error);

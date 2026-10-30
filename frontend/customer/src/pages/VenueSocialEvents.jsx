@@ -232,12 +232,19 @@ export default function VenueSocialEvents() {
     
     // Resolve real DB court_id for this venue
     const allVenueCourts = venue?.branches?.flatMap(b => b.courts || []) || [];
+    const normalizeName = (name) => {
+      if (!name) return '';
+      return name.trim().toLowerCase().replace(/\s+/g, '').replace(/sân0*(\d+)/i, 'sân$1');
+    };
     const matchedCourt = allVenueCourts.find(c => 
-      c.court_name && ev.court_name && c.court_name.trim().toLowerCase() === ev.court_name.trim().toLowerCase()
-    ) || allVenueCourts[0];
+      c.court_name && ev.court_name && (
+        c.court_name.trim().toLowerCase() === ev.court_name.trim().toLowerCase() ||
+        normalizeName(c.court_name) === normalizeName(ev.court_name)
+      )
+    ) || (allVenueCourts.length === 1 ? allVenueCourts[0] : null);
 
     const courtIdToUse = ev.court_id || matchedCourt?.court_id || matchedCourt?.id || '';
-    const courtNameToUse = ev.court_name || matchedCourt?.court_name || 'Sân 1';
+    const courtNameToUse = matchedCourt?.court_name || ev.court_name || 'Sân 1';
     const priceToUse = Number(ev.ticket_price || ev.fee_amount || 90000);
 
     const params = new URLSearchParams();

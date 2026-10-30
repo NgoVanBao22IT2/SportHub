@@ -796,6 +796,13 @@ class OwnerService {
     booking.booking_status = 'CONFIRMED';
     await booking.save();
 
+    // Sync any pending payment records for this booking to SUCCESS
+    const { Payment } = require('../models');
+    await Payment.update(
+      { payment_status: 'SUCCESS', paid_at: new Date() },
+      { where: { booking_id: bookingId, payment_status: { [Op.in]: ['INITIATED', 'PROCESSING'] } } }
+    ).catch(() => {});
+
     await BookingStatusHistory.create({
       history_id: uuidv4(),
       booking_id: bookingId,
@@ -805,7 +812,7 @@ class OwnerService {
       change_reason: 'Owner Approved Booking'
     });
 
-    // Notify Customer about Booking Confirmation & Payment Success
+    // Notify Customer about Booking Confirmation
     try {
       const NotificationService = require('./notification.service');
       const venueName = booking.court?.branch?.venue?.venue_name || 'Sân thể thao';
@@ -814,17 +821,8 @@ class OwnerService {
       await NotificationService.createNotification({
         recipientUserId: customerId,
         type: 'BOOKING_CONFIRMED',
-        title: 'Đặt sân thành công',
+        title: 'Đơn đặt sân đã được xác nhận',
         message: `Đơn đặt sân #${booking.booking_id.substring(0, 8)} (${booking.court?.court_name || 'Sân'}) tại ${venueName} đã được chủ sân xác nhận thành công. Giờ chơi: ${String(booking.start_time).substring(0, 5)} - ${String(booking.end_time).substring(0, 5)} ngày ${booking.booking_date}.`,
-        entityType: 'BOOKING',
-        entityId: booking.booking_id
-      });
-
-      await NotificationService.createNotification({
-        recipientUserId: customerId,
-        type: 'PAYMENT_SUCCESS',
-        title: 'Thanh toán thành công 💳',
-        message: `Thanh toán cho đơn đặt sân #${booking.booking_id.substring(0, 8)} tại ${venueName} đã thành công sau khi chủ sân xác nhận.`,
         entityType: 'BOOKING',
         entityId: booking.booking_id
       });
@@ -1031,6 +1029,13 @@ class OwnerService {
     booking.booking_status = 'REJECTED';
     booking.rejection_reason = reason || 'Chủ sân từ chối đơn hàng';
     await booking.save();
+
+    // Sync any pending payment records for this booking to FAILED
+    const { Payment: PaymentModel } = require('../models');
+    await PaymentModel.update(
+      { payment_status: 'FAILED', failed_at: new Date(), result_message: reason || 'Owner Rejected Booking' },
+      { where: { booking_id: bookingId, payment_status: { [Op.in]: ['INITIATED', 'PROCESSING'] } } }
+    ).catch(() => {});
 
     await BookingStatusHistory.create({
       history_id: uuidv4(),
@@ -1278,7 +1283,7 @@ class OwnerService {
     const { v4: uuidv4 } = require('uuid');
     const { VenuePaymentAccount } = require('../models');
 
-    const { venue_id, payment_method, account_name, account_number, bank_name, phone_number, qr_code_url } = data;
+    const { venue_id, payment_method, account_name, account_number, BANK_TRANSFER_name, phone_number, qr_code_url } = data;
 
     if (!venue_id || !payment_method || !account_name || !account_number) {
       const err = new Error('Thiếu thông tin tài khoản thanh toán bắt buộc.');
@@ -1299,7 +1304,7 @@ class OwnerService {
 
     let finalQrCodeUrl = qr_code_url;
     if (!finalQrCodeUrl) {
-      if (payment_method === 'BANK_TRANSFER' && bank_name) {
+      if (payment_method === 'BANK_TRANSFER' && BANK_TRANSFER_name) {
         finalQrCodeUrl = `https://img.vietqr.io/image/MB-${account_number}-compact2.png?accountName=${encodeURIComponent(account_name)}`;
       } else if (payment_method === 'MOMO' && account_number) {
         finalQrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=2|99|${account_number}|${encodeURIComponent(account_name)}||0|0|0`;
@@ -1312,7 +1317,7 @@ class OwnerService {
       payment_method,
       account_name: account_name.toUpperCase(),
       account_number,
-      bank_name: bank_name || (payment_method === 'MOMO' ? 'Ví MoMo' : 'Ngân hàng'),
+      BANK_TRANSFER_name: BANK_TRANSFER_name || (payment_method === 'MOMO' ? 'Ví MoMo' : 'Ngân hàng'),
       phone_number: phone_number || account_number,
       qr_code_url: finalQrCodeUrl,
       is_active: true
@@ -1347,7 +1352,7 @@ class OwnerService {
 
     if (data.account_name) account.account_name = data.account_name.toUpperCase();
     if (data.account_number) account.account_number = data.account_number;
-    if (data.bank_name) account.bank_name = data.bank_name;
+    if (data.BANK_TRANSFER_name) account.BANK_TRANSFER_name = data.BANK_TRANSFER_name;
     if (data.phone_number) account.phone_number = data.phone_number;
     if (data.qr_code_url) account.qr_code_url = data.qr_code_url;
     if (typeof data.is_active === 'boolean') account.is_active = data.is_active;
@@ -2470,77 +2475,6 @@ class OwnerService {
     const { page = 1, limit = 10, type, isRead, search } = options;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
-    // Auto-sync any booking notifications for this owner
-    try {
-      const { v4: uuidv4 } = require('uuid');
-      const bookings = await Booking.findAll({
-        include: [{
-          model: Court,
-          as: 'court',
-          required: true,
-          include: [{
-            model: Branch,
-            as: 'branch',
-            required: true,
-            include: [{
-              model: Venue,
-              as: 'venue',
-              required: true,
-              where: { owner_user_id: ownerId }
-            }]
-          }]
-        }, {
-          model: User,
-          as: 'customer'
-        }],
-        where: {
-          booking_id: {
-            [Op.notIn]: sequelize.literal(`(SELECT entity_id FROM notifications WHERE recipient_user_id = '${ownerId}' AND entity_id IS NOT NULL)`)
-          }
-        }
-      });
-
-      for (const b of bookings) {
-        const custName = b.customer?.full_name || 'Khách hàng';
-        const courtName = b.court?.court_name || 'Sân con';
-        const venueName = b.court?.branch?.venue?.venue_name || 'Cụm sân';
-        const bIdShort = b.booking_id.substring(0, 8);
-
-        let notifType = 'BOOKING_NEW';
-        let title = 'Đơn đặt sân mới';
-        let msg = `Khách hàng ${custName} vừa đặt sân ${courtName} (${venueName}) ngày ${b.booking_date} lúc ${String(b.start_time).substring(0, 5)} - ${String(b.end_time).substring(0, 5)}.`;
-
-        if (b.booking_status === 'CANCEL_REQUESTED') {
-          notifType = 'BOOKING_CANCEL_REQUESTED';
-          title = 'Yêu cầu hủy đơn đặt sân';
-          msg = `Khách hàng ${custName} đã gửi yêu cầu hủy đơn #${bIdShort} (${courtName}).`;
-        } else if (b.booking_status === 'CONFIRMED') {
-          notifType = 'BOOKING_CONFIRMED';
-          title = 'Đơn đặt sân đã xác nhận';
-          msg = `Đơn đặt sân #${bIdShort} (${courtName}) ngày ${b.booking_date} đã được xác nhận thành công.`;
-        } else if (b.booking_status === 'REJECTED') {
-          notifType = 'BOOKING_REJECTED';
-          title = 'Đơn đặt sân đã từ chối';
-          msg = `Đơn đặt sân #${bIdShort} (${courtName}) đã bị từ chối.`;
-        }
-
-        await Notification.create({
-          notification_id: uuidv4(),
-          recipient_user_id: ownerId,
-          notification_type: notifType,
-          title,
-          message: msg,
-          entity_type: 'BOOKING',
-          entity_id: b.booking_id,
-          is_read: false,
-          created_at: b.created_at,
-          updated_at: b.updated_at
-        }).catch(() => {});
-      }
-    } catch (syncErr) {
-      console.warn('Owner notification sync non-blocking warning:', syncErr.message);
-    }
-
     const whereClause = { recipient_user_id: ownerId };
 
     if (type && type !== 'ALL') {
@@ -2876,7 +2810,7 @@ class OwnerService {
       payment_method,
       account_name,
       account_number,
-      bank_name,
+      BANK_TRANSFER_name,
       phone_number,
       qr_code_url
     } = accountData;
@@ -2912,13 +2846,16 @@ class OwnerService {
       throw err;
     }
 
+    const rawBankName = accountData.bank_name !== undefined ? accountData.bank_name : accountData.BANK_TRANSFER_name;
+    const finalBankName = rawBankName ? rawBankName.trim() : null;
+
     const newAccount = await VenuePaymentAccount.create({
       account_id: uuidv4(),
       venue_id,
       payment_method: payment_method || 'BANK_TRANSFER',
       account_name: account_name.trim(),
       account_number: account_number.trim(),
-      bank_name: bank_name ? bank_name.trim() : null,
+      bank_name: finalBankName,
       phone_number: phone_number ? phone_number.trim() : null,
       qr_code_url: qr_code_url || null,
       is_active: true
@@ -2951,16 +2888,17 @@ class OwnerService {
       payment_method,
       account_name,
       account_number,
-      bank_name,
       phone_number,
       qr_code_url,
       is_active
     } = accountData;
 
+    const rawBankName = accountData.bank_name !== undefined ? accountData.bank_name : accountData.BANK_TRANSFER_name;
+
     if (payment_method !== undefined) account.payment_method = payment_method;
     if (account_name !== undefined) account.account_name = account_name.trim();
     if (account_number !== undefined) account.account_number = account_number.trim();
-    if (bank_name !== undefined) account.bank_name = bank_name ? bank_name.trim() : null;
+    if (rawBankName !== undefined) account.bank_name = rawBankName ? rawBankName.trim() : null;
     if (phone_number !== undefined) account.phone_number = phone_number ? phone_number.trim() : null;
     if (qr_code_url !== undefined) account.qr_code_url = qr_code_url;
     if (is_active !== undefined) account.is_active = is_active;

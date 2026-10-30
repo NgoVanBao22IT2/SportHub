@@ -203,25 +203,25 @@ export default function OwnerPaymentAccounts() {
                 <div className="flex items-center justify-between border-b border-border-subtle pb-3">
                   <div className="flex items-center gap-2">
                     <Badge variant={isMoMo ? 'warning' : 'info'} size="sm">
-                      {isMoMo ? 'VÍ MOMO' : 'CHUYỂN KHOẢN NGÂN HÀNG'}
+                      {isMoMo ? 'VÍ MOMO' : 'CHUYỂN KHOẢN'}
                     </Badge>
                     <span className="text-xs font-bold text-gray-900">
                       {acc.venue?.venue_name || 'Tất cả câu lạc bộ'}
                     </span>
                   </div>
 
-                  <Badge variant={acc.is_active ? 'success' : 'danger'} size="xs">
-                    {acc.is_active ? 'ĐANG DÙNG' : 'TẠM NGƯNG'}
+                  <Badge variant={acc.is_active ? 'success' : 'danger'} size="sm">
+                    {acc.is_active ? 'ACTIVE' : 'STOP'}
                   </Badge>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center">
-                  
+
                   {/* Account Details */}
                   <div className="sm:col-span-2 space-y-2 text-xs">
                     <div>
                       <span className="text-text-muted block">Ngân hàng / Đơn vị:</span>
-                      <span className="font-bold text-gray-900 text-sm">{acc.bank_name || 'Ví MoMo'}</span>
+                      <span className="font-bold text-gray-900 text-sm">{acc.bank_name || acc.BANK_TRANSFER_name || (isMoMo ? 'Ví MoMo' : 'Chuyển khoản')}</span>
                     </div>
 
                     <div>
@@ -327,7 +327,7 @@ export default function OwnerPaymentAccounts() {
               <h3 className="font-bold text-gray-900 text-base">Xác nhận xóa tài khoản</h3>
             </div>
             <p className="text-gray-700">
-              Bạn có chắc chắn muốn xóa tài khoản <strong>{deleteConfirmAccount.bank_name} ({deleteConfirmAccount.account_number})</strong> không?
+              Bạn có chắc chắn muốn xóa tài khoản <strong>{deleteConfirmAccount.bank_name || deleteConfirmAccount.BANK_TRANSFER_name || (deleteConfirmAccount.payment_method === 'MOMO' ? 'Ví MoMo' : 'Chuyển khoản')} ({deleteConfirmAccount.account_number})</strong> không?
             </p>
             <div className="flex justify-end gap-3 pt-2 border-t border-border-subtle">
               <Button variant="outline" size="sm" onClick={() => setDeleteConfirmAccount(null)} disabled={actionLoading}>

@@ -9,8 +9,18 @@ import { uploadOwnerMedia } from '../../api/owner';
 /**
  * Modal to Create / Edit an Event Court (Vé Social / Sân sự kiện) for Owner
  */
+const normalizeCourtName = (name) => {
+  if (!name) return '';
+  return String(name)
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+    .replace(/\b(sân|san|court|bàn|ban)\s*0+(\d+)\b/gi, '$1 $2');
+};
+
 export default function EventCourtModal({ isOpen, onClose, onSave, eventData, venues = [] }) {
   const [venueId, setVenueId] = useState('');
+  const [courtId, setCourtId] = useState('');
   const [title, setTitle] = useState('');
   const [courtName, setCourtName] = useState('');
   const [skillLevel, setSkillLevel] = useState('2.5 -> 3.0');
@@ -21,6 +31,23 @@ export default function EventCourtModal({ isOpen, onClose, onSave, eventData, ve
   const [maxParticipants, setMaxParticipants] = useState('8');
   const [note, setNote] = useState('bao gồm 1 nước 1 trứng 1 chuối');
   const [status, setStatus] = useState('PUBLISHED');
+
+  // Derive available courts for selected venue
+  const selectedVenue = venues.find(v => (v.venue_id || v.id) === venueId);
+  const availableCourts = React.useMemo(() => {
+    if (!selectedVenue) return [];
+    const courtsList = [];
+    if (selectedVenue.branches && Array.isArray(selectedVenue.branches)) {
+      selectedVenue.branches.forEach(b => {
+        if (b.courts && Array.isArray(b.courts)) {
+          courtsList.push(...b.courts);
+        }
+      });
+    } else if (selectedVenue.courts && Array.isArray(selectedVenue.courts)) {
+      courtsList.push(...selectedVenue.courts);
+    }
+    return courtsList.sort((a, b) => (a.court_name || a.name || '').localeCompare(b.court_name || b.name || '', undefined, { numeric: true, sensitivity: 'base' }));
+  }, [selectedVenue]);
 
   // Image Cover States
   const [coverImageUrl, setCoverImageUrl] = useState('');
@@ -40,35 +67,44 @@ export default function EventCourtModal({ isOpen, onClose, onSave, eventData, ve
     if (eventData) {
       setVenueId(eventData.venue_id || (venues[0]?.venue_id || venues[0]?.id || ''));
       setTitle(eventData.title || eventData.content || '');
-      setCourtName(eventData.court_name || 'Pickleball 1');
-      setSkillLevel(eventData.skill_level || '2.5 -> 3.0');
-      setPlayDate(eventData.play_date || eventData.date || new Date().toISOString().split('T')[0]);
-      setStartTime(eventData.start_time || '20:00');
-      setEndTime(eventData.end_time || '23:00');
-      setTicketPrice(eventData.ticket_price ? String(eventData.ticket_price) : '90000');
-      setMaxParticipants(eventData.max_participants ? String(eventData.max_participants) : '8');
       
-      let rawNote = eventData.note || (eventData.excerpt && typeof eventData.excerpt === 'string' && eventData.excerpt.startsWith('{') ? JSON.parse(eventData.excerpt).note : '');
+      let meta = {};
+      if (eventData.excerpt && typeof eventData.excerpt === 'string' && eventData.excerpt.startsWith('{')) {
+        try { meta = JSON.parse(eventData.excerpt); } catch (_) {}
+      }
+
+      const initialCourtName = eventData.court_name || meta.court_name || eventData.location || (availableCourts[0]?.court_name || 'Sân 01');
+      const matchedCourt = availableCourts.find(c =>
+        (eventData.court_id && (c.court_id === eventData.court_id || c.id === eventData.court_id)) ||
+        (meta.court_id && (c.court_id === meta.court_id || c.id === meta.court_id)) ||
+        (normalizeCourtName(c.court_name || c.name) === normalizeCourtName(initialCourtName))
+      );
+
+      setCourtName(matchedCourt ? (matchedCourt.court_name || matchedCourt.name) : initialCourtName);
+      setCourtId(matchedCourt ? (matchedCourt.court_id || matchedCourt.id) : (eventData.court_id || meta.court_id || ''));
+      setSkillLevel(eventData.skill_level || meta.skill_level || '2.5 -> 3.0');
+      setPlayDate(eventData.play_date || meta.play_date || eventData.date || new Date().toISOString().split('T')[0]);
+      setStartTime(eventData.start_time || meta.start_time || '20:00');
+      setEndTime(eventData.end_time || meta.end_time || '23:00');
+      setTicketPrice(eventData.ticket_price ? String(eventData.ticket_price) : (meta.ticket_price ? String(meta.ticket_price) : '90000'));
+      setMaxParticipants(eventData.max_participants ? String(eventData.max_participants) : (meta.max_participants ? String(meta.max_participants) : '8'));
+      
+      let rawNote = eventData.note || meta.note;
       if (!rawNote && eventData.amenities) rawNote = eventData.amenities;
       setNote((rawNote && !rawNote.includes('->')) ? rawNote : 'bao gồm 1 nước 1 trứng 1 chuối');
       
       setStatus(eventData.status || 'PUBLISHED');
 
-      let existingImg = eventData.cover_image_url || eventData.cover_image?.image_url;
-      let existingId = eventData.cover_image_id;
-      if (!existingImg && eventData.excerpt) {
-        try {
-          const meta = typeof eventData.excerpt === 'string' && eventData.excerpt.startsWith('{') ? JSON.parse(eventData.excerpt) : {};
-          existingImg = meta.cover_image_url || meta.image_url;
-          existingId = meta.cover_image_id;
-        } catch (_) {}
-      }
+      let existingImg = eventData.cover_image_url || eventData.cover_image?.image_url || meta.cover_image_url || meta.image_url;
+      let existingId = eventData.cover_image_id || meta.cover_image_id;
       setCoverImageUrl(existingImg || '');
       setCoverImageId(existingId || '');
       setPendingCoverBase64('');
     } else {
       setTitle('');
-      setCourtName('Pickleball 1');
+      const defaultCourt = availableCourts[0];
+      setCourtId(defaultCourt?.court_id || defaultCourt?.id || '');
+      setCourtName(defaultCourt?.court_name || defaultCourt?.name || 'Sân 01');
       setSkillLevel('2.5 -> 3.0');
       setPlayDate(new Date().toISOString().split('T')[0]);
       setStartTime('20:00');
@@ -83,6 +119,13 @@ export default function EventCourtModal({ isOpen, onClose, onSave, eventData, ve
     }
     setErrorMsg('');
   }, [eventData, isOpen, venues]);
+
+  useEffect(() => {
+    if (!eventData && availableCourts.length > 0 && !courtId) {
+      setCourtId(availableCourts[0].court_id || availableCourts[0].id || '');
+      setCourtName(availableCourts[0].court_name || availableCourts[0].name || '');
+    }
+  }, [availableCourts, eventData, courtId]);
 
   if (!isOpen) return null;
 
@@ -150,6 +193,7 @@ export default function EventCourtModal({ isOpen, onClose, onSave, eventData, ve
       const cleanCoverUrl = (finalCoverImageUrl && !finalCoverImageUrl.startsWith('data:')) ? finalCoverImageUrl : (coverImageUrl && !coverImageUrl.startsWith('data:') ? coverImageUrl : '');
 
       const eventMeta = {
+        court_id: courtId || null,
         court_name: courtName.trim() || 'Sân sự kiện',
         skill_level: skillLevel.trim() || '2.5 -> 3.0',
         play_date: playDate,
@@ -164,6 +208,7 @@ export default function EventCourtModal({ isOpen, onClose, onSave, eventData, ve
 
       const payload = {
         venue_id: venueId,
+        court_id: courtId || null,
         title: title.trim(),
         content: title.trim(),
         content_type: 'EVENT',
@@ -322,14 +367,37 @@ export default function EventCourtModal({ isOpen, onClose, onSave, eventData, ve
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="block font-bold text-gray-700 mb-1">Tên sân *</label>
-              <input
-                type="text"
-                placeholder="VD: Sân 1, Sân 02,..."
-                value={courtName}
-                onChange={(e) => setCourtName(e.target.value)}
-                className="w-full p-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 font-semibold focus:border-accent-primary focus:outline-none"
-                required
-              />
+              {availableCourts.length > 0 ? (
+                <select
+                  value={courtId || (availableCourts.find(c => normalizeCourtName(c.court_name || c.name) === normalizeCourtName(courtName))?.court_id || '')}
+                  onChange={(e) => {
+                    const selId = e.target.value;
+                    setCourtId(selId);
+                    const selCourt = availableCourts.find(c => (c.court_id || c.id) === selId);
+                    if (selCourt) {
+                      setCourtName(selCourt.court_name || selCourt.name);
+                    }
+                  }}
+                  className="w-full p-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 font-semibold focus:border-accent-primary focus:outline-none"
+                  required
+                >
+                  <option value="">-- Chọn sân áp dụng --</option>
+                  {availableCourts.map((c) => (
+                    <option key={c.court_id || c.id} value={c.court_id || c.id}>
+                      {c.court_name || c.name} {c.sport_category ? `(${c.sport_category})` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  placeholder="VD: Sân 01, Sân 02,..."
+                  value={courtName}
+                  onChange={(e) => setCourtName(e.target.value)}
+                  className="w-full p-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 font-semibold focus:border-accent-primary focus:outline-none"
+                  required
+                />
+              )}
             </div>
             <div>
               <label className="block font-bold text-gray-700 mb-1">Trình độ / Level *</label>

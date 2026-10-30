@@ -8,16 +8,23 @@ const {
   BookingStatusHistory
 } = require('../models');
 const { Op } = require('sequelize');
+const MoMoUtils = require('../utils/momo');
 
 class PaymentService {
   /**
    * 10.02 Initialize Payment
    */
   static async createPayment(userId, payload) {
-    const { bookingId, paymentMethod, amount, returnUrl } = payload;
+    const bookingId = payload.bookingId || payload.booking_id;
+    const paymentMethod = payload.paymentMethod || payload.payment_method;
+    const amount = payload.amount;
+    const returnUrl = payload.returnUrl || payload.return_url;
 
     // Normalize Payment Method
-    const methodUpper = (paymentMethod || 'MOMO').toUpperCase();
+    let methodUpper = (paymentMethod || 'MOMO').toUpperCase();
+    if (['BANK', 'BANKING', 'BANK_TRANSFER', 'BANK_TRANSFERING'].includes(methodUpper)) {
+      methodUpper = 'BANK_TRANSFER';
+    }
     if (!['MOMO', 'BANK_TRANSFER', 'CASH'].includes(methodUpper)) {
       const err = new Error('Unsupported payment method');
       err.statusCode = 400;
@@ -103,7 +110,7 @@ class PaymentService {
         });
         payUrl = momoRes.payUrl || momoRes.deeplink || `https://payment.momo.vn/v2/gateway/pay?orderId=${orderId}`;
       } else {
-        payUrl = `/checkout?paymentId=${paymentId}&status=bank_instructions`;
+        payUrl = `/checkout?paymentId=${paymentId}&status=BANK_TRANSFER_instructions`;
       }
 
       const payment = await Payment.create({
@@ -293,15 +300,40 @@ class PaymentService {
           await NotificationService.createNotification({
             recipientUserId: payment.user_id,
             type: isSuccess ? 'PAYMENT_SUCCESS' : 'PAYMENT_FAILED',
-            title: isSuccess ? 'Thanh toán thành công 💳' : 'Thanh toán thất bại ❌',
+            title: isSuccess ? 'Đã thanh toán – Chờ chủ sân xác nhận 💳' : 'Thanh toán không thành công ❌',
             message: isSuccess
-              ? `Thanh toán thành công ${Number(payment.amount).toLocaleString('vi-VN')}đ cho đơn #${booking.booking_id.substring(0, 8)}. Vui lòng chờ chủ sân xác nhận.`
+              ? `Thanh toán thành công ${Number(payment.amount).toLocaleString('vi-VN')}đ cho đơn #${booking.booking_id.substring(0, 8)}. Đơn đang chờ chủ sân duyệt.`
               : `Giao dịch thanh toán cho đơn #${booking.booking_id.substring(0, 8)} không thành công. Lý do: ${message || 'Thanh toán thất bại.'}`,
             entityType: 'BOOKING',
             entityId: booking.booking_id
           }, transaction);
+
+          if (isSuccess) {
+            const { Court, Branch, Venue } = require('../models');
+            const courtDetails = await Court.findOne({
+              where: { court_id: booking.court_id },
+              include: [{
+                model: Branch,
+                as: 'branch',
+                include: [{ model: Venue, as: 'venue' }]
+              }],
+              transaction
+            });
+            const ownerId = courtDetails?.branch?.venue?.owner_user_id;
+            const courtName = courtDetails?.court_name || 'Sân';
+            if (ownerId && ownerId !== payment.user_id) {
+              await NotificationService.createNotification({
+                recipientUserId: ownerId,
+                type: 'PAYMENT_SUCCESS',
+                title: 'Đã thanh toán – Chờ chủ sân xác nhận',
+                message: `Đơn #${booking.booking_id.substring(0, 8)} (${courtName}) ngày ${booking.booking_date} đã thanh toán ${Number(payment.amount).toLocaleString('vi-VN')}đ thành công và đang chờ xác nhận.`,
+                entityType: 'BOOKING',
+                entityId: booking.booking_id
+              }, transaction);
+            }
+          }
         } catch (e) {
-          console.error('Failed to notify customer on IPN payment outcome:', e.message);
+          console.error('Failed to notify on IPN payment outcome:', e.message);
         }
       }
 
@@ -529,22 +561,47 @@ class PaymentService {
     await booking.save();
 
     if (payment) {
-      payment.payment_status = 'PENDING';
+      payment.payment_status = 'PROCESSING';
       await payment.save();
     }
 
     try {
       const NotificationService = require('./notification.service');
-      await NotificationService.createNotification({
-        recipientUserId: booking.user_id,
-        type: 'PAYMENT_SUBMITTED',
-        title: 'Đã gửi xác nhận thanh toán 💳',
-        message: `Ảnh chuyển khoản cho đơn đặt sân #${booking.booking_id.substring(0, 8)} đã được tải lên thành công. Vui lòng chờ chủ sân kiểm tra và xác nhận.`,
-        entityType: 'BOOKING',
-        entityId: booking.booking_id
+      const customerId = booking.customer_user_id || booking.user_id;
+      if (customerId) {
+        await NotificationService.createNotification({
+          recipientUserId: customerId,
+          type: 'PAYMENT_SUBMITTED',
+          title: 'Đã gửi xác nhận thanh toán 💳',
+          message: `Ảnh chuyển khoản cho đơn đặt sân #${booking.booking_id.substring(0, 8)} đã được tải lên thành công. Vui lòng chờ chủ sân kiểm tra và xác nhận.`,
+          entityType: 'BOOKING',
+          entityId: booking.booking_id
+        });
+      }
+
+      const { Court, Branch, Venue } = require('../models');
+      const courtDetails = await Court.findOne({
+        where: { court_id: booking.court_id },
+        include: [{
+          model: Branch,
+          as: 'branch',
+          include: [{ model: Venue, as: 'venue' }]
+        }]
       });
+      const ownerId = courtDetails?.branch?.venue?.owner_user_id;
+      const courtName = courtDetails?.court_name || 'Sân';
+      if (ownerId && ownerId !== customerId) {
+        await NotificationService.createNotification({
+          recipientUserId: ownerId,
+          type: 'PAYMENT_SUBMITTED',
+          title: 'Cần xác minh thanh toán 💳',
+          message: `Đơn #${booking.booking_id.substring(0, 8)} (${courtName}) đã gửi minh chứng chuyển khoản, vui lòng kiểm tra và xác nhận.`,
+          entityType: 'BOOKING',
+          entityId: booking.booking_id
+        });
+      }
     } catch (e) {
-      console.error('Failed to notify customer on proof upload:', e.message);
+      console.error('Failed to notify on proof upload:', e.message);
     }
 
     return { payment, booking };

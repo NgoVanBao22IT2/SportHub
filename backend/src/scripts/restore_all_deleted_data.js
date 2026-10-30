@@ -211,7 +211,7 @@ async function restoreAllData() {
     if (accountInserts.length > 0) {
       console.log('📌 Đang nạp dữ liệu Venue Payment Accounts...');
       await conn.query(
-        `INSERT IGNORE INTO venue_payment_accounts (account_id, venue_id, payment_method, account_name, account_number, bank_name, phone_number, qr_code_url, is_active, created_at, updated_at) VALUES ?`,
+        `INSERT IGNORE INTO venue_payment_accounts (account_id, venue_id, payment_method, account_name, account_number, BANK_TRANSFER_name, phone_number, qr_code_url, is_active, created_at, updated_at) VALUES ?`,
         [accountInserts]
       );
     }

@@ -192,24 +192,25 @@ export default function OwnerCourts() {
   return (
     <div className="space-y-6">
       {/* HEADER */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-            <Trophy className="text-brand-orange" size={26} />
-            Quản lý Danh Mục Sân Con
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
+            <Trophy className="text-brand-orange shrink-0" size={24} />
+            <span>Quản lý Danh Mục Sân Con</span>
           </h1>
           <p className="text-xs text-text-muted mt-1">
             Quản lý chi tiết từng sân con thuộc chi nhánh, thiết lập trạng thái Hoạt động / Bảo trì.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="w-full sm:w-auto">
           <Button
             variant="primary"
             size="md"
             leftIcon={<Plus size={16} />}
             disabled={!selectedVenueId || !selectedBranchId}
             onClick={handleOpenCreateModal}
+            className="w-full sm:w-auto font-bold text-xs sm:text-sm"
           >
             Thêm sân con mới
           </Button>
@@ -217,19 +218,18 @@ export default function OwnerCourts() {
       </div>
 
       {/* VENUE & BRANCH SELECTOR TOOLBAR */}
-      <Card padding="md" radius="xl" className="border border-border-subtle-medium shadow-xs space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <Card padding="md" radius="xl" className="border border-border-subtle-medium shadow-xs p-3.5 sm:p-5 space-y-3 sm:space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
           <div className="space-y-1">
             <label className="text-xs font-bold text-gray-900 block">1. Chọn Cụm Sân Thể Thao *</label>
             <select
               value={selectedVenueId}
               onChange={handleVenueChange}
-              className="w-full px-4 py-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:outline-none focus:border-brand-orange"
+              className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:outline-none focus:border-brand-orange truncate"
             >
               {venues.map((v) => (
                 <option key={v.venue_id} value={v.venue_id}>
-                  {v.venue_name} 
-                  {/* ({v.operating_status}) */}
+                  {v.venue_name}
                 </option>
               ))}
             </select>
@@ -241,7 +241,7 @@ export default function OwnerCourts() {
               value={selectedBranchId}
               onChange={handleBranchChange}
               disabled={branches.length === 0}
-              className="w-full px-4 py-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:outline-none focus:border-brand-orange disabled:opacity-50"
+              className="w-full px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:outline-none focus:border-brand-orange disabled:opacity-50 truncate"
             >
               {branches.length === 0 ? (
                 <option value="">(Cụm sân chưa có chi nhánh - Vui lòng tạo chi nhánh trước)</option>
@@ -257,10 +257,11 @@ export default function OwnerCourts() {
         </div>
       </Card>
 
-      {/* COURTS DATA TABLE */}
+      {/* COURTS DATA CONTAINER (DUAL-MODE: TABLE ON DESKTOP, CARDS ON MOBILE) */}
       <Card padding="none" radius="xl" className="border border-border-subtle-medium shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        {/* 1. DESKTOP TABLE VIEW (>= md) */}
+        <div className="hidden md:block overflow-x-auto">
+          <table className="w-full min-w-[650px] text-left border-collapse">
             <thead>
               <tr className="bg-surface-subtle text-[11px] font-bold text-text-muted uppercase tracking-wider border-b border-border-subtle-medium">
                 <th className="py-3.5 px-4">Tên Sân Con</th>
@@ -286,9 +287,7 @@ export default function OwnerCourts() {
                   </td>
                 </tr>
               ) : (
-                [...courts]
-                  .sort((a, b) => (a.court_name || '').localeCompare(b.court_name || '', undefined, { numeric: true, sensitivity: 'base' }))
-                  .map((court) => (
+                courts.map((court) => (
                   <tr key={court.court_id} className="hover:bg-surface-subtle/50 transition-colors">
                     <td className="py-3.5 px-4 font-bold text-gray-900">
                       <div className="flex items-center gap-2">
@@ -331,12 +330,89 @@ export default function OwnerCourts() {
             </tbody>
           </table>
         </div>
+
+        {/* 2. MOBILE CARDS LIST VIEW (< md) */}
+        <div className="block md:hidden divide-y divide-border-subtle bg-surface">
+          {loading ? (
+            <div className="py-8 text-center text-text-muted text-xs">
+              Đang nạp danh sách sân con...
+            </div>
+          ) : courts.length === 0 ? (
+            <div className="p-6 text-center text-text-muted text-xs space-y-1">
+              <p className="font-bold text-gray-800">
+                {branches.length === 0 ? 'Chưa có chi nhánh' : 'Chưa có sân con nào'}
+              </p>
+              <p className="text-[11px] text-text-muted">
+                {branches.length === 0
+                  ? 'Vui lòng khởi tạo chi nhánh trước khi thêm sân con.'
+                  : 'Vui lòng bấm "Thêm sân con mới" để bắt đầu.'}
+              </p>
+            </div>
+          ) : (
+            courts.map((court) => (
+              <div key={court.court_id} className="p-3.5 space-y-2.5">
+                {/* Row 1: Court Name + Status Badge */}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 font-bold text-gray-900 text-sm">
+                    <Trophy size={16} className="text-brand-orange shrink-0" />
+                    <span>{court.court_name}</span>
+                  </div>
+                  <div>
+                    {court.court_status === 'ACTIVE' ? (
+                      <Badge variant="success" size="xs">Hoạt động</Badge>
+                    ) : court.court_status === 'MAINTENANCE' ? (
+                      <Badge variant="warning" size="xs">Bảo trì</Badge>
+                    ) : (
+                      <Badge variant="neutral" size="xs">Đóng cửa</Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Row 2: Sport Category & Features Box */}
+                <div className="bg-surface-subtle p-2.5 rounded-xl border border-border-subtle space-y-1 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-muted text-[11px]">Bộ môn:</span>
+                    <span className="font-bold text-gray-900">{court.sport_category}</span>
+                  </div>
+                  <div className="flex items-start justify-between gap-2 pt-1 border-t border-border-subtle/50">
+                    <span className="text-text-muted text-[11px] shrink-0">Đặc điểm:</span>
+                    <span className="text-gray-700 text-right leading-relaxed font-medium line-clamp-2">
+                      {court.surface_features || 'Thảm tiêu chuẩn'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Row 3: Action Buttons */}
+                <div className="flex items-center justify-end gap-2 pt-0.5">
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    leftIcon={<Edit2 size={12} />}
+                    onClick={() => handleOpenEditModal(court)}
+                    className="text-xs font-semibold px-3 py-1"
+                  >
+                    Sửa thông tin
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    leftIcon={<Trash2 size={12} />}
+                    onClick={() => setDeleteConfirmId(court.court_id)}
+                    className="text-xs font-semibold px-3 py-1 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                  >
+                    Xóa sân
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </Card>
 
       {/* CREATE / EDIT COURT MODAL */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/70 backdrop-blur-xs">
-          <form onSubmit={handleSubmit} className="bg-surface border border-border-subtle-medium rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-200">
+          <form onSubmit={handleSubmit} className="bg-surface border border-border-subtle-medium rounded-2xl max-w-md w-full p-4 sm:p-6 space-y-4 shadow-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-bold text-gray-900 border-b border-border-subtle pb-3">
               {editingCourt ? 'Chỉnh sửa thông tin sân con' : 'Thêm sân con mới'}
             </h3>
@@ -417,8 +493,8 @@ export default function OwnerCourts() {
 
       {/* NOTICE MODAL */}
       {noticeModal.open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/70 backdrop-blur-xs">
-          <div className="bg-surface rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl text-center border border-border-subtle-medium">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-surface rounded-2xl max-w-sm w-full p-4 sm:p-6 space-y-4 shadow-2xl text-center border border-border-subtle-medium">
             <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center font-bold">
               {noticeModal.type === 'success' ? (
                 <div className="w-12 h-12 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
@@ -452,8 +528,8 @@ export default function OwnerCourts() {
 
       {/* DELETE CONFIRMATION MODAL */}
       {deleteConfirmId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-200">
-          <div className="bg-surface rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-2xl text-center border border-border-subtle-medium">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-surface rounded-2xl max-w-sm w-full p-4 sm:p-6 space-y-4 shadow-2xl text-center border border-border-subtle-medium">
             <h3 className="text-base font-bold text-gray-900">Xác nhận xóa sân con</h3>
             <p className="text-xs text-text-muted leading-relaxed">
               Bạn có chắc chắn muốn xóa sân con này? Thao tác này sẽ xóa sân khỏi hệ thống.

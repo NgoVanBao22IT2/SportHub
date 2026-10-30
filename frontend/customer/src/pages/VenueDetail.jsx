@@ -220,9 +220,9 @@ export default function VenueDetail() {
     : Number(venue?.average_rating || 0);
 
   return (
-    <div className="w-full bg-surface-subtle pb-20">
+    <div className="w-full bg-surface-subtle pb-28 sm:pb-20">
       {/* 1. HERO BANNER */}
-      <section className="w-full h-[280px] md:h-[360px] relative bg-neutral-900 overflow-hidden">
+      <section className="w-full h-[150px] sm:h-[220px] md:h-[360px] relative bg-neutral-900 overflow-hidden">
         {/* Ambient Blur Backdrop for non-distorted atmosphere */}
         <img
           src={heroImage}
@@ -242,68 +242,94 @@ export default function VenueDetail() {
       </section>
 
       {/* 2. OVERLAPPING INFO CARD */}
-      <section className="container mx-auto px-4 max-w-5xl -mt-24 relative z-10">
-        <Card radius="2xl" padding="lg" className="shadow-lg border border-border-subtle-medium bg-surface">
-          <div className="flex flex-col md:flex-row gap-6 items-start">
+      <section className="container mx-auto px-4 max-w-5xl -mt-8 sm:-mt-14 md:-mt-24 relative z-10">
+        <Card radius="2xl" className="shadow-lg border border-border-subtle-medium bg-surface p-3 sm:p-4 md:p-6">
+          <div className="flex flex-col md:flex-row gap-3 sm:gap-4 md:gap-6 items-start">
 
-            {/* Venue Avatar / Logo */}
-            <div className="w-32 h-32 md:w-36 md:h-36 rounded-2xl border border-border-subtle-medium shadow-sm bg-surface flex items-center justify-center flex-shrink-0 p-2 overflow-hidden -mt-14 md:-mt-0 relative">
-              {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt={`${venue.venue_name} Avatar`}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover rounded-xl"
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                />
-              ) : (
-                <div className="w-full h-full border border-accent-primary-light rounded-xl flex items-center justify-center font-bold text-2xl text-accent-primary bg-surface-subtle shadow-inner">
-                  {venue.venue_name.substring(0, 3).toUpperCase()}
-                </div>
-              )}
-            </div>
-
-            {/* Venue Metadata */}
-            <div className="flex-1 w-full space-y-2">
-              <div className="flex items-center gap-2">
-                {effectiveAvgRating > 0 ? (
-                  <Badge variant="rating" size="sm" leftIcon={<Star size={12} className="fill-current text-brand-orange-hover" />}>
-                    {effectiveAvgRating.toFixed(1)} <span className="font-normal opacity-75 ml-0.5">({totalReviewsCount} đánh giá)</span>
-                  </Badge>
+            {/* Mobile Header: Avatar + Title & Rating (side-by-side on mobile, stacked on desktop) */}
+            <div className="flex items-start gap-3 sm:gap-4 md:gap-6 w-full md:w-auto">
+              {/* Venue Avatar / Logo */}
+              <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-36 md:h-36 rounded-2xl border border-border-subtle-medium shadow-sm bg-surface flex items-center justify-center flex-shrink-0 p-1 md:p-2 overflow-hidden -mt-5 sm:-mt-8 md:-mt-0 relative">
+                {avatarUrl ? (
+                  <img
+                    src={avatarUrl}
+                    alt={`${venue.venue_name} Avatar`}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover rounded-xl"
+                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  />
                 ) : (
-                  <Badge variant="rating" size="sm">
-                    Chưa có đánh giá
-                  </Badge>
+                  <div className="w-full h-full border border-accent-primary-light rounded-xl flex items-center justify-center font-bold text-lg sm:text-2xl text-accent-primary bg-surface-subtle shadow-inner">
+                    {venue.venue_name.substring(0, 3).toUpperCase()}
+                  </div>
                 )}
               </div>
 
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight">
-                {venue.venue_name}
-              </h1>
+              {/* Mobile Only: Title & Rating next to Avatar (< md) */}
+              <div className="flex-1 md:hidden space-y-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  {effectiveAvgRating > 0 ? (
+                    <Badge variant="rating" size="sm" leftIcon={<Star size={11} className="fill-current text-brand-orange-hover" />}>
+                      {effectiveAvgRating.toFixed(1)} <span className="font-normal opacity-75 ml-0.5">({totalReviewsCount})</span>
+                    </Badge>
+                  ) : (
+                    <Badge variant="rating" size="sm">
+                      Mới
+                    </Badge>
+                  )}
+                </div>
+                <h1 className="text-base sm:text-xl font-bold text-gray-900 leading-snug line-clamp-2">
+                  {venue.venue_name}
+                </h1>
+              </div>
+            </div>
 
-              <div className="space-y-2 text-sm text-text-muted pt-1">
+            {/* Venue Metadata (Desktop Title + Full Address, Hours, Phone) */}
+            <div className="flex-1 w-full space-y-1.5 md:space-y-2">
+              {/* Desktop Only: Title & Rating */}
+              <div className="hidden md:block space-y-2">
+                <div className="flex items-center gap-2">
+                  {effectiveAvgRating > 0 ? (
+                    <Badge variant="rating" size="sm" leftIcon={<Star size={12} className="fill-current text-brand-orange-hover" />}>
+                      {effectiveAvgRating.toFixed(1)} <span className="font-normal opacity-75 ml-0.5">({totalReviewsCount} đánh giá)</span>
+                    </Badge>
+                  ) : (
+                    <Badge variant="rating" size="sm">
+                      Chưa có đánh giá
+                    </Badge>
+                  )}
+                </div>
+
+                <h1 className="text-2xl md:text-3xl font-bold text-gray-900 leading-tight">
+                  {venue.venue_name}
+                </h1>
+              </div>
+
+              {/* Address, Hours, Phone */}
+              <div className="space-y-1 text-xs sm:text-sm text-text-muted pt-0.5">
                 <div className="flex items-start">
-                  <MapPin size={16} className="mr-2 mt-0.5 text-text-muted flex-shrink-0" />
-                  <span>{locationStr}</span>
+                  <MapPin size={14} className="mr-2 mt-0.5 text-text-muted flex-shrink-0" />
+                  <span className="line-clamp-2 leading-relaxed">{locationStr}</span>
                 </div>
                 <div className="flex items-center">
-                  <Clock size={16} className="mr-2 text-text-muted flex-shrink-0" />
+                  <Clock size={14} className="mr-2 text-text-muted flex-shrink-0" />
                   <span>{venue.opening_hours_text || 'Chưa cập nhật giờ hoạt động'}</span>
                 </div>
                 <div className="flex items-center">
-                  <Phone size={16} className="mr-2 text-text-muted flex-shrink-0" />
+                  <Phone size={14} className="mr-2 text-text-muted flex-shrink-0" />
                   <span>{venue.contact_phone || 'Chưa cập nhật SĐT'}</span>
                 </div>
               </div>
             </div>
 
-            {/* Booking & Favorite Action Buttons */}
-            <div className="flex flex-col gap-3 w-full md:w-auto md:min-w-[200px] pt-2 md:pt-0">
+            {/* Booking & Favorite Action Buttons (Side-by-side on mobile, stacked on desktop) */}
+            <div className="grid grid-cols-2 gap-2 w-full md:flex md:flex-col md:w-auto md:min-w-[200px] pt-0.5 md:pt-0">
               <Button
                 variant="primary"
-                size="lg"
+                size="md"
                 fullWidth
-                leftIcon={<Calendar size={18} />}
+                className="h-10 md:h-12 text-xs sm:text-sm font-bold shadow-sm"
+                leftIcon={<Calendar size={15} />}
                 onClick={() => setIsBookingModalOpen(true)}
               >
                 Đặt lịch
@@ -314,9 +340,10 @@ export default function VenueDetail() {
                 fullWidth
                 disabled={favPending}
                 aria-busy={favPending}
+                className={`h-10 md:h-11 text-xs sm:text-sm font-semibold ${isFavorite(id) ? "!border-red-200 !bg-red-50 !text-red-600 hover:!bg-red-100" : ""}`}
                 leftIcon={
                   <Heart
-                    size={18}
+                    size={15}
                     className={isFavorite(id) ? "fill-red-500 text-red-500" : "text-gray-500"}
                   />
                 }
@@ -330,7 +357,6 @@ export default function VenueDetail() {
                     setFavPending(false);
                   }
                 }}
-                className={isFavorite(id) ? "!border-red-200 !bg-red-50 !text-red-600 hover:!bg-red-100" : ""}
               >
                 {isFavorite(id) ? 'Đã yêu thích' : 'Yêu thích'}
               </Button>
@@ -341,9 +367,9 @@ export default function VenueDetail() {
       </section>
 
       {/* 3. TABS NAVIGATION & CONTENT */}
-      <section className="container mx-auto px-4 max-w-5xl mt-8">
+      <section className="container mx-auto px-4 max-w-5xl mt-3 sm:mt-5 md:mt-8">
         <Tabs activeTab={activeTab} onChange={setActiveTab} variant="line" size="md">
-          <Tabs.List className="mb-8">
+          <Tabs.List className="mb-3.5 sm:mb-6">
             <Tabs.Tab value="Thông tin">Thông tin</Tabs.Tab>
             <Tabs.Tab value="Hình ảnh">Hình ảnh ({galleryPhotos.length})</Tabs.Tab>
             <Tabs.Tab value="Tin tức & Sự kiện">Tin tức & Sự kiện ({venuePosts.length})</Tabs.Tab>
@@ -354,28 +380,28 @@ export default function VenueDetail() {
 
           {/* TAB 1: THÔNG TIN */}
           <Tabs.Panel value="Thông tin">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5 sm:gap-6">
+              <div className="lg:col-span-2 space-y-3.5 sm:space-y-6">
                 {/* Giới thiệu */}
-                <Card radius="xl" padding="md" className="border border-border-subtle-medium">
-                  <Card.Header className="mb-3">
-                    <h3 className="font-bold text-gray-900 text-lg flex items-center">
-                      <span className="w-6 h-6 rounded-full bg-status-info-bg text-status-info-text flex items-center justify-center mr-2 text-xs font-bold">i</span>
+                <Card radius="xl" className="border border-border-subtle-medium p-3.5 sm:p-5">
+                  <Card.Header className="mb-2 sm:mb-3">
+                    <h3 className="font-bold text-gray-900 text-base sm:text-lg flex items-center">
+                      <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-status-info-bg text-status-info-text flex items-center justify-center mr-2 text-xs font-bold">i</span>
                       Giới thiệu sân
                     </h3>
                   </Card.Header>
                   <Card.Body>
-                    <p className="text-text-muted text-sm leading-relaxed whitespace-pre-line">
+                    <p className="text-text-muted text-xs sm:text-sm leading-relaxed whitespace-pre-line">
                       {venue.venue_description || "Chưa cập nhật mô tả cho câu lạc bộ này."}
                     </p>
                   </Card.Body>
                 </Card>
 
                 {/* Dịch vụ & Tiện ích */}
-                <Card radius="xl" padding="md" className="border border-border-subtle-medium">
-                  <Card.Header className="mb-3">
-                    <h3 className="font-bold text-gray-900 text-lg flex items-center">
-                      <span className="w-6 h-6 rounded-full bg-brand-orange-light text-brand-orange-hover flex items-center justify-center mr-2 text-xs font-bold">★</span>
+                <Card radius="xl" className="border border-border-subtle-medium p-3.5 sm:p-5">
+                  <Card.Header className="mb-2 sm:mb-3">
+                    <h3 className="font-bold text-gray-900 text-base sm:text-lg flex items-center">
+                      <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-brand-orange-light text-brand-orange-hover flex items-center justify-center mr-2 text-xs font-bold">★</span>
                       Dịch vụ & Tiện ích
                     </h3>
                   </Card.Header>
@@ -383,11 +409,11 @@ export default function VenueDetail() {
                     {facilitiesList.length === 0 ? (
                       <p className="text-xs text-text-muted italic">Chưa có thông tin dịch vụ & tiện ích.</p>
                     ) : (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-6">
+                      <div className="grid grid-cols-2 gap-y-2.5 gap-x-3 sm:gap-y-4 sm:gap-x-6">
                         {facilitiesList.map((facility, idx) => (
-                          <div key={idx} className="flex items-center text-sm text-gray-800">
-                            <CheckCircle2 size={18} className="text-accent-primary mr-2.5 flex-shrink-0" />
-                            <span>{facility.facility_name}</span>
+                          <div key={idx} className="flex items-center text-xs sm:text-sm text-gray-800">
+                            <CheckCircle2 size={16} className="text-accent-primary mr-2 flex-shrink-0" />
+                            <span className="truncate">{facility.facility_name}</span>
                           </div>
                         ))}
                       </div>
@@ -398,10 +424,10 @@ export default function VenueDetail() {
 
               {/* Vị trí địa lý (Map Section) */}
               <div className="lg:col-span-1">
-                <Card radius="xl" padding="md" className="border border-border-subtle-medium sticky top-24">
-                  <Card.Header className="mb-3">
+                <Card radius="xl" className="border border-border-subtle-medium p-3.5 sm:p-5 sticky top-24">
+                  <Card.Header className="mb-2 sm:mb-3">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-bold text-gray-900 text-lg flex items-center">
+                      <h3 className="font-bold text-gray-900 text-base sm:text-lg flex items-center">
                         <span className="w-6 h-6 rounded-full bg-accent-primary-light text-accent-primary flex items-center justify-center mr-2 text-xs font-bold">📍</span>
                         Vị trí địa lý
                       </h3>
@@ -750,14 +776,14 @@ export default function VenueDetail() {
       </section>
 
       {/* 4. SIMILAR VENUES SECTION USING REUSABLE VENUECARD */}
-      <section className="container mx-auto px-4 max-w-5xl mt-16 pt-10 border-t border-border-subtle-medium">
-        <div className="flex justify-between items-end mb-6">
+      <section className="container mx-auto px-4 max-w-5xl mt-8 pt-6 sm:mt-12 sm:pt-8 md:mt-16 md:pt-10 border-t border-border-subtle-medium">
+        <div className="flex justify-between items-end mb-4 sm:mb-6">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-1">Sân tương tự gần đây</h2>
-            <p className="text-sm text-text-muted">Các câu lạc bộ chất lượng cao cùng môn thể thao hoặc khu vực</p>
+            <h2 className="text-lg sm:text-2xl font-bold text-gray-900 mb-1">Sân tương tự gần đây</h2>
+            <p className="text-xs sm:text-sm text-text-muted">Các câu lạc bộ chất lượng cao cùng môn thể thao hoặc khu vực</p>
           </div>
           <Link to="/search">
-            <Button variant="ghost" size="sm" rightIcon={<ArrowRight size={16} />}>
+            <Button variant="ghost" size="sm" rightIcon={<ArrowRight size={15} />}>
               Xem tất cả
             </Button>
           </Link>
@@ -770,7 +796,7 @@ export default function VenueDetail() {
             description="Hiện chưa tìm thấy câu lạc bộ tương tự ở gần vị trí này trên cơ sở dữ liệu."
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
             {similarVenues.map((v) => (
               <VenueCard
                 key={v.venue_id || v.id}

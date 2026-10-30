@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   ClipboardList,
   Search,
@@ -49,8 +49,10 @@ import EventCourtModal from '../components/domain/EventCourtModal';
 import { getImageUrl } from '../utils/imageUrl';
 
 export default function OwnerBookings() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlTab = searchParams.get('tab');
   // Main Tab: 'BOOKINGS' (Đơn đặt sân) or 'EVENT_COURTS' (Sân sự kiện)
-  const [mainTab, setMainTab] = useState('BOOKINGS');
+  const [mainTab, setMainTab] = useState(urlTab === 'EVENT_COURTS' ? 'EVENT_COURTS' : 'BOOKINGS');
 
   const [bookings, setBookings] = useState([]);
   const [meta, setMeta] = useState({ page: 1, limit: 10, total: 0 });
@@ -94,11 +96,11 @@ export default function OwnerBookings() {
     const isLive = statusStr === 'PUBLISHED';
 
     if (!isLive) {
-      return { isClosed: true, badgeText: 'ĐÃ ĐÓNG VÉ' };
+      return { isClosed: true, badgeText: 'Đã đóng vé' };
     }
 
     if (isFull) {
-      return { isClosed: true, badgeText: 'ĐÃ HẾT VÉ' };
+      return { isClosed: true, badgeText: 'Hết vé' };
     }
 
     if (!playDate) {
@@ -112,7 +114,7 @@ export default function OwnerBookings() {
       const diffMs = eventStartMs - nowTick;
 
       if (isNaN(diffMs) || diffMs <= 0) {
-        return { isClosed: true, badgeText: 'ĐÃ ĐÓNG VÉ' };
+        return { isClosed: true, badgeText: 'Đã đóng vé' };
       }
 
       const totalSec = Math.floor(diffMs / 1000);
@@ -428,17 +430,17 @@ export default function OwnerBookings() {
                         const priceFormatted = rawPrice ? `${parseFloat(rawPrice).toLocaleString('vi-VN')}đ` : '0đ';
                         const status = b.booking_status;
 
-                        let statusBadge = <Badge variant="info" size="xs">ĐANG GIỮ CHỖ</Badge>;
+                        let statusBadge = <Badge variant="info" size="xs">Đang giữ sân</Badge>;
                         if (status === 'WAITING_OWNER_CONFIRMATION') {
-                          statusBadge = <Badge variant="warning" size="xs">CHỜ CHỦ SÂN DUYỆT</Badge>;
+                          statusBadge = <Badge variant="warning" size="xs">Chờ xác nhận</Badge>;
                         } else if (status === 'CANCEL_REQUESTED') {
-                          statusBadge = <Badge variant="warning" size="xs">YÊU CẦU HỦY & HOÀN TIỀN</Badge>;
+                          statusBadge = <Badge variant="warning" size="xs">Yêu cầu hủy & hoàn tiền</Badge>;
                         } else if (status === 'CONFIRMED' || status === 'COMPLETED') {
-                          statusBadge = <Badge variant="success" size="xs">ĐÃ DUYỆT</Badge>;
+                          statusBadge = <Badge variant="success" size="xs">Đã xác nhận</Badge>;
                         } else if (status === 'REJECTED') {
-                          statusBadge = <Badge variant="danger" size="xs">TỪ CHỐI</Badge>;
+                          statusBadge = <Badge variant="danger" size="xs">Từ chối</Badge>;
                         } else if (status === 'CANCELLED') {
-                          statusBadge = <Badge variant="danger" size="xs">ĐÃ HỦY</Badge>;
+                          statusBadge = <Badge variant="danger" size="xs">Đã hủy</Badge>;
                         }
 
                         return (

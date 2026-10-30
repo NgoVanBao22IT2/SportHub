@@ -1,5 +1,7 @@
 'use strict';
 
+const StorageService = require('../services/storage.service');
+
 module.exports = (sequelize, DataTypes) => {
   const VenueImage = sequelize.define('VenueImage', {
     image_id: {
@@ -34,21 +36,14 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       defaultValue: null
     },
-    thumbnail_url: {
-      type: DataTypes.TEXT,
-      allowNull: true
-    },
-    medium_url: {
-      type: DataTypes.TEXT,
-      allowNull: true
-    },
-    large_url: {
-      type: DataTypes.TEXT,
-      allowNull: true
-    },
     original_url: {
       type: DataTypes.TEXT,
       allowNull: true
+    },
+    cloudinary_public_id: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+      defaultValue: null
     },
     image_type: {
       type: DataTypes.ENUM('COVER', 'AVATAR', 'VENUE', 'FACILITY', 'EVENT', 'PROMOTION', 'TOURNAMENT', 'COURSE', 'OTHER'),
@@ -92,15 +87,6 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: false,
       defaultValue: true
     },
-    file_size: {
-      type: DataTypes.INTEGER,
-      allowNull: true,
-      defaultValue: 0
-    },
-    mime_type: {
-      type: DataTypes.STRING(100),
-      allowNull: true
-    },
     status: {
       type: DataTypes.ENUM('DRAFT', 'PUBLISHED', 'ARCHIVED'),
       allowNull: false,
@@ -108,14 +94,6 @@ module.exports = (sequelize, DataTypes) => {
     },
     tags: {
       type: DataTypes.TEXT,
-      allowNull: true
-    },
-    width: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-    height: {
-      type: DataTypes.INTEGER,
       allowNull: true
     },
     event_id: {
@@ -133,6 +111,54 @@ module.exports = (sequelize, DataTypes) => {
     course_id: {
       type: DataTypes.STRING(36),
       allowNull: true
+    },
+
+    // ==========================================
+    // VIRTUAL ATTRIBUTES (Dynamic on-the-fly URLs)
+    // Ensures 100% backward compatibility for all API & Frontend consumers
+    // without storing redundant variant URLs or metadata in MySQL.
+    // ==========================================
+    thumbnail_url: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        const url = this.getDataValue('original_url');
+        return StorageService.getTransformedUrl(url, 'thumbnail');
+      }
+    },
+    medium_url: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        const url = this.getDataValue('original_url');
+        return StorageService.getTransformedUrl(url, 'medium');
+      }
+    },
+    large_url: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        const url = this.getDataValue('original_url');
+        return StorageService.getTransformedUrl(url, 'large');
+      }
+    },
+    image_url: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return this.getDataValue('original_url');
+      },
+      set(val) {
+        this.setDataValue('original_url', val);
+      }
+    },
+    file_size: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return 0;
+      }
+    },
+    mime_type: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        return 'image/webp';
+      }
     }
   }, {
     tableName: 'venue_images',

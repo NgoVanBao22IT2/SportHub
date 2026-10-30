@@ -206,11 +206,11 @@ export default function OwnerPayments() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 text-xs font-bold focus:border-brand-orange focus:outline-none"
           >
-            <option value="ALL">Tất cả trạng thái</option>
+            <option value="ALL" >Tất cả </option>
             <option value="PENDING">Chờ xác nhận</option>
-            <option value="SUCCESS">Đã thanh toán (SUCCESS)</option>
-            <option value="FAILED">Từ chối (FAILED)</option>
-            <option value="REFUNDED">Đã hoàn tiền (REFUNDED)</option>
+            <option value="SUCCESS">Đã thanh toán </option>
+            <option value="FAILED">Từ chối </option>
+            <option value="REFUNDED">Đã hoàn tiền </option>
           </select>
 
           <select
@@ -220,7 +220,7 @@ export default function OwnerPayments() {
           >
             <option value="ALL">Tất cả phương thức</option>
             <option value="BANK_TRANSFER">Chuyển khoản Ngân hàng</option>
-            <option value="MOMO">Ví MoMo</option>
+            <option value="MoMo">Ví MoMo</option>
           </select>
         </div>
       </div>
@@ -267,13 +267,13 @@ export default function OwnerPayments() {
                   const amountFormatted = p.amount ? `${parseFloat(p.amount).toLocaleString('vi-VN')}đ` : '0đ';
                   const pStatus = p.payment_status;
 
-                  let statusBadge = <Badge variant="warning" size="xs">CHỜ XÁC NHẬN</Badge>;
+                  let statusBadge = <Badge variant="warning" size="sm">Chờ xác nhận</Badge>;
                   if (pStatus === 'SUCCESS') {
-                    statusBadge = <Badge variant="success" size="xs">ĐÃ THANH TOÁN</Badge>;
+                    statusBadge = <Badge variant="success" size="sm">Đã thanh toán</Badge>;
                   } else if (pStatus === 'FAILED') {
-                    statusBadge = <Badge variant="danger" size="xs">ĐÃ TỪ CHỐI</Badge>;
+                    statusBadge = <Badge variant="danger" size="sm">Đã từ chối</Badge>;
                   } else if (pStatus === 'REFUNDED') {
-                    statusBadge = <Badge variant="neutral" size="xs">ĐÃ HOÀN TIỀN</Badge>;
+                    statusBadge = <Badge variant="neutral" size="sm">Đã hoàn tiền</Badge>;
                   }
 
                   return (
@@ -294,7 +294,7 @@ export default function OwnerPayments() {
                       </td>
 
                       <td className="py-3.5 px-4">
-                        <Badge variant="info" size="xs">{p.payment_method || 'BANK_TRANSFER'}</Badge>
+                        <Badge variant="info" size="sm">{p.payment_method || 'BANK_TRANSFER'}</Badge>
                       </td>
 
                       <td className="py-3.5 px-4 text-right font-extrabold text-brand-orange text-sm">

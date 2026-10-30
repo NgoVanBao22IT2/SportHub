@@ -11,7 +11,8 @@ import {
   UserCheck,
   Trash2,
   RefreshCw,
-  Clock
+  Clock,
+  ChevronRight
 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
@@ -19,6 +20,7 @@ import Badge from '../components/ui/Badge';
 import Skeleton from '../components/ui/Skeleton';
 import EmptyState from '../components/ui/EmptyState';
 import ErrorState from '../components/ui/ErrorState';
+import Pagination from '../components/ui/Pagination';
 import {
   getNotifications,
   markNotificationAsRead,
@@ -120,18 +122,30 @@ export default function Notification() {
     }
   };
 
-  const handleDelete = async (notifId, e) => {
-    if (e) e.stopPropagation();
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+
+  const handleDeleteSubmit = async (notifId) => {
     try {
       setActionLoadingId(notifId);
+      const target = notifications.find((n) => n.notification_id === notifId);
       await deleteNotification(notifId);
+      setDeleteConfirmId(null);
       setNotifications((prev) => prev.filter((n) => n.notification_id !== notifId));
-      fetchNotificationsList(meta.page);
+      if (target && !target.is_read) {
+        setUnreadCount((c) => Math.max(0, c - 1));
+      }
+      setMeta((m) => ({ ...m, total: Math.max(0, m.total - 1) }));
     } catch (err) {
       console.error('Error deleting notification:', err);
+      setDeleteConfirmId(null);
     } finally {
       setActionLoadingId(null);
     }
+  };
+
+  const handleDelete = (notifId, e) => {
+    if (e) e.stopPropagation();
+    setDeleteConfirmId(notifId);
   };
 
   const handleItemClick = (notif) => {
@@ -173,37 +187,40 @@ export default function Notification() {
   }
 
   return (
-    <main className="min-h-screen bg-surface-subtle pb-16">
+    <main className="min-h-screen bg-surface-subtle pb-28 sm:pb-20">
       {/* HEADER SECTION */}
-      <section className="bg-surface border-b border-border-subtle-medium py-8 px-4">
+      <section className="bg-surface border-b border-border-subtle-medium py-5 sm:py-8 px-4">
         <div className="container mx-auto max-w-5xl space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-brand-orange/10 text-brand-orange flex items-center justify-center shadow-xs">
-                <Bell size={24} />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-brand-orange/10 text-brand-orange flex items-center justify-center shrink-0 shadow-xs">
+                <Bell size={22} className="sm:w-6 sm:h-6" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 tracking-tight flex items-center gap-2">
-                  Thông báo của bạn
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900 tracking-tight">
+                    Thông báo của bạn
+                  </h1>
                   {unreadCount > 0 && (
-                    <span className="text-xs px-2.5 py-0.5 rounded-full font-extrabold bg-red-500 text-white">
+                    <span className="text-[11px] px-2 py-0.5 rounded-full font-extrabold bg-red-500 text-white shrink-0">
                       {unreadCount} chưa đọc
                     </span>
                   )}
-                </h1>
+                </div>
                 <p className="text-xs text-text-muted mt-0.5">
                   Cập nhật các hoạt động đặt sân, thanh toán và đánh giá từ SportHubAI
                 </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 self-start sm:self-center">
               {unreadCount > 0 && (
                 <Button
                   variant="outline"
                   size="sm"
-                  leftIcon={<CheckCheck size={16} />}
+                  leftIcon={<CheckCheck size={15} />}
                   onClick={handleMarkAllRead}
+                  className="text-xs"
                 >
                   Đọc tất cả
                 </Button>
@@ -211,8 +228,9 @@ export default function Notification() {
               <Button
                 variant="outline"
                 size="sm"
-                leftIcon={<RefreshCw size={15} />}
+                leftIcon={<RefreshCw size={14} />}
                 onClick={() => fetchNotificationsList(1)}
+                className="text-xs"
               >
                 Làm mới
               </Button>
@@ -220,21 +238,24 @@ export default function Notification() {
           </div>
 
           {/* SEARCH & FILTER BAR */}
-          <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
-            {/* Filter Tabs */}
-            <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+          <div className="pt-1 flex flex-col sm:flex-row items-center justify-between gap-3">
+            {/* Filter Tabs - Horizontal Scroll on Mobile */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 w-full sm:w-auto scrollbar-none flex-nowrap sm:flex-wrap shrink-0">
               {[
                 { id: 'ALL', label: 'Tất cả' },
                 { id: 'UNREAD', label: `Chưa đọc ${unreadCount > 0 ? `(${unreadCount})` : ''}` },
-                // { id: 'BOOKING', label: 'Đặt sân' },
-                // { id: 'REVIEW', label: 'Đánh giá' },
-                // { id: 'PAYMENT', label: 'Thanh toán' },
-                // { id: 'SYSTEM', label: 'Sự kiện & Hệ thống' }
+                { id: 'BOOKING', label: 'Đơn đặt sân' },
+                { id: 'PAYMENT', label: 'Thanh toán' },
+                { id: 'REVIEW', label: 'Đánh giá' },
+                { id: 'SYSTEM', label: 'Hệ thống' }
               ].map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition ${
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setMeta((m) => ({ ...m, page: 1 }));
+                  }}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition shrink-0 whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'bg-brand-orange text-white shadow-xs'
                       : 'bg-surface border border-border-subtle text-gray-700 hover:bg-gray-50'
@@ -246,7 +267,7 @@ export default function Notification() {
             </div>
 
             {/* Search Input */}
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-full sm:w-64 shrink-0">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
               <input
                 type="text"
@@ -340,16 +361,16 @@ export default function Notification() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3.5 flex-1 min-w-0">
                       {/* Icon */}
-                      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 shadow-xs mt-0.5 ${
+                      <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0 shadow-xs mt-0.5 ${
                         isUnread ? 'bg-brand-orange/10 border border-brand-orange/20' : 'bg-surface-subtle border border-border-subtle'
                       }`}>
                         {getIcon(notif.notification_type)}
                       </div>
 
                       {/* Content */}
-                      <div className="space-y-1.5 flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className={`text-sm ${isUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
+                      <div className="space-y-1 sm:space-y-1.5 flex-1 min-w-0">
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                          <h3 className={`text-xs sm:text-sm leading-snug ${isUnread ? 'font-bold text-gray-900' : 'font-semibold text-gray-700'}`}>
                             {notif.title}
                           </h3>
 
@@ -419,35 +440,50 @@ export default function Notification() {
               );
             })}
 
-            {/* Pagination Controls */}
-            {meta.totalPages > 1 && (
-              <div className="pt-6 flex items-center justify-between text-xs text-text-muted border-t border-border-subtle">
-                <span>
-                  Trang {meta.page} / {meta.totalPages} ({meta.total} thông báo)
-                </span>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={meta.page <= 1 || loading}
-                    onClick={() => fetchNotificationsList(meta.page - 1)}
-                  >
-                    Trang trước
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={meta.page >= meta.totalPages || loading}
-                    onClick={() => fetchNotificationsList(meta.page + 1)}
-                  >
-                    Trang sau
-                  </Button>
-                </div>
-              </div>
-            )}
+            {/* Unified Pagination Component */}
+            <Pagination
+              currentPage={meta.page}
+              totalPages={meta.totalPages}
+              totalItems={meta.total}
+              itemLabel="thông báo"
+              onPageChange={(newPage) => fetchNotificationsList(newPage)}
+              className="mt-4"
+            />
           </div>
         )}
       </div>
+    {/* DELETE CONFIRMATION MODAL */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-surface rounded-2xl border border-border-subtle p-6 max-w-sm w-full space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3 text-red-600">
+              <div className="p-2.5 rounded-xl bg-red-50">
+                <Trash2 size={20} />
+              </div>
+              <h3 className="font-bold text-base text-gray-900">Xác nhận xóa thông báo</h3>
+            </div>
+            <p className="text-xs text-text-muted leading-relaxed">
+              Bạn có chắc chắn muốn xóa thông báo này? Hành động này sẽ xóa vĩnh viễn thông báo khỏi danh sách.
+            </p>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setDeleteConfirmId(null)}
+              >
+                Hủy
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
+                onClick={() => handleDeleteSubmit(deleteConfirmId)}
+              >
+                Xác nhận xóa
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -185,3 +185,35 @@ export const deleteAdminOwnerRegistration = async (id) => {
   const response = await apiClient.delete(`/owner-registrations/admin/${id}`);
   return response.data;
 };
+
+/**
+ * Fetch platform-wide notifications for Admin.
+ */
+export const getAdminNotifications = async (params = {}) => {
+  const response = await apiClient.get('/notifications', { params });
+  return response.data;
+};
+
+/**
+ * Fetch unread notification count badge for Admin.
+ */
+export const getAdminUnreadNotificationCount = async () => {
+  const response = await apiClient.get('/notifications/unread-count');
+  return response.data;
+};
+
+/**
+ * Mark notification as read for Admin.
+ */
+export const markAdminNotificationAsRead = async (notificationId) => {
+  const response = await apiClient.put(`/notifications/${notificationId}/read`);
+  return response.data;
+};
+
+/**
+ * Mark all notifications as read for Admin.
+ */
+export const markAllAdminNotificationsAsRead = async () => {
+  const response = await apiClient.put('/notifications/read-all');
+  return response.data;
+};

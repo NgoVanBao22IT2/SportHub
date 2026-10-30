@@ -72,7 +72,7 @@ export default function HomePage() {
   return (
     <div className="w-full bg-surface">
       {/* 1. HERO SECTION */}
-      <section className="relative w-full h-[520px] bg-dark overflow-hidden">
+      <section className="relative w-full min-h-[520px] h-auto py-12 md:py-20 bg-dark overflow-hidden flex items-center">
         <div className="absolute inset-0">
           <img src={heroBg} alt="SportHubAI Hero Background" className="w-full h-full object-cover opacity-90 transition-all duration-500" />
           <div className="absolute inset-0 bg-gradient-to-t from-dark/90 via-dark/40 to-transparent"></div>
@@ -83,10 +83,10 @@ export default function HomePage() {
             <Badge variant="warning" size="sm" className="mb-4" leftIcon={<Zap size={14} />}>
               {heroSubtitle}
             </Badge>
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-6 leading-tight drop-shadow-md">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 md:mb-6 leading-tight drop-shadow-md">
               {heroTitle}
             </h1>
-            <p className="text-base md:text-lg text-white/90 mb-10 max-w-2xl leading-relaxed">
+            <p className="text-sm sm:text-base md:text-lg text-white/90 mb-6 md:mb-10 max-w-2xl leading-relaxed">
               {heroDesc}
             </p>
           </div>

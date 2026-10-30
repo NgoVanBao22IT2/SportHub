@@ -4,7 +4,10 @@ class PaymentController {
   static async createPayment(req, res, next) {
     try {
       const userId = req.user.userId;
-      const { bookingId, paymentMethod, amount, returnUrl } = req.body;
+      const bookingId = req.body.bookingId || req.body.booking_id;
+      const paymentMethod = req.body.paymentMethod || req.body.payment_method;
+      const amount = req.body.amount;
+      const returnUrl = req.body.returnUrl || req.body.return_url;
       
       const payment = await PaymentService.createPayment(userId, {
         bookingId, paymentMethod, amount, returnUrl

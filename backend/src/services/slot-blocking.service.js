@@ -34,17 +34,30 @@ class SlotBlockingService {
       throw error;
     }
 
-    // Check for overlap with existing bookings (HOLDING, PAYMENT_PENDING, CONFIRMED)
+    // Check for overlap with existing bookings
     // Formula: existing_start < requested_end AND existing_end > requested_start
     const overlappingBookings = await Booking.findOne({
       where: {
         court_id,
         booking_date: block_date,
-        booking_status: {
-          [Op.in]: ['HOLDING', 'PAYMENT_PENDING', 'CONFIRMED']
-        },
         start_time: { [Op.lt]: end_time },
-        end_time: { [Op.gt]: start_time }
+        end_time: { [Op.gt]: start_time },
+        [Op.or]: [
+          {
+            booking_status: {
+              [Op.in]: ['PAYMENT_SUCCESS', 'WAITING_OWNER_CONFIRMATION', 'CONFIRMED', 'COMPLETED', 'CANCEL_REQUESTED']
+            }
+          },
+          {
+            booking_status: {
+              [Op.in]: ['HOLDING', 'PAYMENT_PENDING']
+            },
+            [Op.or]: [
+              { hold_expiry_at: null },
+              { hold_expiry_at: { [Op.gt]: new Date() } }
+            ]
+          }
+        ]
       }
     });
 

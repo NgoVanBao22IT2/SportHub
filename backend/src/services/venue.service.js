@@ -17,6 +17,24 @@ class VenueService {
       operating_status: 'PENDING'
     }, { transaction });
 
+    // Notify all platform Admins about the pending venue
+    try {
+      const NotificationService = require('./notification.service');
+      const admins = await models.User.findAll({ where: { primary_role: 'ADMIN' }, transaction });
+      for (const admin of admins) {
+        await NotificationService.createNotification({
+          recipientUserId: admin.user_id,
+          type: 'VENUE_PENDING_APPROVAL',
+          title: 'Yêu cầu duyệt cụm sân mới',
+          message: `Cụm sân "${venue_name}" vừa được tạo và đang chờ Ban quản trị phê duyệt hoạt động.`,
+          entityType: 'VENUE',
+          entityId: venueId
+        }, transaction);
+      }
+    } catch (notifErr) {
+      console.error('[VenueService] Error notifying admins about new venue:', notifErr.message);
+    }
+
     return venue;
   }
 
@@ -139,18 +157,18 @@ class VenueService {
           payment_method: 'MOMO',
           account_name: ownerName.toUpperCase(),
           account_number: phone,
-          bank_name: 'Ví MoMo',
+          BANK_TRANSFER_name: 'Ví MoMo',
           phone_number: phone,
           qr_code_url: `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=2|99|${phone}|${encodeURIComponent(ownerName)}||0|0|0`,
           is_active: true
         },
         {
-          account_id: `acc_bank_${venueId.substring(0, 8)}`,
+          account_id: `acc_BANK_TRANSFER_${venueId.substring(0, 8)}`,
           venue_id: venueId,
           payment_method: 'BANK_TRANSFER',
           account_name: ownerName.toUpperCase(),
           account_number: '1903' + phone.substring(1),
-          bank_name: 'MB Bank (Ngân hàng Quân Đội)',
+          BANK_TRANSFER_name: 'MB BANK_TRANSFER (Ngân hàng Quân Đội)',
           phone_number: phone,
           qr_code_url: `https://img.vietqr.io/image/MB-1903${phone.substring(1)}-compact2.png?accountName=${encodeURIComponent(ownerName)}`,
           is_active: true

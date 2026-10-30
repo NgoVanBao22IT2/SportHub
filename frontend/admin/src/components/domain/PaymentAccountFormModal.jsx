@@ -3,19 +3,19 @@ import { X, CreditCard, Save, Upload, Trash2, QrCode } from 'lucide-react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 
-const VIETNAM_BANKS = [
-  'MB Bank (Ngân hàng Quân Đội)',
-  'Vietcombank (VCB)',
-  'Techcombank (TCB)',
-  'VietinBank',
+const VIETNAM_BANK_TRANSFERS = [
+  'MB BANK_TRANSFER (Ngân hàng Quân Đội)',
+  'VietcomBANK_TRANSFER (VCB)',
+  'TechcomBANK_TRANSFER (TCB)',
+  'VietinBANK_TRANSFER',
   'BIDV',
   'ACB',
-  'VPBank',
-  'TPBank',
-  'Sacombank',
-  'Agribank',
+  'VPBANK_TRANSFER',
+  'TPBANK_TRANSFER',
+  'SacomBANK_TRANSFER',
+  'AgriBANK_TRANSFER',
   'VIB',
-  'HD Bank'
+  'HD BANK_TRANSFER'
 ];
 
 export default function PaymentAccountFormModal({
@@ -29,7 +29,7 @@ export default function PaymentAccountFormModal({
   const [form, setForm] = useState({
     venue_id: '',
     payment_method: 'BANK_TRANSFER',
-    bank_name: 'MB Bank (Ngân hàng Quân Đội)',
+    BANK_TRANSFER_name: 'MB BANK_TRANSFER (Ngân hàng Quân Đội)',
     account_number: '',
     account_name: '',
     phone_number: '',
@@ -42,7 +42,7 @@ export default function PaymentAccountFormModal({
       setForm({
         venue_id: account.venue_id || (venues[0]?.venue_id || ''),
         payment_method: account.payment_method || 'BANK_TRANSFER',
-        bank_name: account.bank_name || 'MB Bank (Ngân hàng Quân Đội)',
+        BANK_TRANSFER_name: account.BANK_TRANSFER_name || 'MB BANK_TRANSFER (Ngân hàng Quân Đội)',
         account_number: account.account_number || '',
         account_name: account.account_name || '',
         phone_number: account.phone_number || '',
@@ -52,7 +52,7 @@ export default function PaymentAccountFormModal({
       setForm({
         venue_id: venues[0]?.venue_id || '',
         payment_method: 'BANK_TRANSFER',
-        bank_name: 'MB Bank (Ngân hàng Quân Đội)',
+        BANK_TRANSFER_name: 'MB BANK_TRANSFER (Ngân hàng Quân Đội)',
         account_number: '',
         account_name: '',
         phone_number: '',
@@ -143,7 +143,7 @@ export default function PaymentAccountFormModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-dark/70 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-surface w-full max-w-md rounded-2xl border border-border-subtle-medium shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border-subtle bg-surface-subtle shrink-0">
           <h3 className="font-bold text-gray-900 text-base flex items-center gap-2">
@@ -200,18 +200,18 @@ export default function PaymentAccountFormModal({
             </select>
           </div>
 
-          {/* Bank Transfer Specific Fields */}
+          {/* BANK_TRANSFER Transfer Specific Fields */}
           {form.payment_method === 'BANK_TRANSFER' ? (
             <>
               <div className="space-y-1">
                 <label className="font-bold text-gray-900 block">Tên Ngân hàng *</label>
                 <select
-                  name="bank_name"
-                  value={form.bank_name}
+                  name="BANK_TRANSFER_name"
+                  value={form.BANK_TRANSFER_name}
                   onChange={handleChange}
                   className="w-full p-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 focus:border-brand-orange focus:outline-none text-xs"
                 >
-                  {VIETNAM_BANKS.map((b) => (
+                  {VIETNAM_BANK_TRANSFERS.map((b) => (
                     <option key={b} value={b}>{b}</option>
                   ))}
                 </select>
