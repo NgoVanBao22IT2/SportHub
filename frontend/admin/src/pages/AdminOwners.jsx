@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, UserCheck, RefreshCw, Edit3, Building2 } from 'lucide-react';
 import { getAdminUsers, updateAdminUser } from '../api/admin';
 import Pagination from '../components/ui/Pagination';
+import { Lock, Unlock } from 'lucide-react';
 
 export default function AdminOwners() {
   const [owners, setOwners] = useState([]);
@@ -136,13 +137,13 @@ export default function AdminOwners() {
                     <td className="py-3.5 px-4 text-right">
                       <button
                         onClick={() => handleToggleStatus(owner.user_id, owner.account_status)}
-                        className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
+                        className={`px-2 py-1.5 rounded-lg text-[11px] font-bold transition-colors ${
                           owner.account_status === 'SUSPENDED'
                             ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
                             : 'bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/60'
                         }`}
                       >
-                        {owner.account_status === 'SUSPENDED' ? 'Mở khóa' : 'Khóa'}
+                        {owner.account_status === 'SUSPENDED' ?  <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
                       </button>
                     </td>
                   </tr>

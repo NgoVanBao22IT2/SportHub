@@ -203,41 +203,41 @@ export default function AdminVenues() {
             </div>
 
             <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2 text-xs">
-              <p><span className="text-slate-500 font-semibold">Chủ sở hữu:</span> <strong className="text-white">{selectedVenue.owner?.full_name}</strong> ({selectedVenue.owner?.email})</p>
-              <p><span className="text-slate-500 font-semibold">SĐT Liên hệ:</span> <strong className="text-slate-200">{selectedVenue.contact_phone || 'N/A'}</strong></p>
+              <p><span className="text-slate-500 font-semibold">Chủ sở hữu:</span> <strong className="text-white">{selectedVenue.owner?.full_name}</strong> </p>
+              <p><span className="text-slate-500 font-semibold">Email:</span> <strong className="text-slate-200">{selectedVenue.owner?.email}</strong></p>
+              <p><span className="text-slate-500 font-semibold">SĐT:</span> <strong className="text-slate-200">{selectedVenue.contact_phone || 'N/A'}</strong></p>
               <p><span className="text-slate-500 font-semibold">Mô tả:</span> <span className="text-slate-300 italic">{selectedVenue.venue_description || 'Chưa cập nhật mô tả.'}</span></p>
             </div>
 
             <div className="space-y-2 pt-2">
-              <label className="block text-xs font-bold text-slate-300">Cập nhật Trạng thái Phê duyệt</label>
+              <label className="block text-xs font-bold text-slate-300">Cập nhật trạng thái </label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   disabled={actionLoading}
                   onClick={() => handleUpdateStatus(selectedVenue.venue_id, 'APPROVED')}
                   className="py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition-colors"
                 >
-                  ✅ Phê duyệt 
+                  Phê duyệt 
                 </button>
                 <button
                   disabled={actionLoading}
                   onClick={() => handleUpdateStatus(selectedVenue.venue_id, 'REJECTED')}
                   className="py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition-colors"
                 >
-                  ❌ Từ chối 
+                  Từ chối 
                 </button>
                 <button
                   disabled={actionLoading}
                   onClick={() => handleUpdateStatus(selectedVenue.venue_id, 'SUSPENDED')}
                   className="py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs transition-colors"
-                >
-                  ⚠️ Tạm khóa 
+                >Tạm khóa 
                 </button>
                 <button
                   disabled={actionLoading}
                   onClick={() => handleUpdateStatus(selectedVenue.venue_id, 'PENDING')}
                   className="py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-colors"
                 >
-                  🔄 Đặt lại Chờ duyệt 
+                  Đặt lại 
                 </button>
               </div>
             </div>

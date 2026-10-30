@@ -275,11 +275,12 @@ export default function AdminOwnerRegistrations() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
           >
-            <option value="PENDING">🟡 Chờ xét duyệt</option>
-            <option value="APPROVED">🟢 Đã phê duyệt</option>
-            <option value="REJECTED">🔴 Đã từ chối</option>
-            <option value="CANCELLED">⚪ Đã hủy</option>
             <option value="">Tất cả </option>
+            <option value="PENDING">Chờ xét duyệt</option>
+            <option value="APPROVED">Đã phê duyệt</option>
+            <option value="REJECTED">Đã từ chối</option>
+            <option value="CANCELLED">Đã hủy</option>
+            
           </select>
         </div>
       </div>
@@ -303,7 +304,7 @@ export default function AdminOwnerRegistrations() {
               {loading ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-400">
-                    Đang nạp danh sách hồ sơ từ DB...
+                    Đang nạp danh sách hồ sơ...
                   </td>
                 </tr>
               ) : registrations.length === 0 ? (
@@ -358,14 +359,14 @@ export default function AdminOwnerRegistrations() {
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => setSelectedReg(reg)}
-                            className="px-2 py-1 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 text-[11px] font-bold border border-indigo-500/40 transition-colors flex items-center gap-1"
+                            className="p-1 py-1 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 text-[11px] font-bold border border-indigo-500/40 transition-colors flex items-center gap-1"
                             title="Xem chi tiết"
                           >
                             <Eye size={12} /> 
                           </button>
                           <button
                             onClick={() => handleOpenEditModal(reg)}
-                            className="p-1 rounded-lg bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 border border-amber-500/40 transition-colors"
+                            className="p-1 rounded-lg bg-accent-primary/30 hover:bg-accent-primary/50 text-accent-primary border border-accent-primary/40 transition-colors"
                             title="Sửa hồ sơ"
                           >
                             <Edit2 size={12} />

@@ -337,10 +337,10 @@ export default function AdminCommunity() {
             className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white focus:outline-none focus:border-indigo-500"
           >
             <option value="ALL">Tất cả trạng thái</option>
-            <option value="OPEN">Đang mở (OPEN)</option>
-            <option value="FULL">Đã đủ (FULL)</option>
-            <option value="CLOSED">Đã đóng (CLOSED)</option>
-            <option value="CANCELLED">Đã hủy (CANCELLED)</option>
+            <option value="OPEN">Đang mở </option>
+            <option value="FULL">Đã đủ </option>
+            <option value="CLOSED">Đã đóng </option>
+            <option value="CANCELLED">Đã hủy </option>
           </select>
 
           <form onSubmit={handleSearchSubmit} className="relative flex-1 lg:w-64">
@@ -460,11 +460,11 @@ export default function AdminCommunity() {
                         {post.status === 'OPEN' ? (
                           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                             <CheckCircle2 className="w-3 h-3 mr-1 text-emerald-600" />
-                            Đang mở (OPEN)
+                            Đang mở 
                           </span>
                         ) : post.status === 'FULL' ? (
                           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                            Đã đủ (FULL)
+                            Đã đủ 
                           </span>
                         ) : (
                           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-600 border border-gray-200">
@@ -482,8 +482,8 @@ export default function AdminCommunity() {
                             onClick={() => handleStatusToggle(post.post_id, post.status)}
                             className={`p-2 rounded-xl text-xs font-semibold transition-all ${
                               post.status === 'OPEN'
-                                ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
-                                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                                ? 'bg-brand-orange/30 hover:bg-brand-orange/50 text-brand-orange border border-brand-orange/40'
+                                : 'bg-accent-primary/40 hover:bg-accent-primary/50 text-accent-primary border border-accent-primary/40'
                             }`}
                             title={post.status === 'OPEN' ? 'Đóng bài viết' : 'Mở lại bài viết'}
                           >
@@ -493,7 +493,7 @@ export default function AdminCommunity() {
                           {/* Delete Button */}
                           <button
                             onClick={() => handleDeletePost(post.post_id)}
-                            className="p-2 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 transition-all"
+                            className="p-2 rounded-xl bg-rose-600/30 hover:bg-rose-600/50 text-rose-300 border border-rose-500/40 transition-all"
                             title="Xóa bài viết vĩnh viễn"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -517,7 +517,7 @@ export default function AdminCommunity() {
             <div className="flex items-center justify-between pb-4 border-b border-gray-100 mb-4 shrink-0">
               <div className="flex items-center space-x-2">
                 <Sparkles className="w-5 h-5 text-emerald-600" />
-                <h2 className="text-xl font-bold text-gray-900">Quản lý Banner Hệ thống (Admin Control)</h2>
+                <h2 className="text-xl font-bold text-gray-900">Quản lý Banner Hệ thống </h2>
               </div>
               <button
                 onClick={() => setIsBannerModalOpen(false)}
@@ -542,7 +542,7 @@ export default function AdminCommunity() {
                 }`}
               >
                 <Compass className="w-4 h-4" />
-                <span>Banner Trang Khám Phá (/explore)</span>
+                <span>Banner Trang Khám Phá </span>
               </button>
 
               <button
@@ -555,7 +555,7 @@ export default function AdminCommunity() {
                 }`}
               >
                 <Sparkles className="w-4 h-4" />
-                <span>Banner Trang Chủ Customer (/)</span>
+                <span>Banner Trang Chủ </span>
               </button>
             </div>
 
@@ -576,7 +576,7 @@ export default function AdminCommunity() {
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider">
-                  Xem trước giao diện Customer ({bannerPageKey === 'HOME_PAGE' ? 'Trang chủ /' : 'Trang Khám phá /explore'})
+                  Xem trước ({bannerPageKey === 'HOME_PAGE' ? 'Trang chủ ' : 'Trang Khám phá'})
                 </label>
                 <span className="text-xs text-emerald-600 font-semibold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-100">
                   Live Preview
@@ -625,7 +625,7 @@ export default function AdminCommunity() {
             <form onSubmit={handleSaveBanner} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Tiêu đề Banner chính (*)</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Tiêu đề Banner chính <span style={{color: "red"}}>*</span></label>
                   <input
                     type="text"
                     required
@@ -637,7 +637,7 @@ export default function AdminCommunity() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Dòng chữ phụ Subtitle</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Dòng chữ phụ </label>
                   <input
                     type="text"
                     value={bannerForm.subtitle}
@@ -649,7 +649,7 @@ export default function AdminCommunity() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">Nội dung mô tả chi tiết</label>
+                <label className="block text-xs font-bold text-gray-700 mb-1">Nội dung mô tả <span style={{color: "red"}}>*</span></label>
                 <textarea
                   rows="3"
                   value={bannerForm.description}
@@ -662,7 +662,7 @@ export default function AdminCommunity() {
               {/* Upload Hình nền & Tên nút bấm */}
               <div className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1.5">Hình nền Banner (Upload Image từ máy tính)</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1.5">Hình nền Banner <span style={{color: "red"}}>*</span></label>
                   <div className="border-2 border-dashed border-gray-200 hover:border-emerald-500 rounded-2xl p-4 transition-all bg-slate-50/50">
                     {bannerForm.image_url ? (
                       <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -673,7 +673,7 @@ export default function AdminCommunity() {
                             className="w-16 h-12 object-cover rounded-xl border border-gray-200 shadow-sm shrink-0" 
                           />
                           <div className="min-w-0">
-                            <p className="text-xs font-bold text-gray-800 truncate">Ảnh nền đã chọn</p>
+                            <p className="text-xs font-bold text-gray-800 truncate">Ảnh đã chọn</p>
                             <p className="text-[11px] text-emerald-600 font-semibold truncate">Đã cập nhật trực tiếp lên Live Preview</p>
                           </div>
                         </div>
@@ -684,7 +684,7 @@ export default function AdminCommunity() {
                             className="px-3.5 py-2 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold text-xs rounded-xl cursor-pointer transition-all border border-emerald-200 flex items-center space-x-1.5"
                           >
                             <Upload className="w-3.5 h-3.5" />
-                            <span>Đổi ảnh khác</span>
+                            <span>Đổi ảnh </span>
                           </label>
                           <button
                             type="button"
@@ -731,7 +731,7 @@ export default function AdminCommunity() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Tên nút hành động (Button Text)</label>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Tên nút </label>
                   <input
                     type="text"
                     value={bannerForm.button_text}
@@ -751,7 +751,7 @@ export default function AdminCommunity() {
                   className="w-4 h-4 text-emerald-600 rounded focus:ring-emerald-500"
                 />
                 <label htmlFor="banner_active" className="text-sm font-medium text-gray-700 select-none cursor-pointer">
-                  Kích hoạt hiển thị Banner này trên {bannerPageKey === 'HOME_PAGE' ? 'Trang chủ Customer' : 'trang Khám phá Customer'}
+                  Kích hoạt  {bannerPageKey === 'HOME_PAGE' ? 'trang chủ ' : 'trang khám phá '}
                 </label>
               </div>
 
@@ -778,7 +778,7 @@ export default function AdminCommunity() {
                   ) : (
                     <>
                       <CheckCircle2 className="w-4 h-4" />
-                      <span>💾 Lưu thay đổi Banner</span>
+                      <span>Lưu</span>
                     </>
                   )}
                 </button>

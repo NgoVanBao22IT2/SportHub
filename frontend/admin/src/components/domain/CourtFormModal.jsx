@@ -117,9 +117,9 @@ export default function CourtFormModal({
               onChange={handleChange}
               className="w-full p-2.5 rounded-xl border border-border-subtle-medium bg-surface text-gray-900 focus:border-brand-orange focus:outline-none text-xs"
             >
-              <option value="ACTIVE">Hoạt động (Active)</option>
-              <option value="MAINTENANCE">Bảo trì (Maintenance)</option>
-              <option value="INACTIVE">Tạm ngưng (Inactive)</option>
+              <option value="ACTIVE">Hoạt động </option>
+              <option value="MAINTENANCE">Bảo trì </option>
+              <option value="INACTIVE">Tạm ngưng </option>
             </select>
           </div>
 

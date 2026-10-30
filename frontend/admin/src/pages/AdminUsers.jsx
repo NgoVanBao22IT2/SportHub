@@ -134,7 +134,7 @@ export default function AdminUsers() {
               {loading ? (
                 <tr>
                   <td colSpan={6} className="py-8 text-center text-slate-400">
-                    Đang nạp danh sách tài khoản từ DB...
+                    Đang nạp danh sách tài khoản...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
@@ -191,9 +191,9 @@ export default function AdminUsers() {
                     <td className="py-3.5 px-4 text-right">
                       <button
                         onClick={() => setEditingUser(user)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 text-[11px] font-bold transition-colors"
+                        className="inline-flex items-center gap-1 px-2 py-2 rounded-lg bg-accent-primary/30 hover:bg-accent-primary/50 text-accent-primary text-[11px] font-bold transition-colors"
                       >
-                        <Edit3 size={12} /> Sửa
+                        <Edit3 size={12} />
                       </button>
                     </td>
                   </tr>
